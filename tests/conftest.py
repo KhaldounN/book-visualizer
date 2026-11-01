@@ -15,11 +15,9 @@ def free_models_after_slow_tests(request):
         gc.collect()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def nlp():
-    # Shared by the tests of one file (loading takes a second or two), then
-    # freed so it isn't still in memory when a real-model test runs
-    model = spacy.load("en_core_web_lg")
-    yield model
-    del model
-    gc.collect()
+    # The tests check our own logic on short made-up stories, which the small
+    # model handles fine; it needs ~15 MB instead of ~600 MB for the large one
+    # that real analyses use (pipeline.SPACY_MODEL)
+    return spacy.load("en_core_web_sm")

@@ -15,8 +15,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))  # so "analyzer" can be imported when Streamlit runs this file
 
 import charts  # noqa: E402
+from analyzer.emotions import average_emotions  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
+from analyzer.progression import key_moments, rolling_sentiment  # noqa: E402
 
 SAMPLE = ROOT / "data" / "pride_and_prejudice.txt"
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
@@ -24,6 +26,7 @@ ENTITY_TYPES = {
     "GPE": "Country or city", "LOC": "Place", "FAC": "Building", "ORG": "Organization",
     "NORP": "Group or nationality", "EVENT": "Event", "WORK_OF_ART": "Title of a work",
 }
+KINDS = {"place": "Places", "organization": "Organizations", "group": "Groups and families", "other": "Other"}
 
 st.set_page_config(page_title="Book Analyzer", page_icon="📖", layout="wide")
 theme = charts.THEMES["dark" if st.context.theme.type == "dark" else "light"]
@@ -32,6 +35,12 @@ theme = charts.THEMES["dark" if st.context.theme.type == "dark" else "light"]
 def table(df: pd.DataFrame) -> None:
     with st.expander("Show as table"):
         st.dataframe(df, hide_index=True, width="stretch")
+
+
+def passage(analysis, moment, limit: int = 450) -> str:
+    """The text of a key moment, shortened to about `limit` characters."""
+    text = " ".join(s.text for s in analysis.sentences[moment.first:moment.last + 1])
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " …"
 
 
 def how_many(label: str, available: int, default: int, key: str) -> int:
@@ -116,8 +125,14 @@ with st.sidebar:
 st.subheader(book["title"])
 if analysis.author:
     st.caption(f"by {analysis.author}")
-overview, mentions, mood, timeline, relations, entities = st.tabs(
-    ["Overview", "Mentions", "Story sentiment", "Timeline", "Relationships", "Entities"]
+with st.expander("✏️ Edit title"):
+    new_title = st.text_input("Title", book["title"], key=f"title_{st.session_state['current']}")
+    if new_title.strip() and new_title != book["title"]:
+        book["title"] = new_title.strip()
+        st.rerun()
+has_emotions = any(analysis.chapter_emotions)
+overview, mentions, mood, feelings, timeline, relations, entities = st.tabs(
+    ["Overview", "Mentions", "Story sentiment", "Emotions", "Timeline", "Relationships", "Places & entities"]
 )
 
 # --- Overview -----------------------------------------------------------------
@@ -153,6 +168,9 @@ with overview:
             "and look at trends. \"I\" and \"you\" in dialogue are not counted.\n"
             "- Two characters are **together** when both are mentioned in the same or neighbouring "
             "sentences. Their tone is the tone of those shared moments.\n"
+            "- **Emotions** come from a third AI model that picks one of seven for each sentence "
+            "(most sentences in a novel are *neutral*). Its \"disgust\" mostly means disapproval or "
+            "contempt, which classic novels are full of.\n"
             "- If a character appears twice under different names, merge them in the sidebar."
         )
     st.caption("Analysis time: " + ", ".join(f"{k} {v:.0f}s" for k, v in analysis.timings.items()))
@@ -191,6 +209,50 @@ with mood:
         rows.append(row)
     table(pd.DataFrame(rows))
 
+    st.markdown("#### Mood sentence by sentence")
+    detail = st.radio("Detail", ["Detailed", "Broad"], horizontal=True, label_visibility="collapsed",
+                      captions=["average of 15 sentences", "average of 60 sentences"])
+    window = 15 if detail == "Detailed" else 60
+    moments = key_moments(analysis.sentences, window=20, n=3)
+    st.plotly_chart(charts.mood_arc(analysis, theme, rolling_sentiment(analysis.sentences, window), moments),
+                    width="stretch")
+
+    st.markdown("#### Key moments")
+    st.caption("The passages of 20 sentences with the darkest and the brightest tone (marked ▼ and ▲ above).")
+    for column, kind, found in zip(st.columns(2), ("Darkest", "Brightest"), moments):
+        with column:
+            for n, m in enumerate(found, start=1):
+                st.markdown(f"**{kind} {n}** · {analysis.chapters[m.chapter].title} · tone {m.score:+.2f}")
+                st.markdown(f"> {passage(analysis, m)}")
+
+# --- Emotions -------------------------------------------------------------------------
+
+with feelings:
+    if not has_emotions:
+        st.info("Emotions were not detected for this book.")
+    else:
+        book_mix = average_emotions([s.emotions for s in analysis.sentences])
+        st.caption(f"About {book_mix.get('neutral', 0):.0%} of the text is neutral narration. The charts below "
+                   "show how the rest divides between the six emotions.")
+        st.markdown("#### The book's emotional mix")
+        st.plotly_chart(charts.emotion_bars(theme, book_mix), width="stretch")
+
+        st.markdown("#### Emotions through the story")
+        smooth = st.select_slider("Smoothing  ", options=[1, 3, 5, 7], value=5, key="emotion_smooth",
+                                  help="Average over this many neighbouring chapters to show the trend")
+        st.plotly_chart(charts.emotion_journey(analysis, theme, smooth), width="stretch")
+        table(pd.DataFrame([
+            {"Chapter": c.title, **{charts.EMOTION_LABELS[e]: round(mix.get(e, 0), 3) for e in mix}}
+            for c, mix in zip(analysis.chapters, analysis.chapter_emotions)
+        ]))
+
+        st.markdown("#### A character's emotions")
+        st.caption("The emotions of the sentences that mention them, next to the whole book in gray.")
+        options = charts.top_characters(analysis, 20)
+        who = st.selectbox("Character", options, format_func=lambda c: c.name, key="emotion_character")
+        st.plotly_chart(charts.emotion_bars(theme, analysis.character_emotions[who.id], book_mix, name=who.name),
+                        width="stretch")
+
 # --- Timeline -------------------------------------------------------------------------
 
 with timeline:
@@ -225,6 +287,9 @@ with relations:
         smooth = st.select_slider("Smoothing ", options=[1, 3, 5, 7], value=5, key="pair_smooth")
         st.plotly_chart(charts.pair_tone(analysis, theme, pair, smooth), width="stretch")
         st.plotly_chart(charts.pair_moments(analysis, theme, pair), width="stretch")
+        if any(pair.emotions_by_part):
+            st.markdown("**Their emotions in the early, middle and late book**")
+            st.plotly_chart(charts.pair_emotions(theme, pair), width="stretch")
         table(pd.DataFrame([
             {"Character": names[r.source], "With": names[r.target], "Moments together": r.count,
              "Average tone": round(r.sentiment, 3)}
@@ -234,11 +299,25 @@ with relations:
 # --- Entities -------------------------------------------------------------------------------
 
 with entities:
-    st.write("Places, organizations and other named things in the book.")
-    if analysis.entities:
-        st.dataframe(pd.DataFrame([
-            {"Name": e.name, "Type": ENTITY_TYPES.get(e.label, e.label), "Mentions": e.count}
-            for e in analysis.entities
-        ]), hide_index=True, width="stretch", height=500)
+    if not analysis.entities:
+        st.info("No places or other entities were found.")
     else:
-        st.info("No other entities were found.")
+        places = [e for e in analysis.entities if e.kind == "place"]
+        if places:
+            st.markdown("#### Where the story happens")
+            st.caption("Places by chapter: darker means mentioned more in that chapter.")
+            top = how_many("Places to show", len(places), 15, "places_top")
+            st.plotly_chart(charts.places_heatmap(analysis, theme, top), width="stretch")
+
+        st.markdown("#### Most mentioned")
+        kinds = [(k, label) for k, label in KINDS.items() if any(e.kind == k for e in analysis.entities)]
+        for column, (kind, label) in zip(st.columns(len(kinds)), kinds):
+            with column:
+                st.markdown(f"**{label}**")
+                st.plotly_chart(charts.entity_bars([e for e in analysis.entities if e.kind == kind][:10], theme),
+                                width="stretch", key=f"entity_bars_{kind}")
+        table(pd.DataFrame([
+            {"Name": e.name, "Kind": KINDS.get(e.kind, e.kind), "spaCy type": ENTITY_TYPES.get(e.label, e.label),
+             "Mentions": e.count}
+            for e in analysis.entities
+        ]))

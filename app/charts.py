@@ -19,6 +19,8 @@ THEMES = {
         "sequential": ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"],
         # diverging for sentiment: red (negative) - gray - blue (positive)
         "diverging": ["#e34948", "#c3c2b7", "#2a78d6"],
+        "emotions": {"joy": "#eda100", "surprise": "#1baf7a", "sadness": "#2a78d6", "disgust": "#008300",
+                     "fear": "#6250d6", "anger": "#e34948", "neutral": "#898781"},
     },
     "dark": {
         "surface": "#1a1a19", "ink": "#f0efec", "ink2": "#c3c2b7", "muted": "#898781",
@@ -26,8 +28,15 @@ THEMES = {
         "series": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
         "sequential": ["#104281", "#1c5cab", "#2a78d6", "#5598e7", "#86b6ef", "#cde2fb"],
         "diverging": ["#e66767", "#52514e", "#3987e5"],
+        "emotions": {"joy": "#c98500", "surprise": "#199e70", "sadness": "#3987e5", "disgust": "#008300",
+                     "fear": "#9085e9", "anger": "#e66767", "neutral": "#898781"},
     },
 }
+# Emotion colours in this order passed the colour-blind check as neighbours
+# in a stacked chart (sadness next to fear did not: blue vs violet)
+EMOTION_ORDER = ["joy", "surprise", "sadness", "disgust", "fear", "anger"]
+EMOTION_LABELS = {"joy": "Joy", "surprise": "Surprise", "sadness": "Sadness", "fear": "Fear", "anger": "Anger",
+                  "disgust": "Disgust (disapproval, contempt)", "neutral": "Neutral"}
 FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
 TONE_RANGE = 0.3  # sentiment beyond +-0.3 gets the full colour (averages rarely go further)
 
@@ -148,7 +157,17 @@ def story_sentiment(analysis: BookAnalysis, theme: dict, character_ids: list[int
 
 def timeline_heatmap(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figure:
     characters = top_characters(analysis, top)
-    z = [analysis.mentions_by_chapter[c.id] for c in characters]
+    return _heatmap(analysis, theme, [c.name for c in characters],
+                    [analysis.mentions_by_chapter[c.id] for c in characters])
+
+
+def places_heatmap(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figure:
+    places = [e for e in analysis.entities if e.kind == "place"][:top]
+    return _heatmap(analysis, theme, [p.name for p in places], [p.chapter_counts for p in places])
+
+
+def _heatmap(analysis: BookAnalysis, theme: dict, names: list[str], z: list[list[int]]) -> go.Figure:
+    """Rows of names x chapters, darker = mentioned more in that chapter."""
     steps = theme["sequential"]
     # 0 mentions shows as the background; then light -> dark as mentions grow
     start = 0.001
@@ -156,16 +175,137 @@ def timeline_heatmap(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.F
         [start + (1 - start) * i / (len(steps) - 1), step] for i, step in enumerate(steps)
     ]
     fig = go.Figure(go.Heatmap(
-        z=z, x=list(range(1, len(analysis.chapters) + 1)), y=[c.name for c in characters],
+        z=z, x=list(range(1, len(analysis.chapters) + 1)), y=names,
         colorscale=scale, zmin=0, xgap=2, ygap=2,
-        customdata=[[t.title for t in analysis.chapters]] * len(characters),
+        customdata=[[t.title for t in analysis.chapters]] * len(names),
         hovertemplate="%{y}, %{customdata}: %{z} mentions<extra></extra>",
         colorbar=dict(title=dict(text="Mentions", font=dict(color=theme["ink2"])),
                       tickfont=dict(color=theme["muted"]), outlinewidth=0, thickness=12),
     ))
     fig.update_yaxes(autorange="reversed", showgrid=False)
     fig.update_xaxes(title="Chapter", showgrid=False)
-    return _layout(fig, theme, height=80 + 26 * len(characters))
+    return _layout(fig, theme, height=80 + 26 * len(names))
+
+
+def entity_bars(entities: list, theme: dict) -> go.Figure:
+    """Most mentioned entities of one kind, biggest at the top."""
+    entities = entities[::-1]
+    fig = go.Figure(go.Bar(
+        y=[e.name for e in entities], x=[e.count for e in entities], orientation="h",
+        marker=dict(color=theme["series"][0], line=dict(color=theme["surface"], width=2)),
+        hovertemplate="%{y}: %{x} mentions<extra></extra>",
+    ))
+    fig.update_xaxes(title="Mentions")
+    return _layout(fig, theme, height=70 + 26 * len(entities), showlegend=False, bargap=0.35)
+
+
+# --- Mood sentence by sentence -------------------------------------------------
+
+def mood_arc(analysis: BookAnalysis, theme: dict, rolled: list[float], moments: tuple) -> go.Figure:
+    """The rolling mood along the whole book: blue above zero, red below.
+    `moments` = (dark, bright) key moments, marked on the line."""
+    x = list(range(1, len(rolled) + 1))
+    sentences = analysis.sentences
+    hover = [f"{analysis.chapters[s.chapter].title}<br>{s.text[:90]}{'…' if len(s.text) > 90 else ''}"
+             for s in sentences]
+    negative, _, positive = theme["diverging"]
+    fig = go.Figure()
+    # two filled halves: above zero in blue, below zero in red
+    for part, color in (([max(v, 0) for v in rolled], positive), ([min(v, 0) for v in rolled], negative)):
+        fig.add_scatter(x=x, y=part, mode="lines", line=dict(color=color, width=1.5), fill="tozeroy",
+                        fillcolor=color, opacity=0.55, hoverinfo="skip", showlegend=False)
+    # an invisible line on top carries the hover text
+    fig.add_scatter(x=x, y=rolled, mode="lines", line=dict(width=0, color="rgba(0,0,0,0)"), showlegend=False,
+                    customdata=hover, hovertemplate="mood %{y:+.2f}<br>%{customdata}<extra></extra>")
+    for moments_of_kind, symbol, label in ((moments[0], "triangle-down", "darkest"),
+                                           (moments[1], "triangle-up", "brightest")):
+        if moments_of_kind:
+            middles = [(m.first + m.last) // 2 for m in moments_of_kind]
+            fig.add_scatter(
+                x=[i + 1 for i in middles], y=[rolled[i] for i in middles], mode="markers+text",
+                text=[str(n) for n in range(1, len(middles) + 1)], textposition="bottom center"
+                if symbol == "triangle-down" else "top center", textfont=dict(color=theme["ink2"]),
+                marker=dict(symbol=symbol, size=12, color=theme["ink"], line=dict(color=theme["surface"], width=2)),
+                name=f"{label} passages", hoverinfo="skip",
+            )
+    _zero_line(fig, theme)
+    _tone_axis(fig, rolled)
+    # chapter numbers along the bottom (about a dozen, so they stay readable)
+    starts = [next((s.index + 1 for s in sentences if s.chapter == c.index), None) for c in analysis.chapters]
+    step = max(1, len(starts) // 12)
+    ticks = [(pos, c + 1) for c, pos in enumerate(starts) if pos is not None and c % step == 0]
+    fig.update_xaxes(title="Chapter", tickvals=[t[0] for t in ticks], ticktext=[t[1] for t in ticks],
+                     range=[1, len(x)])
+    return _layout(fig, theme, height=380, hovermode="x")
+
+
+# --- Emotions ---------------------------------------------------------------------
+
+def without_neutral(mix: dict[str, float]) -> dict[str, float]:
+    """Share of each emotion among the non-neutral ones (adds up to 1)."""
+    total = sum(mix.get(e, 0) for e in EMOTION_ORDER)
+    return {e: mix.get(e, 0) / total for e in EMOTION_ORDER} if total else {}
+
+
+def emotion_bars(theme: dict, mix: dict[str, float], compare: dict[str, float] | None = None,
+                 name: str = "", compare_name: str = "Whole book") -> go.Figure:
+    """The emotion mix (neutral left out), biggest first. With `compare`,
+    a gray bar next to each one shows the book average for reference."""
+    shares = without_neutral(mix)
+    order = sorted(shares, key=shares.get)  # biggest at the top
+    labels = [EMOTION_LABELS[e] for e in order]
+    fig = go.Figure()
+    if compare:
+        reference = without_neutral(compare)
+        fig.add_bar(y=labels, x=[reference.get(e, 0) for e in order], name=compare_name, orientation="h",
+                    marker=dict(color=theme["axis"], line=dict(color=theme["surface"], width=2)),
+                    hovertemplate=f"{compare_name}: %{{x:.0%}}<extra></extra>")
+    fig.add_bar(y=labels, x=[shares[e] for e in order], name=name or "Share", orientation="h",
+                marker=dict(color=[theme["emotions"][e] for e in order], line=dict(color=theme["surface"], width=2)),
+                hovertemplate=f"{name + ': ' if name else ''}%{{y}} %{{x:.0%}}<extra></extra>")
+    fig.update_xaxes(title="Share of the emotional content", tickformat=".0%")
+    # No legend: the coloured bars have one colour per emotion, so a legend
+    # swatch for them would be misleading; the page caption says gray = book
+    return _layout(fig, theme, height=90 + 34 * len(order) * (2 if compare else 1),
+                   barmode="group", bargap=0.3, showlegend=False)
+
+
+def emotion_journey(analysis: BookAnalysis, theme: dict, smooth: int) -> go.Figure:
+    """How the mix of (non-neutral) emotions changes chapter by chapter."""
+    chapters = list(range(1, len(analysis.chapters) + 1))
+    shares = [without_neutral(mix) for mix in analysis.chapter_emotions]
+    titles = [c.title for c in analysis.chapters]
+    fig = go.Figure()
+    for e in EMOTION_ORDER:
+        values = [s.get(e) if s else None for s in shares]
+        values = _smooth(values, smooth) if smooth > 1 else values
+        fig.add_scatter(
+            x=chapters, y=values, name=EMOTION_LABELS[e], mode="lines", stackgroup="mix", groupnorm="percent",
+            line=dict(width=2, color=theme["surface"]),  # 2px gap between the coloured bands
+            fillcolor=theme["emotions"][e], customdata=titles,
+            hovertemplate=f"{EMOTION_LABELS[e]}: %{{y:.0f}}%<extra></extra>",
+        )
+    fig.update_xaxes(title="Chapter", range=[1, len(chapters)])
+    fig.update_yaxes(title="Share of the emotional content", ticksuffix="%", range=[0, 100])
+    return _layout(fig, theme, height=440, hovermode="x unified")
+
+
+def pair_emotions(theme: dict, r: Relationship) -> go.Figure:
+    """A pair's emotion mix in the early, middle and late book."""
+    parts = ["Early", "Middle", "Late"]
+    shares = [without_neutral(mix) for mix in r.emotions_by_part]
+    fig = go.Figure()
+    for e in EMOTION_ORDER:
+        fig.add_bar(y=parts, x=[s.get(e, 0) if s else 0 for s in shares], name=EMOTION_LABELS[e],
+                    orientation="h", marker=dict(color=theme["emotions"][e],
+                                                 line=dict(color=theme["surface"], width=2)),
+                    hovertemplate=f"%{{y}}: {EMOTION_LABELS[e]} %{{x:.0%}}<extra></extra>")
+    fig.update_yaxes(autorange="reversed")
+    fig.update_xaxes(title="Share of the emotional content of their shared moments", tickformat=".0%",
+                     range=[0, 1])
+    fig = _layout(fig, theme, height=260, barmode="stack", bargap=0.35)
+    fig.update_layout(legend_traceorder="normal")  # legend in the same order as the bar segments
+    return fig
 
 
 # --- Relationships ---------------------------------------------------------
