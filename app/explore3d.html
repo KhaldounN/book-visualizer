@@ -391,43 +391,6 @@ function constellation() {
   select(0);
 }
 
-/* ---- Story terrain ---- */
-function terrain() {
-  const st = stage({ camera: [-22, 17, 25], fog: 0.009 });
-  const rows = chars.slice(0, 9), cols = data.chapters;
-  const W = 30, D = Math.max(2.2, (rows.length - 1) * 2.2);
-  const geo = new THREE.PlaneGeometry(W, D, Math.max(1, cols - 1), Math.max(1, rows.length - 1));
-  geo.rotateX(-Math.PI / 2);  // rows now run from the back (first character) to the front
-  const p = geo.attributes.position, colors = [];
-  // chapter-by-chapter values jump around a lot, so the landscape uses each
-  // chapter averaged with its neighbours (hovering still shows the exact value)
-  const heights = rows.map((c) => smooth(c.byChapter.map(Math.sqrt), 1));
-  const tones = rows.map((c) => smooth(c.toneByChapter, 2));
-  for (let r = 0; r < rows.length; r++) {
-    for (let c = 0; c < cols; c++) {
-      p.setY(r * cols + c, heights[r][c] * 0.5);
-      colors.push(...toneColor(rows[r].byChapter[c] ? tones[r][c] : null).toArray());
-    }
-  }
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  geo.computeVertexNormals();
-  const land = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.75, metalness: 0.05 }));
-  const wire = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: HOLO, wireframe: true, transparent: true, opacity: 0.1 }));
-  st.scene.add(land, wire, new THREE.AmbientLight(0xffffff, 0.55));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-10, 20, 12); st.scene.add(sun);
-  const rowZ = (r) => -D / 2 + r * (D / Math.max(1, rows.length - 1));
-  rows.forEach((c, r) => { const s = label(c.name, { size: 0.55, color: c.color }); s.position.set(-W / 2 - 2.2, 0.4, rowZ(r)); st.scene.add(s); });
-  for (let c = 0; c < cols; c += 10) { const s = label(`ch ${c + 1}`, { size: 0.45, color: "#6c7d92", weight: 500 }); s.position.set(-W / 2 + (c / Math.max(1, cols - 1)) * W, 0.2, D / 2 + 1.3); st.scene.add(s); }
-  hover(st, () => [land], (h) => {
-    const c = Math.round(((h.point.x + W / 2) / W) * (cols - 1)), r = Math.round(((h.point.z + D / 2) / D) * (rows.length - 1));
-    const ch = rows[r]; if (!ch || c < 0 || c >= cols) return null;
-    const tone = ch.toneByChapter[c];
-    return `<b>${escape(ch.name)}</b> · ${escape(data.chapterTitles[c])}<br>${ch.byChapter[c]} mentions<br>${tone == null ? "not in this chapter" : "tone " + fmtTone(tone)}`;
-  });
-  hud.innerHTML = `<span class="chip">height = mentions · colour = tone (red darker, blue brighter)</span>`;
-  hint.textContent = "drag to rotate · hover to read";
-}
-
 /* ---- Emotion crystal ---- */
 function crystal() {
   const st = stage({ camera: [0, 4.5, 13], fog: 0.02 });
@@ -568,7 +531,7 @@ function tunnel() {
   hint.textContent = "move the mouse to look around";
 }
 
-({ road, constellation, terrain, crystal, dna, tunnel })[SCENE]();
+({ road, constellation, crystal, dna, tunnel })[SCENE]();
 window.sceneStarted = true;
 </script>
 </body>

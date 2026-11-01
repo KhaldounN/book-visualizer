@@ -18,7 +18,6 @@ TEMPLATE = Path(__file__).with_name("explore3d.html")
 SCENES = {
     "road": "Story road",
     "constellation": "Character constellation",
-    "terrain": "Story terrain",
     "crystal": "Emotion crystal",
     "dna": "Relationship DNA",
     "tunnel": "Chapter tunnel",

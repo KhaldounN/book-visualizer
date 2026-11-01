@@ -207,10 +207,6 @@ SCENE_HELP = {
                      "often they are mentioned; colour = the emotion that stands out for them; lines = "
                      "relationships, coloured by tone.\n\n**Try:** click a star to light up only its "
                      "relationships and open its emotion card.",
-    "terrain": "**The book as a landscape.** Each character is a ridge running from the first chapter to the "
-               "last. Mountains rise where they are talked about; the ground's colour is the mood around them "
-               "(red darker, blue brighter).\n\n**Try:** hover anywhere to read the character, chapter and tone; "
-               "look for ridges that only rise late in the story.",
     "crystal": "**A hologram portrait of one character.** Six crystal spikes grow from the core, one per "
                "emotion, as long as that emotion's share. The ring around it goes once round the book: it rises "
                "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\n**Try:** switch "

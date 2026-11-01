@@ -15,8 +15,8 @@ Upload an English novel as a `.txt` file and explore:
 - **Relationships**: who shares scenes with whom, how the tone of those scenes changes, and their
   emotions early, midway and late in the book
 - **Places & entities**: where the story happens chapter by chapter, plus organizations and groups
-- **Explore in 3D**: five interactive scenes to rotate and click: a character constellation, a story
-  terrain, an emotion crystal per character, a relationship double helix, and a fly-through chapter
+- **Explore in 3D**: five interactive scenes to rotate and click: a story road, a character constellation,
+  an emotion crystal per character, a relationship double helix, and a fly-through chapter
   tunnel (needs an internet connection to load the 3D library)
 
 The title and author are read from the book (Project Gutenberg files include them).
