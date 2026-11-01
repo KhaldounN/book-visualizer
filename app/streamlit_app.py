@@ -14,7 +14,10 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))  # so "analyzer" can be imported when Streamlit runs this file
 
+import streamlit.components.v1 as components  # noqa: E402
+
 import charts  # noqa: E402
+import explore3d  # noqa: E402
 from analyzer.emotions import average_emotions  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
@@ -131,8 +134,9 @@ with st.expander("✏️ Edit title"):
         book["title"] = new_title.strip()
         st.rerun()
 has_emotions = any(analysis.chapter_emotions)
-overview, mentions, mood, feelings, timeline, relations, entities = st.tabs(
-    ["Overview", "Mentions", "Story sentiment", "Emotions", "Timeline", "Relationships", "Places & entities"]
+overview, mentions, mood, feelings, timeline, relations, entities, explore = st.tabs(
+    ["Overview", "Mentions", "Story sentiment", "Emotions", "Timeline", "Relationships", "Places & entities",
+     "Explore in 3D"]
 )
 
 # --- Overview -----------------------------------------------------------------
@@ -295,6 +299,32 @@ with relations:
              "Average tone": round(r.sentiment, 3)}
             for r in analysis.relationships
         ]))
+
+# --- Explore in 3D -------------------------------------------------------------------------
+
+SCENE_HELP = {
+    "constellation": "Each character is a star. Left to right: darker to brighter tone. Bottom to top: early to "
+                     "late in the book. Back to front: cold to warm emotions. Size = mentions, colour = strongest "
+                     "emotion, lines = relationships. Click a star to see only its relationships.",
+    "terrain": "Each character is a ridge running through the chapters. Height = how much they are mentioned, "
+               "colour = the tone around them (red darker, blue brighter). Hover to read the values.",
+    "crystal": "One character as a hologram: each spike is an emotion, as long as its share. The ring goes once "
+               "round the book and rises (blue) in bright chapters and sinks (red) in dark ones.",
+    "dna": "Two characters as the strands of a double helix. A rung joins them in every chapter where they "
+           "share a moment: thicker when they meet more, coloured by tone. Gaps = chapters apart.",
+    "tunnel": "Fly through the book. Each chapter is a ring split into its emotions; bright chapters open wide, "
+              "dark chapters close in. Use the slider to jump to a chapter.",
+}
+
+with explore:
+    scene = st.radio("Scene", list(explore3d.SCENES), format_func=explore3d.SCENES.get, horizontal=True,
+                     label_visibility="collapsed", key="scene")
+    st.caption(SCENE_HELP[scene] + " Drag to rotate. These views are for exploring; the other tabs give "
+               "exact numbers.")
+    if scene in explore3d.EMOTION_SCENES and not has_emotions:
+        st.info("This scene needs emotions, which were not detected for this book.")
+    else:
+        components.html(explore3d.scene_html(analysis, scene), height=580)
 
 # --- Entities -------------------------------------------------------------------------------
 

@@ -44,6 +44,8 @@ Key invariants:
 
 Website (`app/streamlit_app.py`): Streamlit re-runs the script on every interaction. Analyses live in `st.session_state["analyses"][sha256]` together with the user's merges (merges are applied at render time). Finished analyses are pickled to `results/v{ANALYSIS_VERSION}-<sha256>.pkl`; the uploaded text itself is never saved. `app/charts.py` holds the Plotly figures. Its `THEMES` colors come from the dataviz skill's palette, validated for colorblind safety in light and dark mode. Keep a character's color tied to its mention rank (`character_colors`), never to selection order. The emotion colors follow `EMOTION_ORDER`, an order that passed the validator for stacked neighbours (sadness next to fear failed). Re-validate if you reorder them. `tests/test_app.py` drives the page with Streamlit's `AppTest`.
 
+The "Explore in 3D" tab: `app/explore3d.py` turns the (merged) analysis into a small JSON summary and fills it into the `app/explore3d.html` template (`__DATA__`, `__SCENE__`), shown with `components.html`. The template runs one Three.js scene (r160 from jsDelivr, so it needs internet), always on a dark stage using the dark emotion colours. AppTest can't run WebGL. To check the scenes visually, write `scene_html(...)` to a file and screenshot it with headless Chrome (`--headless=new --use-angle=swiftshader --enable-unsafe-swiftshader --screenshot=...`).
+
 ## Gotchas
 
 - **Keep `transformers<5` and `datasets<5`** (pinned in `requirements.txt`): fastcoref crashes with version 5 of either.

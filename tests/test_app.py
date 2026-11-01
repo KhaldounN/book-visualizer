@@ -1,5 +1,7 @@
 """The website renders every tab, using a small hand-made analysis."""
 
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -22,6 +24,7 @@ APP = Path(__file__).resolve().parent.parent / "app" / "streamlit_app.py"
 sys.path.insert(0, str(APP.parent))  # so "import charts" works here too
 
 import charts  # noqa: E402
+import explore3d  # noqa: E402
 
 
 def small_analysis() -> BookAnalysis:
@@ -63,7 +66,7 @@ def app():
 def test_every_tab_renders(app):
     assert not app.exception
     assert [t.label for t in app.tabs] == ["Overview", "Mentions", "Story sentiment", "Emotions", "Timeline",
-                                           "Relationships", "Places & entities"]
+                                           "Relationships", "Places & entities", "Explore in 3D"]
     assert [m.value for m in app.metric][:3] == ["4", "80", "6"]
     assert not app.info, "every tab has data to show (no 'nothing found' messages)"
 
@@ -112,6 +115,30 @@ def test_charts_build_in_both_themes(mode):
         charts.entity_bars(analysis.entities, theme),
     ):
         assert figure.data, "every chart has something to draw"
+
+
+@pytest.mark.parametrize("scene", list(explore3d.SCENES))
+def test_every_3d_scene_page_is_built(scene):
+    html = explore3d.scene_html(small_analysis(), scene)
+    assert "__DATA__" not in html and "__SCENE__" not in html
+    assert f'const SCENE = "{scene}";' in html
+    data = json.loads(re.search(r"const data = (.*);\nconst SCENE", html).group(1))
+    assert len(data["chapterTitles"]) == data["chapters"] == 4
+    assert all(0 <= link["a"] < len(data["characters"]) and 0 <= link["b"] < len(data["characters"])
+               for link in data["links"])
+    assert all(abs(sum(c["emotions"]) - 1) < 0.01 for c in data["characters"])
+
+
+def test_3d_page_cannot_be_broken_by_a_name():
+    analysis = small_analysis()
+    analysis.characters[0].name = "</script><b>Anna"
+    html = explore3d.scene_html(analysis, "constellation")
+    assert "</script><b>" not in html  # the name can't end the script tag early
+
+
+def test_unknown_3d_scene_is_refused():
+    with pytest.raises(ValueError):
+        explore3d.scene_html(small_analysis(), "hologram")
 
 
 def test_emotion_shares_leave_out_neutral():
