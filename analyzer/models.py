@@ -82,6 +82,16 @@ class Relationship:
 
 
 @dataclass
+class KeyMoment:
+    """A passage whose sentences are, on average, especially dark or bright."""
+
+    first: int  # sentence index where the passage starts
+    last: int  # sentence index where it ends (included)
+    chapter: int
+    score: float  # average sentiment of the passage
+
+
+@dataclass
 class BookAnalysis:
     """Everything the website needs to draw its charts."""
 
