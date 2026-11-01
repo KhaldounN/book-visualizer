@@ -195,12 +195,12 @@ with st.container():
 # --- Explore in 3D ---------------------------------------------------------------------
 
 SCENE_HELP = {
-    "skyline": "The whole book as a city. **Each tower is a chapter**, built from blocks of its emotions: the "
-               "taller the tower, the more emotional the chapter. The **floor tile** shows the chapter's mood "
-               "(blue brighter, red darker) and the **white line** traces that mood through the book. Yellow "
-               "tags mark the chapters whose theme stands out most.\n\n"
-               "**Try:** click a tower for its card, or press **Fly through** to travel from the first chapter "
-               "to the last.",
+    "road": "**The story as a journey.** The road runs from the first chapter to the last and climbs or dips with "
+            "the story's overall mood: **hills** where it is bright, **valleys** where it turns dark. Its colour is "
+            "each chapter's own mood (blue brighter, red darker). **Signposts** name the turning points: gold "
+            "▲ on the high points, red ▼ in the low ones. A **gate** marks where each act begins.\n\n"
+            "**Try:** press **Travel** to ride the road and read what happens in each chapter, or click the road "
+            "to stop at a chapter.",
     "constellation": "**Each character is a star.** Where it sits says who they are emotionally: left to right "
                      "is darker to brighter tone, bottom to top is early to late in the book, back to front is "
                      "cold emotions (anger, disgust, fear, sadness) to warm ones (joy, surprise). Size = how "

@@ -188,93 +188,153 @@ function picker(labelText, options, onChange, start = 0) {
   onChange(start);
 }
 
-/* ---- Story skyline ---- */
-function skyline() {
-  const st = stage({ camera: [-5, 9.5, 25], autoRotate: false, fog: 0.012 });
-  st.orbit.target.set(0, 4, 0); st.orbit.maxPolarAngle = Math.PI * 0.49;  // never look from under the floor
-  st.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-12, 25, 18); st.scene.add(sun);
-  const n = data.chapters, STEP = Math.min(0.62, 38 / n), events = data.chapterEvents, details = data.chapterDetails;
-  const xOf = (i) => (i - (n - 1) / 2) * STEP;
-  // taller tower = less neutral narration (scaled between the book's least and most emotional chapter)
-  const emotional = data.chapterNeutral.map((v) => 1 - v);
-  const lo = Math.min(...emotional), hi = Math.max(...emotional);
-  const heights = emotional.map((e) => 2 + ((e - lo) / (hi - lo || 1)) * 8);
-  const box = new THREE.BoxGeometry(1, 1, 1), hitBoxes = [];
-  for (let i = 0; i < n; i++) {
-    let y = 0.04;
-    data.chapterEmotions[i].forEach((share, k) => {
-      const h = share * heights[i];
-      if (h < 0.05) return;
-      const block = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: EMO_COLOR[EMO[k]], roughness: 0.55 }));
-      block.scale.set(STEP * 0.74, Math.max(0.01, h - 0.05), 1);  // small gap between blocks
-      block.position.set(xOf(i), y + h / 2, 0); st.scene.add(block); y += h;
-    });
-    const tile = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: toneColor(data.chapterTone[i]), roughness: 0.8 }));
-    tile.scale.set(STEP - 0.04, 0.08, 2.4); tile.position.set(xOf(i), -0.04, 0.4); st.scene.add(tile);
-    const hit = new THREE.Mesh(new THREE.BoxGeometry(STEP, heights[i] + 0.4, 2.4), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.set(xOf(i), heights[i] / 2, 0.4); hit.userData.ch = i; st.scene.add(hit); hitBoxes.push(hit);
-    if (i % 5 === 0) { const s = label(`ch ${i + 1}`, { size: 0.55, color: "#8d9199", weight: 500 }); s.position.set(xOf(i), 0.05, 2.4); st.scene.add(s); }
+/* ---- Story road ---- */
+// The book as a journey: a road over a landscape. The road climbs where the
+// story's (smoothed) mood is bright and dips into valleys where it turns dark.
+// Signposts mark the turning points, gates mark where each act begins.
+function road() {
+  const st = stage({ camera: [0, 24, 35], autoRotate: false, fog: 0.008 });
+  st.orbit.target.set(0, 2, -1); st.orbit.maxPolarAngle = Math.PI * 0.47;  // never look from under the ground
+  st.scene.add(new THREE.AmbientLight(0xffffff, 0.5), new THREE.HemisphereLight(0x9fd8ff, 0x1a1208, 0.6));
+  const sun = new THREE.DirectionalLight(0xfff1d6, 1.5); sun.position.set(-20, 30, 15); st.scene.add(sun);
+
+  const n = data.chapters, events = data.chapterEvents, details = data.chapterDetails, tone = data.chapterTone;
+  const LENGTH = Math.max(40, Math.min(90, n * 1.1)), BASE = 3.2, RISE = 3.6, WIDTH = 0.95;
+  // heights relative to this book: its brightest stretch is the highest hill
+  const reach = Math.max(...data.arc.map(Math.abs)) || 1;
+  const toneReach = Math.max(...tone.map(Math.abs)) || 1;
+  const xOf = (t) => (t / Math.max(1, n - 1) - 0.5) * LENGTH;
+  const zOf = (t) => Math.sin(t * 0.33) * 3.2 + Math.sin(t * 0.09) * 2.5;  // a gently winding road
+  const lerpAt = (values, t) => { const i = Math.max(0, Math.min(n - 1, Math.floor(t))), j = Math.min(n - 1, i + 1), f = t - i; return values[i] * (1 - f) + values[j] * f; };
+  const hOf = (t) => BASE + (lerpAt(data.arc, t) / reach) * RISE;
+  const colorOf = (t) => toneColor(lerpAt(tone, t), toneReach);
+  const at = (t) => new THREE.Vector3(xOf(t), hOf(t), zOf(t));
+
+  // the landscape: a ridge that carries the road, tinted by the mood around it
+  const W = LENGTH + 24, D = 34, SX = Math.min(260, n * 5), SZ = 48;
+  const ground = new THREE.PlaneGeometry(W, D, SX, SZ); ground.rotateX(-Math.PI / 2);
+  const gp = ground.attributes.position, gcolors = [];
+  for (let v = 0; v < gp.count; v++) {
+    const x = gp.getX(v), z = gp.getZ(v);
+    const t = Math.max(0, Math.min(n - 1, (x / LENGTH + 0.5) * (n - 1)));
+    const off = (x < -LENGTH / 2 ? -LENGTH / 2 - x : x > LENGTH / 2 ? x - LENGTH / 2 : 0);  // beyond the ends
+    const d = Math.hypot(z - zOf(t), off * 1.4);
+    const fall = Math.exp(-((d / 7.5) ** 2));
+    const ripple = 0.25 * Math.sin(x * 0.7) * Math.cos(z * 0.6) * (1 - fall);
+    gp.setY(v, (hOf(t) - 0.12) * fall + ripple - 0.4);
+    const near = fall ** 2;  // only the land right next to the road takes the mood colour
+    const c = new THREE.Color(0x0d141d).lerp(colorOf(t).multiplyScalar(0.55), near * 0.8);
+    gcolors.push(c.r, c.g, c.b);
   }
-  // the mood line floats in front of the towers, around its zero line
-  const MOOD_Y = 3, MOOD_Z = 2;
-  st.scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(data.chapterTone.map((t, i) => new THREE.Vector3(xOf(i), MOOD_Y + t * 10, MOOD_Z))), n * 6, 0.06, 6),
-    new THREE.MeshBasicMaterial({ color: 0xf0efec })));
-  st.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xOf(0) - 0.4, MOOD_Y, MOOD_Z), new THREE.Vector3(xOf(n - 1) + 0.4, MOOD_Y, MOOD_Z)]),
-    new THREE.LineBasicMaterial({ color: 0x5a5e66 })));
-  const moodTag = label("mood", { size: 0.45, color: "#c3c2b7", weight: 500 }); moodTag.position.set(xOf(0) - 1.4, MOOD_Y, MOOD_Z); st.scene.add(moodTag);
-  // tags for the chapters whose theme stands out most
-  const clearest = events.map((e, i) => [e.strength, i]).sort((a, b) => b[0] - a[0]).slice(0, 12).map((x) => x[1]).sort((a, b) => a - b);
-  clearest.forEach((i, j) => {
-    const top = heights[i] + 0.2, y = top + 1.4 + (j % 2) * 1.3;
-    st.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xOf(i), top, 0), new THREE.Vector3(xOf(i), y - 0.35, 0)]),
-      new THREE.LineBasicMaterial({ color: 0x8d9199 })));
-    const tag = label(events[i].theme, { size: 0.6, color: "#05080d", panel: "#f0d48a" });
-    tag.position.set(xOf(i), y, 0); st.scene.add(tag);
+  ground.setAttribute("color", new THREE.Float32BufferAttribute(gcolors, 3)); ground.computeVertexNormals();
+  st.scene.add(new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true })));
+  const wire = new THREE.Mesh(ground, new THREE.MeshBasicMaterial({ color: HOLO, wireframe: true, transparent: true, opacity: 0.035 }));
+  st.scene.add(wire);
+
+  // the road itself: a ribbon coloured chapter by chapter with the mood
+  const SAMPLES = n * 10, verts = [], cols = [], index = [], centre = [];
+  for (let s = 0; s <= SAMPLES; s++) {
+    const t = (s / SAMPLES) * (n - 1), p = at(t), q = at(Math.min(n - 1, t + 0.05));
+    const tangent = (s === SAMPLES ? p.clone().sub(at(t - 0.05)) : q.clone().sub(p)).normalize();
+    const side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(WIDTH);
+    p.y += 0.06; centre.push(p.clone().add(new THREE.Vector3(0, 0.03, 0)));
+    verts.push(...p.clone().add(side).toArray(), ...p.clone().sub(side).toArray());
+    const c = colorOf(t); cols.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    if (s < SAMPLES) { const a = s * 2; index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  }
+  const strip = new THREE.BufferGeometry();
+  strip.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  strip.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+  strip.setIndex(index); strip.computeVertexNormals();
+  st.scene.add(new THREE.Mesh(strip, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  // dashed centre line
+  const dashes = new THREE.Line(new THREE.BufferGeometry().setFromPoints(centre), new THREE.LineDashedMaterial({ color: 0xf0efec, dashSize: 0.35, gapSize: 0.35 }));
+  dashes.computeLineDistances(); st.scene.add(dashes);
+
+  // chapter posts every 5 chapters
+  for (let i = 0; i < n; i += 5) {
+    const s = label(`ch ${i + 1}`, { size: 0.5, color: "#8d9199", weight: 500 });
+    s.position.copy(at(i)).add(new THREE.Vector3(0, 0.5, 2.1)); st.scene.add(s);
+  }
+  // a gate where each act begins
+  data.acts.forEach(([first], k) => {
+    const p = at(first), gate = new THREE.Group();
+    const postGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), mat = new THREE.MeshBasicMaterial({ color: 0x8d9199 });
+    [-1.4, 1.4].forEach((dz) => { const post = new THREE.Mesh(postGeo, mat); post.position.set(0, 1.3, dz); gate.add(post); });
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.9), mat); beam.position.y = 2.6; gate.add(beam);
+    const tag = label(`Act ${["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][k] ?? k + 1}`, { size: 0.8, color: "#c3c2b7" });
+    tag.position.y = 3.2; gate.add(tag);
+    gate.position.copy(p); gate.rotation.y = -Math.atan2(at(first + 0.3).z - p.z, at(first + 0.3).x - p.x);
+    st.scene.add(gate);
   });
-  // selection outline, card and tooltip
-  const outline = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: 0xffffff }));
-  outline.visible = false; st.scene.add(outline);
+  // signposts at the turning points: gold on the peaks, red in the valleys
+  data.turning.forEach(({ i, kind }, j) => {
+    const p = at(i), up = kind === "high", poleTop = 2.2 + (j % 3) * 1.15;  // staggered so neighbours don't overlap
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, poleTop, 6), new THREE.MeshBasicMaterial({ color: 0xc3c2b7 }));
+    pole.position.copy(p).add(new THREE.Vector3(0, poleTop / 2, -1.3)); st.scene.add(pole);
+    const sign = label(`${up ? "▲" : "▼"} ${events[i].theme} · ch ${i + 1}`, { size: 0.95, color: "#05080d", panel: up ? "#f0d48a" : "#f09a9a" });
+    sign.position.copy(p).add(new THREE.Vector3(0, poleTop + 0.35, -1.3)); st.scene.add(sign);
+    const halo = glow(up ? new THREE.Color("#f0d48a") : NEG, 3); halo.position.copy(p).add(new THREE.Vector3(0, 0.3, 0)); st.scene.add(halo);
+  });
+
+  // the traveller: a glowing marker that moves along the road
+  const traveller = new THREE.Group();
+  traveller.add(new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffffff })), glow(HOLO, 3.2));
+  st.scene.add(traveller);
+
+  // invisible boxes for hovering and clicking chapters
+  const hitBoxes = [];
+  for (let i = 0; i < n; i++) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(LENGTH / n + 0.1, 1.6, WIDTH * 3), new THREE.MeshBasicMaterial({ visible: false }));
+    b.position.copy(at(i)); b.lookAt(at(Math.min(n - 1, i + 0.5)).setY(b.position.y)); b.rotateY(Math.PI / 2);
+    b.userData.ch = i; st.scene.add(b); hitBoxes.push(b);
+  }
+  const colorOfName = Object.fromEntries(chars.map((c) => [c.name, c.color]));
+  const people = (names) => names.map((nm) => `<span style="color:${colorOfName[nm] || "#c3c2b7"}">●</span> ${escape(nm)}`).join(", ");
   const describe = (i) => `${escape(data.chapterTitles[i])} · ${escape(events[i].theme)}`;
   function select(i) {
-    outline.visible = true; outline.scale.set(STEP + 0.02, heights[i] + 0.2, 1.2); outline.position.set(xOf(i), heights[i] / 2 + 0.05, 0);
     const d = details[i], shares = data.chapterEmotions[i];
     card.hidden = false;
-    card.innerHTML = `<h3>${describe(i)}</h3><div class="meta">${escape(events[i].event)}</div>
-      <div class="meta">mood ${fmtTone(data.chapterTone[i])} · ${Math.round(emotional[i] * 100)}% emotional text</div>${emotionBars(shares)}
-      <div class="meta">${escape(d.people.join(", "))}${d.place ? " · at " + escape(d.place) : ""}<br>keywords: ${escape(events[i].keywords.join(", "))}</div>`;
+    card.innerHTML = `<h3>${describe(i)}</h3><div class="meta" style="color:var(--ink)">“${escape(events[i].event)}”</div>
+      <div class="meta">mood ${fmtTone(tone[i])}${d.place ? " · at " + escape(d.place) : ""}<br>${people(d.people)}</div>
+      ${shares.some((s) => s > 0) ? emotionBars(shares) : ""}`;
     slider.value = String(i + 1);
   }
   const hit = hover(st, () => hitBoxes, (h) => {
     const i = h.object.userData.ch;
-    return `<b>${describe(i)}</b><br>mood ${fmtTone(data.chapterTone[i])}<br>${escape(events[i].event)}`;
+    return `<b>${describe(i)}</b><br>mood ${fmtTone(tone[i])}<br>${escape(events[i].event)}`;
   });
-  // fly-through along the book
-  hud.innerHTML = `<button id="fly" type="button">Fly through</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
-    <div class="legend chip">${EMO.map((e) => `<span><i style="background:${EMO_COLOR[e]}"></i>${EMO_LABEL[e]}</span>`).join("")}</div>`;
-  const fly = document.getElementById("fly"), slider = document.getElementById("seek");
-  let flying = false, at = 0, last = 0;
-  const stopFlying = () => { flying = false; fly.textContent = "Fly through"; st.orbit.enabled = true; };
-  fly.addEventListener("click", () => {
-    if (flying) { stopFlying(); return; }
-    flying = true; st.orbit.enabled = false; fly.textContent = "Stop"; if (at >= n - 1) at = 0;
+
+  hud.innerHTML = `<button id="go" type="button">▶ Travel</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
+    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points</span>`;
+  const go = document.getElementById("go"), slider = document.getElementById("seek");
+  let travelling = false, pos = 0, last = 0;
+  const place = (t) => { traveller.position.copy(at(t)).add(new THREE.Vector3(0, 0.45, 0)); };
+  const stop = () => { travelling = false; go.textContent = "▶ Travel"; st.orbit.enabled = true; };
+  const look = (t) => {  // a view from behind and above the traveller, looking down the road
+    const p = at(t), ahead = at(Math.min(n - 1, t + 4));
+    const back = p.clone().sub(ahead).setY(0).normalize();
+    st.camera.position.copy(p).add(back.multiplyScalar(9)).add(new THREE.Vector3(0, 5.5, 0));
+    st.orbit.target.copy(ahead).add(new THREE.Vector3(0, 0.5, 0)); st.camera.lookAt(st.orbit.target);
+  };
+  go.addEventListener("click", () => {
+    if (travelling) { stop(); return; }
+    travelling = true; st.orbit.enabled = false; go.textContent = "■ Stop"; if (pos >= n - 1) pos = 0;
+    select(Math.round(pos));
   });
-  slider.addEventListener("input", () => {
-    const i = +slider.value - 1; at = i; stopFlying(); select(i);
-    st.orbit.target.set(xOf(i), 4, 0); st.camera.position.set(xOf(i) - 5, 8, 12);
-  });
-  canvas.addEventListener("click", (e) => { const [h] = hit(e); if (h) { stopFlying(); select(h.object.userData.ch); } });
+  slider.addEventListener("input", () => { pos = +slider.value - 1; stop(); place(pos); look(pos); select(pos); });
+  canvas.addEventListener("click", (e) => { const [h] = hit(e); if (h) { stop(); pos = h.object.userData.ch; place(pos); select(pos); } });
   st.tick.push((t) => {
     const dt = Math.min(0.05, t - last); last = t;
-    if (!flying) return;
-    at = Math.min(n - 1, at + dt * (REDUCE ? 4 : 1.1));
-    st.camera.position.set(xOf(at) - 6, 7.5, 11.5);
-    st.orbit.target.set(xOf(at) + 3, 3.5, 0); st.camera.lookAt(st.orbit.target);
-    if (+slider.value !== Math.round(at) + 1) select(Math.round(at));
-    if (at >= n - 1) stopFlying();
+    traveller.children[1].scale.setScalar(3 + Math.sin(t * 3) * 0.4);  // a gentle pulse
+    if (!travelling) return;
+    pos = Math.min(n - 1, pos + dt * (REDUCE ? 4 : 0.9));
+    place(pos); look(pos);
+    if (+slider.value !== Math.round(pos) + 1) select(Math.round(pos));
+    if (pos >= n - 1) stop();
   });
-  hint.textContent = "drag to rotate · click a tower";
-  select(clearest[Math.floor(clearest.length / 2)] ?? 0);
+  hint.textContent = "drag to rotate · click the road";
+  place(0);  // the card opens once you click the road or travel, so it doesn't hide the start
 }
 
 /* ---- Character constellation ---- */
@@ -508,7 +568,7 @@ function tunnel() {
   hint.textContent = "move the mouse to look around";
 }
 
-({ skyline, constellation, terrain, crystal, dna, tunnel })[SCENE]();
+({ road, constellation, terrain, crystal, dna, tunnel })[SCENE]();
 window.sceneStarted = true;
 </script>
 </body>

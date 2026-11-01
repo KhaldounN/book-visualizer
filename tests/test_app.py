@@ -186,6 +186,14 @@ def test_every_3d_scene_page_is_built(scene):
     assert all(abs(sum(c["emotions"]) - 1) < 0.01 for c in data["characters"])
 
 
+def test_story_road_gets_the_story_arc():
+    data = explore3d.scene_data(small_analysis())
+    assert len(data["arc"]) == 4
+    assert data["acts"][0][0] == 0 and data["acts"][-1][1] == 3, "the acts cover the whole book"
+    assert all(p["kind"] in ("high", "low") for p in data["turning"])
+    assert "road" in explore3d.SCENES and "road" not in explore3d.EMOTION_SCENES  # it works without emotions
+
+
 def test_3d_page_cannot_be_broken_by_a_name():
     analysis = small_analysis()
     analysis.characters[0].name = "</script><b>Anna"

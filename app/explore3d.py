@@ -12,10 +12,11 @@ import charts
 from analyzer.chapter_events import name_chapters
 from analyzer.emotions import average_emotions
 from analyzer.models import BookAnalysis
+from analyzer.progression import story_arc
 
 TEMPLATE = Path(__file__).with_name("explore3d.html")
 SCENES = {
-    "skyline": "Story skyline",
+    "road": "Story road",
     "constellation": "Character constellation",
     "terrain": "Story terrain",
     "crystal": "Emotion crystal",
@@ -24,7 +25,7 @@ SCENES = {
 }
 TOP_CHARACTERS = 14  # more stars than this crowd the scenes
 MIN_LINK = 10  # relationships with fewer shared moments are left out
-EMOTION_SCENES = {"crystal", "tunnel", "skyline"}  # scenes that need emotions to say anything
+EMOTION_SCENES = {"crystal", "tunnel"}  # scenes that need emotions to say anything
 
 
 def _shares(mix: dict[str, float]) -> list[float]:
@@ -67,7 +68,11 @@ def scene_data(analysis: BookAnalysis) -> dict:
         for r in analysis.relationships
         if r.source in index and r.target in index and r.count >= MIN_LINK
     ]
+    arc, turning, acts = story_arc(analysis.chapter_sentiment)  # the same shape as the 2D Story arc chart
     return {
+        "arc": [round(v, 4) for v in arc],
+        "turning": [{"i": i, "kind": kind} for i, kind in turning],
+        "acts": acts,
         "emotions": charts.EMOTION_ORDER,
         # the stage is always dark, so it uses the dark-mode emotion colours
         "emotionColors": {e: charts.THEMES["dark"]["emotions"][e] for e in charts.EMOTION_ORDER},

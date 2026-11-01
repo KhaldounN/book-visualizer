@@ -4,7 +4,7 @@ Upload an English novel as a `.txt` file and explore:
 
 - **Story timeline**: every chapter's theme (ball, proposal, scandal, journey…), its most telling sentence and
   keywords, along the mood and emotions of the book; the story's arc with its turning points and acts; and a 3D
-  "skyline" of the chapters to fly through. Themes come from a small model running on your computer and are
+  "story road" that climbs and dips with the mood, with signposts at the turning points, to travel along. Themes come from a small model running on your computer and are
   right about half the time, so each one is shown with the sentence and words it is based on
 - **Characters**: who appears and how often, counting names *and* pronouns ("she", "his")
 - **Story sentiment**: the mood per chapter (whole book or per character), the mood sentence by
