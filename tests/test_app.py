@@ -76,6 +76,14 @@ def test_charts_build_in_both_themes(mode):
         assert figure.data, "every chart has something to draw"
 
 
+def test_line_end_labels_never_overlap():
+    fig = charts.go.Figure()
+    ends = [(10, 0.15, "Elizabeth"), (10, 0.14, "Whole book"), (10, 0.25, "Mr. Darcy")]
+    charts._end_labels(fig, charts.THEMES["light"], ends, (-0.5, 0.5))
+    ys = sorted(a.y for a in fig.layout.annotations)
+    assert all(b - a >= 0.06 - 1e-9 for a, b in zip(ys, ys[1:]))
+
+
 def test_character_colours_follow_the_character_not_the_selection():
     theme, analysis = charts.THEMES["light"], small_analysis()
     colors = charts.character_colors(analysis, theme)

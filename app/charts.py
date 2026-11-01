@@ -99,10 +99,23 @@ def mentions_bars(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figu
             hovertemplate="%{y}: %{x:,} " + label.lower() + "<extra></extra>",
         )
     fig.update_xaxes(title="Mentions")
-    return _layout(fig, theme, height=60 + 28 * len(characters), barmode="stack", bargap=0.35)
+    fig = _layout(fig, theme, height=60 + 28 * len(characters), barmode="stack", bargap=0.35)
+    fig.update_layout(legend_traceorder="normal")  # "By name" first, like the bars
+    return fig
 
 
 # --- Sentiment over the story ----------------------------------------------
+
+def _end_labels(fig: go.Figure, theme: dict, ends: list[tuple], y_range: tuple) -> None:
+    """Name each line at its last point, nudging labels apart so they never overlap."""
+    gap = (y_range[1] - y_range[0]) * 0.06  # about one line of text on a 440px chart
+    placed: list[float] = []
+    for x, y, label in sorted(ends, key=lambda e: e[1]):
+        if placed and y < placed[-1] + gap:
+            y = placed[-1] + gap
+        placed.append(y)
+        fig.add_annotation(x=x, y=y, text=label, showarrow=False, xanchor="left", xshift=6,
+                           font=dict(color=theme["ink2"], size=12))
 
 def story_sentiment(analysis: BookAnalysis, theme: dict, character_ids: list[int], smooth: int) -> go.Figure:
     chapters = list(range(1, len(analysis.chapters) + 1))
@@ -112,22 +125,21 @@ def story_sentiment(analysis: BookAnalysis, theme: dict, character_ids: list[int
     fig = go.Figure()
     lines = [("Whole book", analysis.chapter_sentiment, theme["ink2"], 2.5)]
     lines += [(names[i], analysis.sentiment_by_chapter[i], colors[i], 2) for i in character_ids]
-    all_values = []
+    all_values, ends = [], []
     for label, values, color, width in lines:
         values = _smooth(values, smooth) if smooth > 1 else values
         all_values += values
         fig.add_scatter(
             x=chapters, y=values, name=label, mode="lines", line=dict(color=color, width=width),
-            connectgaps=True, customdata=titles,
-            hovertemplate=f"{label}: %{{y:+.2f}}<extra></extra>",
+            customdata=titles, hovertemplate=f"{label}: %{{y:+.2f}}<extra></extra>",
         )
-        # direct label at the end of each line
         last = next(((x, y) for x, y in zip(chapters[::-1], values[::-1]) if y is not None), None)
-        if last and len(lines) > 1:
-            fig.add_annotation(x=last[0], y=last[1], text=label, showarrow=False, xanchor="left",
-                               xshift=6, font=dict(color=theme["ink2"], size=12))
+        if last:
+            ends.append((last[0], last[1], label))
     _zero_line(fig, theme)
     _tone_axis(fig, all_values)
+    if len(lines) > 1:
+        _end_labels(fig, theme, ends, fig.layout.yaxis.range)
     fig.update_xaxes(title="Chapter", range=[0.5, len(chapters) + (6 if len(lines) > 1 else 0.5)])
     return _layout(fig, theme, height=440, hovermode="x unified")
 
@@ -163,17 +175,26 @@ def _tone_color(theme: dict, tone: float) -> str:
     return sample_colorscale(theme["diverging"], [position])[0]
 
 
-def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_count: int) -> go.Figure:
-    characters = {c.id: c for c in top_characters(analysis, top)}
-    links = [r for r in analysis.relationships
-             if r.source in characters and r.target in characters and r.count >= min_count]
+def _network_layout(characters: dict, links: list[Relationship]) -> dict:
+    """Positions where characters who share more moments sit closer together.
+    Uses every link (not only the visible ones) so dots don't move when the
+    filter slider changes. The log keeps a pair with 478 moments from being
+    pulled on top of each other: it is only a few times "closer" than one with 10."""
     graph = nx.Graph()
     graph.add_nodes_from(characters)
     for r in links:
-        graph.add_edge(r.source, r.target, weight=r.count)
-    # characters who share many moments are pulled closer together; a fixed
-    # seed keeps the picture the same every time
-    pos = nx.spring_layout(graph, weight="weight", seed=7, k=1.8 / math.sqrt(max(len(graph), 1)))
+        graph.add_edge(r.source, r.target, distance=1 / (1 + math.log(r.count)))
+    if graph.number_of_edges() == 0:
+        return nx.circular_layout(graph)
+    # characters with no links at all are placed by the layout as far away as allowed
+    return nx.kamada_kawai_layout(graph, weight="distance")
+
+
+def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_count: int) -> go.Figure:
+    characters = {c.id: c for c in top_characters(analysis, top)}
+    all_links = [r for r in analysis.relationships if r.source in characters and r.target in characters]
+    links = [r for r in all_links if r.count >= min_count]
+    pos = _network_layout(characters, all_links)
 
     fig = go.Figure()
     biggest = max([r.count for r in links] + [1])
@@ -220,7 +241,7 @@ def pair_tone(analysis: BookAnalysis, theme: dict, r: Relationship, smooth: int)
     chapters = list(range(1, len(analysis.chapters) + 1))
     values = _smooth(r.chapter_sentiment, smooth) if smooth > 1 else r.chapter_sentiment
     fig = go.Figure(go.Scatter(
-        x=chapters, y=values, mode="lines+markers", connectgaps=True,
+        x=chapters, y=values, mode="lines+markers",  # the line breaks where they never meet
         line=dict(color=theme["series"][0], width=2), marker=dict(size=8),
         customdata=[c.title for c in analysis.chapters],
         hovertemplate="%{customdata}: tone %{y:+.2f}<extra></extra>",
