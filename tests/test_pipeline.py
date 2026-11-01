@@ -45,8 +45,10 @@ def fake_models(monkeypatch, nlp):
 
 def test_whole_pipeline(fake_models):
     progress = []
-    result = pipeline.analyze(BOOK, lambda step, fraction: progress.append((step, fraction)))
+    result = pipeline.analyze(BOOK, lambda step, fraction: progress.append((step, fraction)),
+                              filename="anna_and_tom.txt")
 
+    assert (result.title, result.author) == ("Anna And Tom", None)
     assert [c.title for c in result.chapters] == ["CHAPTER I.", "CHAPTER II."]
     names = {c.name: c for c in result.characters}
     assert {"Anna", "Tom"} <= set(names)

@@ -10,13 +10,17 @@ from typing import Callable
 
 from . import coref, sentiment
 from .characters import find_characters
-from .loaders import load_text
+from .loaders import book_info, load_text
 from .models import BookAnalysis
 from .progression import chapter_sentiment, mentions_by_chapter, sentiment_by_chapter
 from .relationships import find_relationships
 from .segment import split_sentences
 
 SPACY_MODEL = "en_core_web_lg"
+
+# Bump this whenever BookAnalysis changes shape or the analysis changes, so
+# results saved by an older version are re-analyzed instead of loaded
+ANALYSIS_VERSION = 2
 
 # (step name, share of the total time) measured on Pride and Prejudice;
 # used to turn each step's own progress into one overall progress bar
@@ -55,8 +59,14 @@ class _Progress:
         return report
 
 
-def analyze(data: bytes, progress: ProgressCallback | None = None, use_coref: bool = True) -> BookAnalysis:
-    """Analyze an uploaded book file. Takes a few minutes for a full novel."""
+def analyze(
+    data: bytes,
+    progress: ProgressCallback | None = None,
+    use_coref: bool = True,
+    filename: str | None = None,
+) -> BookAnalysis:
+    """Analyze an uploaded book file. Takes a few minutes for a full novel.
+    The filename is only used as the title when the book doesn't name itself."""
     tracker = _Progress(progress)
     timings: dict[str, float] = {}
 
@@ -116,6 +126,7 @@ def analyze(data: bytes, progress: ProgressCallback | None = None, use_coref: bo
         sentiment_by_chapter=sentiment_by_chapter(mentions, sentences, n_chars, n_chapters),
         timings=timings,
     )
+    analysis.title, analysis.author = book_info(data, filename)
     timed("Finding relationships", started)
     if progress:
         progress("Done", 1.0)

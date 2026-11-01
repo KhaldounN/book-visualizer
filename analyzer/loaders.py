@@ -80,3 +80,28 @@ def clean_text(text: str) -> str:
 
 def load_text(data: bytes) -> str:
     return clean_text(decode(data))
+
+
+def _header_field(header: str, name: str) -> str | None:
+    """A "Name: value" line from the Gutenberg header. Long values continue
+    on the next lines, indented: "Title: The Adventures\\n    of Tom Sawyer"."""
+    match = re.search(rf"^{name}:[ \t]*(.+(?:\n[ \t]+\S.*)*)", header, re.MULTILINE)
+    return " ".join(match.group(1).split()) if match else None
+
+
+def _title_from_filename(filename: str | None) -> str:
+    """ "pride_and_prejudice.txt" -> "Pride And Prejudice" """
+    if not filename:
+        return "Untitled book"
+    stem = re.sub(r"\.txt$", "", filename, flags=re.IGNORECASE)
+    words = re.sub(r"[_\-]+", " ", stem).strip()
+    return words.title() if words.islower() else words or "Untitled book"
+
+
+def book_info(data: bytes, filename: str | None = None) -> tuple[str, str | None]:
+    """(title, author) from a Project Gutenberg header, falling back to the
+    file name. The author is None when unknown."""
+    text = decode(data).replace("\r\n", "\n")
+    start = _GUTENBERG_START.search(text)
+    header = text[: start.start()] if start else text[:3000]
+    return _header_field(header, "Title") or _title_from_filename(filename), _header_field(header, "Author")

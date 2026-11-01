@@ -92,3 +92,5 @@ class BookAnalysis:
     # [character][chapter] -> average sentiment of sentences mentioning them (None: absent)
     sentiment_by_chapter: list[list[float | None]]
     timings: dict[str, float] = field(default_factory=dict)  # step -> seconds
+    title: str = "Untitled book"
+    author: str | None = None

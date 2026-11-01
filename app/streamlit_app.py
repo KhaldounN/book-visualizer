@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))  # so "analyzer" can be imported when Streamlit ru
 
 import charts  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
-from analyzer.pipeline import analyze  # noqa: E402
+from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
 
 SAMPLE = ROOT / "data" / "pride_and_prejudice.txt"
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
@@ -41,15 +41,17 @@ def how_many(label: str, available: int, default: int, key: str) -> int:
     return st.slider(label, 5, min(40, available), min(default, available), key=key)
 
 
-def run_analysis(data: bytes, key: str):
+def run_analysis(data: bytes, key: str, filename: str):
     """Analyze the book, or load the saved result if it was analyzed before.
-    The file is never stored, only the analysis results."""
-    saved = CACHE / f"{key}.pkl"
+    The file is never stored, only the analysis results. The version in the
+    file name means results from an older version of the analysis are ignored."""
+    saved = CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl"
     if saved.exists():
         return pickle.loads(saved.read_bytes())
     bar = st.progress(0.0, text="Starting… a full novel takes about 7 minutes.")
     try:
-        result = analyze(data, lambda step, f: bar.progress(min(f, 1.0), text=f"{step}… {f:.0%}"))
+        result = analyze(data, lambda step, f: bar.progress(min(f, 1.0), text=f"{step}… {f:.0%}"),
+                         filename=filename)
     finally:
         bar.empty()
     CACHE.mkdir(exist_ok=True)
@@ -65,11 +67,11 @@ st.write("Upload an English novel as a `.txt` file to see its characters, how th
 
 uploaded = st.file_uploader("Book file", type=["txt"], label_visibility="collapsed")
 if uploaded is not None:
-    data, title = uploaded.getvalue(), uploaded.name
+    data, filename = uploaded.getvalue(), uploaded.name
 elif SAMPLE.exists() and st.button("Or try it with *Pride and Prejudice*"):
-    data, title = SAMPLE.read_bytes(), "Pride and Prejudice"
+    data, filename = SAMPLE.read_bytes(), SAMPLE.name
 elif "current" in st.session_state:
-    data, title = None, None  # keep showing the last book
+    data, filename = None, None  # keep showing the last book
 else:
     st.stop()
 
@@ -78,7 +80,8 @@ if data is not None:
     key = hashlib.sha256(data).hexdigest()
     if key not in analyses:
         try:
-            analyses[key] = {"title": title, "analysis": run_analysis(data, key), "merges": []}
+            result = run_analysis(data, key, filename)
+            analyses[key] = {"title": result.title, "analysis": result, "merges": []}
         except ValueError as error:
             st.error(str(error))
             st.stop()
@@ -111,6 +114,8 @@ with st.sidebar:
             st.rerun()
 
 st.subheader(book["title"])
+if analysis.author:
+    st.caption(f"by {analysis.author}")
 overview, mentions, mood, timeline, relations, entities = st.tabs(
     ["Overview", "Mentions", "Story sentiment", "Timeline", "Relationships", "Entities"]
 )

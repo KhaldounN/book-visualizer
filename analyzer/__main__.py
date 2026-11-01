@@ -22,10 +22,10 @@ def main() -> None:
             print(f"\r{step + ':':24}{shown[1]:4}%", end="" if fraction < 1 else "\n", flush=True)
             last = shown
 
-    result = analyze(args.book.read_bytes(), progress, use_coref=not args.no_coref)
+    result = analyze(args.book.read_bytes(), progress, use_coref=not args.no_coref, filename=args.book.name)
     names = {c.id: c.name for c in result.characters}
     print("\n")
-
+    print(result.title + (f" by {result.author}" if result.author else ""))
     print(f"{len(result.chapters)} chapters, {len(result.sentences):,} sentences, "
           f"{len(result.characters)} characters, {len(result.mentions):,} mentions")
     print("Time: " + ", ".join(f"{step} {seconds:.0f}s" for step, seconds in result.timings.items()))
