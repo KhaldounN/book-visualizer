@@ -3,7 +3,7 @@ models (the real ones take minutes and are tested on their own)."""
 
 import pytest
 
-from analyzer import coref, pipeline, sentiment
+from analyzer import coref, emotions, pipeline, sentiment
 
 BOOK = b"""
 CHAPTER I.
@@ -36,11 +36,17 @@ def fake_classify(texts):
     return [tone(t) for t in texts]
 
 
+def fake_emotions(texts):
+    return [{"joy": 0.9, "neutral": 0.1} if "happy" in t else {"sadness": 0.8, "neutral": 0.2} if "sad" in t
+            else {"neutral": 1.0} for t in texts]
+
+
 @pytest.fixture
 def fake_models(monkeypatch, nlp):
     monkeypatch.setattr(pipeline, "load_spacy", lambda: nlp)
     monkeypatch.setattr(coref, "load_model", NoCoref)
     monkeypatch.setattr(sentiment, "load_model", lambda: fake_classify)
+    monkeypatch.setattr(emotions, "load_model", lambda: fake_emotions)
 
 
 def test_whole_pipeline(fake_models):
@@ -59,6 +65,8 @@ def test_whole_pipeline(fake_models):
     # happy first chapter, sad second chapter
     assert result.chapter_sentiment[0] > 0 > result.chapter_sentiment[1]
     assert result.sentiment_by_chapter[anna][0] > 0 > result.sentiment_by_chapter[anna][1]
+    happy = next(s for s in result.sentences if "happy" in s.text)
+    assert emotions.top_emotion(happy.emotions) == "joy"
 
     fractions = [f for _, f in progress]
     assert fractions == sorted(fractions), "progress never goes backwards"

@@ -26,6 +26,7 @@ class Sentence:
     chapter: int
     entities: list[Entity] = field(default_factory=list)
     sentiment: float = 0.0  # -1 (very negative) to +1 (very positive)
+    emotions: dict[str, float] = field(default_factory=dict)  # emotion -> probability
 
 
 @dataclass

@@ -11,6 +11,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Analyze the characters and sentiment of a novel.")
     parser.add_argument("book", type=Path, help="a .txt file")
     parser.add_argument("--no-coref", action="store_true", help="skip pronoun linking (faster)")
+    parser.add_argument("--no-emotions", action="store_true", help="skip emotion detection (faster)")
     args = parser.parse_args()
 
     last = None
@@ -22,7 +23,8 @@ def main() -> None:
             print(f"\r{step + ':':24}{shown[1]:4}%", end="" if fraction < 1 else "\n", flush=True)
             last = shown
 
-    result = analyze(args.book.read_bytes(), progress, use_coref=not args.no_coref, filename=args.book.name)
+    result = analyze(args.book.read_bytes(), progress, use_coref=not args.no_coref, filename=args.book.name,
+                     use_emotions=not args.no_emotions)
     names = {c.id: c.name for c in result.characters}
     print("\n")
     print(result.title + (f" by {result.author}" if result.author else ""))

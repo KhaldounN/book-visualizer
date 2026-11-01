@@ -8,7 +8,7 @@ import gc
 import time
 from typing import Callable
 
-from . import coref, sentiment
+from . import coref, emotions, sentiment
 from .characters import find_characters
 from .loaders import book_info, load_text
 from .models import BookAnalysis
@@ -20,16 +20,17 @@ SPACY_MODEL = "en_core_web_lg"
 
 # Bump this whenever BookAnalysis changes shape or the analysis changes, so
 # results saved by an older version are re-analyzed instead of loaded
-ANALYSIS_VERSION = 2
+ANALYSIS_VERSION = 3
 
 # (step name, share of the total time) measured on Pride and Prejudice;
 # used to turn each step's own progress into one overall progress bar
 STEPS = {
-    "Reading sentences": 0.05,
-    "Finding characters": 0.01,
-    "Linking pronouns": 0.30,
-    "Scoring sentiment": 0.62,
-    "Finding relationships": 0.02,
+    "Reading sentences": 0.04,  # ~17 s
+    "Finding characters": 0.01,  # <1 s
+    "Linking pronouns": 0.35,  # ~145 s
+    "Scoring sentiment": 0.40,  # ~165 s
+    "Detecting emotions": 0.19,  # ~80 s
+    "Finding relationships": 0.01,  # <1 s
 }
 
 ProgressCallback = Callable[[str, float], None]  # (step name, overall 0..1)
@@ -64,6 +65,7 @@ def analyze(
     progress: ProgressCallback | None = None,
     use_coref: bool = True,
     filename: str | None = None,
+    use_emotions: bool = True,
 ) -> BookAnalysis:
     """Analyze an uploaded book file. Takes a few minutes for a full novel.
     The filename is only used as the title when the book doesn't name itself."""
@@ -109,6 +111,15 @@ def analyze(
     del classify
     gc.collect()
     timed("Scoring sentiment", started)
+
+    started = time.time()
+    report = tracker.step("Detecting emotions")
+    if use_emotions:
+        classify = emotions.load_model()
+        emotions.detect_emotions(sentences, classify, report)
+        del classify
+        gc.collect()
+    timed("Detecting emotions", started)
 
     started = time.time()
     tracker.step("Finding relationships")
