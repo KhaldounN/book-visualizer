@@ -13,6 +13,7 @@ def main() -> None:
     parser.add_argument("book", type=Path, help="a .txt file")
     parser.add_argument("--no-coref", action="store_true", help="skip pronoun linking (faster)")
     parser.add_argument("--no-emotions", action="store_true", help="skip emotion detection (faster)")
+    parser.add_argument("--no-themes", action="store_true", help="name chapters by keywords only (no theme model)")
     args = parser.parse_args()
 
     last = None
@@ -25,7 +26,7 @@ def main() -> None:
             last = shown
 
     result = analyze(args.book.read_bytes(), progress, use_coref=not args.no_coref, filename=args.book.name,
-                     use_emotions=not args.no_emotions)
+                     use_emotions=not args.no_emotions, use_themes=not args.no_themes)
     names = {c.id: c.name for c in result.characters}
     print("\n")
     print(result.title + (f" by {result.author}" if result.author else ""))
@@ -54,6 +55,13 @@ def main() -> None:
             # strongest emotion other than neutral in the early, middle and late book
             arc = [max((e for e in mix if e != "neutral"), key=mix.get) if mix else "-" for mix in r.emotions_by_part]
             print(f"{'':19}emotions: {' -> '.join(arc)}")
+
+    if result.chapter_events:
+        print("\nChapter themes (the clearest ones):")
+        clearest = sorted(range(len(result.chapters)), key=lambda c: -result.chapter_events[c].strength)[:8]
+        for c in sorted(clearest):
+            e = result.chapter_events[c]
+            print(f"  {result.chapters[c].title:16} {e.theme:14} {e.event[:70]}")
 
     ranked = sorted(range(len(result.chapters)), key=lambda c: result.chapter_sentiment[c])
     for label, chapters in (("darkest", ranked[:3]), ("brightest", ranked[-3:][::-1])):

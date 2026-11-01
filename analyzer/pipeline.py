@@ -8,7 +8,7 @@ import gc
 import time
 from typing import Callable
 
-from . import coref, emotions, sentiment
+from . import chapter_events, coref, emotions, sentiment
 from .characters import find_characters
 from .loaders import book_info, load_text
 from .models import BookAnalysis
@@ -26,7 +26,7 @@ SPACY_MODEL = "en_core_web_lg"
 
 # Bump this whenever BookAnalysis changes shape or the analysis changes, so
 # results saved by an older version are re-analyzed instead of loaded
-ANALYSIS_VERSION = 3
+ANALYSIS_VERSION = 4
 
 # (step name, share of the total time) measured on Pride and Prejudice;
 # used to turn each step's own progress into one overall progress bar
@@ -34,8 +34,9 @@ STEPS = {
     "Reading sentences": 0.04,  # ~17 s
     "Finding characters": 0.01,  # <1 s
     "Linking pronouns": 0.35,  # ~145 s
-    "Scoring sentiment": 0.40,  # ~165 s
+    "Scoring sentiment": 0.39,  # ~165 s
     "Detecting emotions": 0.19,  # ~80 s
+    "Naming chapters": 0.01,  # ~5 s
     "Finding relationships": 0.01,  # <1 s
 }
 
@@ -76,6 +77,7 @@ def analyze(
     use_coref: bool = True,
     filename: str | None = None,
     use_emotions: bool = True,
+    use_themes: bool = True,
 ) -> BookAnalysis:
     """Analyze an uploaded book file. Takes a few minutes for a full novel.
     The filename is only used as the title when the book doesn't name itself."""
@@ -132,6 +134,14 @@ def analyze(
     timed("Detecting emotions", started)
 
     started = time.time()
+    report = tracker.step("Naming chapters")
+    embed = chapter_events.load_model() if use_themes else None
+    events = chapter_events.name_chapters(sentences, characters, len(chapters), embed, report)
+    del embed
+    gc.collect()
+    timed("Naming chapters", started)
+
+    started = time.time()
     tracker.step("Finding relationships")
     n_chars, n_chapters = len(characters), len(chapters)
     relationships = find_relationships(sentences, mentions, n_chapters)
@@ -148,6 +158,7 @@ def analyze(
         timings=timings,
         chapter_emotions=chapter_emotions(sentences, n_chapters),
         character_emotions=emotions_by_character(mentions, sentences, n_chars),
+        chapter_events=events,
     )
     analysis.title, analysis.author = book_info(data, filename)
     timed("Finding relationships", started)

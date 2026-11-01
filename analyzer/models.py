@@ -84,6 +84,16 @@ class Relationship:
 
 
 @dataclass
+class ChapterEvent:
+    """What a chapter is about, found by local models (see chapter_events.py)."""
+
+    theme: str  # one word from chapter_events.THEMES, e.g. "Proposal" (or the top keyword)
+    strength: float  # how much the theme stands out in this chapter (above 2 = clearly; 0 = no model used)
+    event: str  # the chapter's most telling sentence, shortened
+    keywords: list[str]  # the words most typical of the chapter
+
+
+@dataclass
 class KeyMoment:
     """A passage whose sentences are, on average, especially dark or bright."""
 
@@ -112,3 +122,7 @@ class BookAnalysis:
     author: str | None = None
     chapter_emotions: list[dict[str, float]] = field(default_factory=list)  # [chapter] -> mix
     character_emotions: list[dict[str, float]] = field(default_factory=list)  # [character] -> mix
+    # [chapter] -> its theme and event. A plain None default (not a list
+    # factory) so analyses saved before this field existed still load:
+    # unpickling falls back to the class default.
+    chapter_events: list[ChapterEvent] | None = None

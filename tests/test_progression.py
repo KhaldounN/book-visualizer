@@ -1,7 +1,7 @@
 import pytest
 
 from analyzer.models import Sentence
-from analyzer.progression import key_moments, rolling_sentiment
+from analyzer.progression import key_moments, rolling_sentiment, story_arc
 
 
 def book(*tones, chapters=None):
@@ -40,6 +40,22 @@ def test_key_moments_stay_inside_one_chapter():
     sentences = book(0, 0, -0.9, -0.9, -0.9, 0, chapters=[0, 0, 0, 1, 1, 1])
     dark, _ = key_moments(sentences, window=3, n=1)
     assert dark[0].chapter == 1 and (dark[0].first, dark[0].last) == (3, 5)
+
+
+def test_story_arc_finds_the_peak_and_the_dip_and_splits_acts_at_the_dip():
+    # rises to a high around chapter 5, falls to a low around chapter 15, recovers
+    tones = [0.0, 0.1, 0.2, 0.3, 0.4, 0.3, 0.2, 0.1, 0.0, -0.1, -0.2, -0.3, -0.4, -0.5, -0.6,
+             -0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2]
+    arc, turning, acts = story_arc(tones, smooth=0, points=2)
+    assert arc == tones  # no smoothing
+    assert turning == [(4, "high"), (14, "low")]
+    assert acts == [(0, 13), (14, 22)]  # every chapter belongs to exactly one act
+
+
+def test_story_arc_smoothing_and_flat_books():
+    arc, turning, acts = story_arc([0.2] * 10, smooth=2)
+    assert arc == pytest.approx([0.2] * 10)
+    assert acts == [(0, 9)]  # nothing turns: one act
 
 
 def test_book_shorter_than_the_window_has_no_key_moments():

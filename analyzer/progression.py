@@ -61,6 +61,34 @@ def key_moments(sentences: list[Sentence], window: int = 20, n: int = 3) -> tupl
     return pick(ranked), pick(ranked[::-1])
 
 
+MIN_SWING = 0.005  # a turning point must move the smoothed tone at least this much
+
+
+def story_arc(chapter_tone: list[float], smooth: int = 4, points: int = 6
+              ) -> tuple[list[float], list[tuple[int, str]], list[tuple[int, int]]]:
+    """The book's overall shape: (arc, turning points, acts).
+
+    arc: each chapter's tone averaged with `smooth` chapters either side.
+    turning points: (chapter, "high" or "low") for the `points` biggest peaks
+    and dips of the arc. acts: (first, last) chapter of each act; a new act
+    starts at every low point.
+    """
+    n = len(chapter_tone)
+    arc = [sum(chapter_tone[max(0, i - smooth):i + smooth + 1]) / len(chapter_tone[max(0, i - smooth):i + smooth + 1])
+           for i in range(n)]
+    candidates = []
+    for i in range(2, n - 2):
+        near = arc[i - 2:i + 3]
+        swing = abs(arc[i] - (arc[i - 2] + arc[i + 2]) / 2)
+        # a flat stretch is "highest" and "lowest" at once but turns nowhere
+        if arc[i] in (max(near), min(near)) and swing >= MIN_SWING:
+            candidates.append((swing, i, "high" if arc[i] == max(near) else "low"))
+    turning = sorted((i, kind) for _, i, kind in sorted(candidates, reverse=True)[:points])
+    cuts = [0] + [i for i, kind in turning if kind == "low"] + [n]
+    acts = [(a, b - 1) for a, b in zip(cuts, cuts[1:]) if b > a]
+    return arc, turning, acts
+
+
 def chapter_emotions(sentences: list[Sentence], num_chapters: int) -> list[dict[str, float]]:
     """Average emotion mix of each chapter."""
     by_chapter: list[list[dict[str, float]]] = [[] for _ in range(num_chapters)]

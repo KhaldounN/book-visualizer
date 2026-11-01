@@ -3,7 +3,9 @@ models (the real ones take minutes and are tested on their own)."""
 
 import pytest
 
-from analyzer import coref, emotions, pipeline, sentiment
+import numpy as np
+
+from analyzer import chapter_events, coref, emotions, pipeline, sentiment
 
 BOOK = b"""
 CHAPTER I.
@@ -41,12 +43,19 @@ def fake_emotions(texts):
             else {"neutral": 1.0} for t in texts]
 
 
+def fake_embed(texts):
+    """Pretend meaning-vectors: happy text points one way, sad text another."""
+    v = np.array([[t.count("happy") + 0.1, t.count("sad") + 0.1] for t in texts], dtype=float)
+    return v / np.linalg.norm(v, axis=1, keepdims=True)
+
+
 @pytest.fixture
 def fake_models(monkeypatch, nlp):
     monkeypatch.setattr(pipeline, "load_spacy", lambda: nlp)
     monkeypatch.setattr(coref, "load_model", NoCoref)
     monkeypatch.setattr(sentiment, "load_model", lambda: fake_classify)
     monkeypatch.setattr(emotions, "load_model", lambda: fake_emotions)
+    monkeypatch.setattr(chapter_events, "load_model", lambda: fake_embed)
 
 
 def test_whole_pipeline(fake_models):
@@ -67,6 +76,8 @@ def test_whole_pipeline(fake_models):
     assert result.sentiment_by_chapter[anna][0] > 0 > result.sentiment_by_chapter[anna][1]
     happy = next(s for s in result.sentences if "happy" in s.text)
     assert emotions.top_emotion(happy.emotions) == "joy"
+    assert len(result.chapter_events) == 2
+    assert all(e.theme in chapter_events.THEMES and e.event for e in result.chapter_events)
 
     fractions = [f for _, f in progress]
     assert fractions == sorted(fractions), "progress never goes backwards"
