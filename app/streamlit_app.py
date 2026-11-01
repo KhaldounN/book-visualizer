@@ -72,20 +72,41 @@ def run_analysis(data: bytes, key: str, filename: str):
     return result
 
 
-# --- Upload and analysis ---------------------------------------------------
+def panel(title: str, explanation: str, columns: tuple = (1, 2.4)):
+    """One dashboard row: what the visualization shows on the left, the
+    visualization itself on the right. Returns both columns."""
+    st.space("small")
+    left, right = st.columns(columns, gap="large")
+    with left:
+        st.markdown(f"#### {title}")
+        st.markdown(explanation)
+    return left, right
 
-st.title("📖 Book Analyzer")
-st.write("Upload an English novel as a `.txt` file to see its characters, how they relate, "
-         "and how the mood changes through the story.")
 
-uploaded = st.file_uploader("Book file", type=["txt"], label_visibility="collapsed")
+def section(title: str, intro: str) -> None:
+    st.divider()
+    st.header(title, anchor=title.lower().replace(" ", "-"))
+    st.caption(intro)
+
+
+# --- Upload and analysis (in the sidebar, so the page is all dashboard) -----------
+
+with st.sidebar:
+    st.title("📖 Book Analyzer")
+    st.caption("Upload an English novel as a `.txt` file to see its characters, how they relate, "
+               "and how the mood changes through the story.")
+    uploaded = st.file_uploader("Book file", type=["txt"])
+    sample_clicked = SAMPLE.exists() and st.button("Try it with *Pride and Prejudice*")
+
 if uploaded is not None:
     data, filename = uploaded.getvalue(), uploaded.name
-elif SAMPLE.exists() and st.button("Or try it with *Pride and Prejudice*"):
+elif sample_clicked:
     data, filename = SAMPLE.read_bytes(), SAMPLE.name
 elif "current" in st.session_state:
     data, filename = None, None  # keep showing the last book
 else:
+    st.title("📖 Book Analyzer")
+    st.info("Upload a novel in the sidebar, or try the sample book there, to see its dashboard.")
     st.stop()
 
 analyses = st.session_state.setdefault("analyses", {})
@@ -106,10 +127,15 @@ if not analysis.characters:
     st.warning("No characters were found in this book.")
     st.stop()
 
-# --- Sidebar: merge characters ----------------------------------------------
+# --- Sidebar: title and merging characters ----------------------------------------
 
 with st.sidebar:
-    st.header("Merge characters")
+    st.divider()
+    new_title = st.text_input("Book title", book["title"], key=f"title_{st.session_state['current']}")
+    if new_title.strip() and new_title != book["title"]:
+        book["title"] = new_title.strip()
+        st.rerun()
+    st.subheader("Merge characters")
     st.caption("Nicknames and married names need knowledge of the story, so the analysis "
                "keeps them apart. Merge them here, e.g. *Lizzy* into *Elizabeth*.")
     names = [c.name for c in charts.top_characters(analysis, len(analysis.characters))]
@@ -126,43 +152,45 @@ with st.sidebar:
             book["merges"].clear()
             st.rerun()
 
-st.subheader(book["title"])
+has_emotions = any(analysis.chapter_emotions)
+events = explore3d.events_of(analysis)
+book_mix = average_emotions([s.emotions for s in analysis.sentences])
+names = {c.id: c.name for c in analysis.characters}
+
+# --- Header and KPIs ---------------------------------------------------------------
+
+st.title(book["title"])
 if analysis.author:
     st.caption(f"by {analysis.author}")
-with st.expander("✏️ Edit title"):
-    new_title = st.text_input("Title", book["title"], key=f"title_{st.session_state['current']}")
-    if new_title.strip() and new_title != book["title"]:
-        book["title"] = new_title.strip()
-        st.rerun()
-has_emotions = any(analysis.chapter_emotions)
-overview, story, mentions, mood, feelings, timeline, relations, entities, explore = st.tabs(
-    ["Overview", "Story timeline", "Mentions", "Story sentiment", "Emotions", "Timeline", "Relationships",
-     "Places & entities", "Explore in 3D"]
-)
 
-# --- Overview -----------------------------------------------------------------
+main = charts.top_characters(analysis, 1)[0]
+book_tone = sum(analysis.chapter_sentiment) / len(analysis.chapter_sentiment)
+ranked = sorted(range(len(analysis.chapters)), key=lambda i: analysis.chapter_sentiment[i])
+shares = charts.without_neutral(book_mix)
+top_emotion = max(shares, key=shares.get) if shares else None
+strongest = analysis.relationships[0] if analysis.relationships else None
 
-with overview:
-    cols = st.columns(4)
-    cols[0].metric("Chapters", len(analysis.chapters))
-    cols[1].metric("Sentences", f"{len(analysis.sentences):,}")
-    cols[2].metric("Characters", len(analysis.characters))
-    cols[3].metric("Character mentions", f"{len(analysis.mentions):,}")
+row = st.columns(4)
+row[0].metric("Chapters", len(analysis.chapters), border=True)
+row[1].metric("Sentences", f"{len(analysis.sentences):,}", border=True)
+row[2].metric("Characters", len(analysis.characters), border=True)
+row[3].metric("Character mentions", f"{len(analysis.mentions):,}", border=True)
+row = st.columns(4)
+row[0].metric("Main character", main.name, f"{main.mentions:,} mentions", delta_color="off", border=True)
+row[1].metric("Overall mood", f"{book_tone:+.2f}",
+              "brighter than neutral" if book_tone > 0.02 else "darker than neutral" if book_tone < -0.02 else "neutral",
+              delta_color="off", border=True)
+row[2].metric("Strongest emotion", charts.EMOTION_LABELS[top_emotion].split(" (")[0] if top_emotion else "—",
+              f"{shares[top_emotion]:.0%} of the emotional text" if top_emotion else None, delta_color="off", border=True)
+row[3].metric("Closest pair", f"{names[strongest.source]} & {names[strongest.target]}" if strongest else "—",
+              f"{strongest.count} moments together" if strongest else None, delta_color="off", border=True)
+row = st.columns(2)
+row[0].metric("Darkest chapter", analysis.chapters[ranked[0]].title,
+              f"mood {analysis.chapter_sentiment[ranked[0]]:+.2f} · {events[ranked[0]].theme}", delta_color="off", border=True)
+row[1].metric("Brightest chapter", analysis.chapters[ranked[-1]].title,
+              f"mood {analysis.chapter_sentiment[ranked[-1]]:+.2f} · {events[ranked[-1]].theme}", delta_color="off", border=True)
 
-    ranked = sorted(range(len(analysis.chapters)), key=lambda i: analysis.chapter_sentiment[i])
-    left, right = st.columns(2)
-    with left:
-        st.markdown("**Darkest chapters**")
-        for i in ranked[:3]:
-            st.write(f"{analysis.chapters[i].title} — tone {analysis.chapter_sentiment[i]:+.2f}")
-    with right:
-        st.markdown("**Brightest chapters**")
-        for i in ranked[::-1][:3]:
-            st.write(f"{analysis.chapters[i].title} — tone {analysis.chapter_sentiment[i]:+.2f}")
-
-    st.markdown("**Main characters**")
-    st.write(" · ".join(f"{c.name} ({c.mentions:,})" for c in charts.top_characters(analysis, 8)))
-
+with st.container():
     with st.expander("How to read these results"):
         st.markdown(
             "- **Tone** comes from an AI model that scores each sentence from −1 (negative) to +1 "
@@ -180,7 +208,50 @@ with overview:
         )
     st.caption("Analysis time: " + ", ".join(f"{k} {v:.0f}s" for k, v in analysis.timings.items()))
 
-# --- Story timeline ----------------------------------------------------------------
+# --- Explore in 3D ---------------------------------------------------------------------
+
+SCENE_HELP = {
+    "skyline": "The whole book as a city. **Each tower is a chapter**, built from blocks of its emotions: the "
+               "taller the tower, the more emotional the chapter. The **floor tile** shows the chapter's mood "
+               "(blue brighter, red darker) and the **white line** traces that mood through the book. Yellow "
+               "tags mark the chapters whose theme stands out most.\n\n"
+               "**Try:** click a tower for its card, or press **Fly through** to travel from the first chapter "
+               "to the last.",
+    "constellation": "**Each character is a star.** Where it sits says who they are emotionally: left to right "
+                     "is darker to brighter tone, bottom to top is early to late in the book, back to front is "
+                     "cold emotions (anger, disgust, fear, sadness) to warm ones (joy, surprise). Size = how "
+                     "often they are mentioned; colour = the emotion that stands out for them; lines = "
+                     "relationships, coloured by tone.\n\n**Try:** click a star to light up only its "
+                     "relationships and open its emotion card.",
+    "terrain": "**The book as a landscape.** Each character is a ridge running from the first chapter to the "
+               "last. Mountains rise where they are talked about; the ground's colour is the mood around them "
+               "(red darker, blue brighter).\n\n**Try:** hover anywhere to read the character, chapter and tone; "
+               "look for ridges that only rise late in the story.",
+    "crystal": "**A hologram portrait of one character.** Six crystal spikes grow from the core, one per "
+               "emotion, as long as that emotion's share. The ring around it goes once round the book: it rises "
+               "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\n**Try:** switch "
+               "characters and compare their shapes.",
+    "dna": "**A relationship as a double helix.** The two strands are two characters running through the "
+           "book. A rung joins them in every chapter where they share a moment: thicker when they meet more, "
+           "coloured by the mood of those moments. Gaps are chapters they spend apart.\n\n**Try:** pick "
+           "different pairs and compare how often, and when, they meet.",
+    "tunnel": "**Fly through the book.** Every chapter is a glowing ring split into the colours of its "
+              "emotions. Bright chapters open wide around you, dark chapters close in.\n\n**Try:** press play, "
+              "or drag the slider to jump to a chapter; move the mouse to look around.",
+}
+
+section("Explore in 3D", "Interactive views to explore the book. Drag any of them to rotate. They are best for "
+        "spotting patterns; the charts further down give exact numbers.")
+for scene, title in explore3d.SCENES.items():
+    left, right = panel(title, SCENE_HELP[scene])
+    with right:
+        if scene in explore3d.EMOTION_SCENES and not has_emotions:
+            st.info("This view needs emotions, which were not detected for this book.")
+        else:
+            components.html(explore3d.scene_html(analysis, scene), height=520)
+
+# --- The story ---------------------------------------------------------------------------
+
 
 def chapter_cards(events: list, details: list[dict]) -> str:
     """A sideways-scrolling strip of chapter cards (plain HTML and CSS)."""
@@ -189,9 +260,9 @@ def chapter_cards(events: list, details: list[dict]) -> str:
     for ch, (event, detail) in enumerate(zip(events, details)):
         tone = analysis.chapter_sentiment[ch]
         color = positive if tone >= 0.04 else negative if tone <= -0.04 else middle
-        shares = charts.without_neutral(analysis.chapter_emotions[ch]) if has_emotions else {}
-        mix = "".join(f'<i style="flex:{shares[e]};background:{theme["emotions"][e]}"></i>' for e in charts.EMOTION_ORDER
-                      if shares.get(e))
+        mix_shares = charts.without_neutral(analysis.chapter_emotions[ch]) if has_emotions else {}
+        mix = "".join(f'<i style="flex:{mix_shares[e]};background:{theme["emotions"][e]}"></i>'
+                      for e in charts.EMOTION_ORDER if mix_shares.get(e))
         place = f"<br>at {html.escape(detail['place'])}" if detail["place"] else ""
         cards.append(
             f'<article><div class="top"><span>{html.escape(analysis.chapters[ch].title)}</span>'
@@ -212,68 +283,54 @@ def chapter_cards(events: list, details: list[dict]) -> str:
     </style><div class="cards">{"".join(cards)}</div>"""
 
 
-with story:
-    events = explore3d.events_of(analysis)
-    st.caption("Each chapter gets a theme picked by a small AI model running on this computer, and its most "
-               "telling sentence as its main event. The model is right about half the time and close most of the "
-               "rest, so each label shows its sentence and keywords too.")
-    if not analysis.chapter_events:
-        st.info("This analysis was made before chapter themes existed, so the themes below are keywords. "
-                "Analyze the book again to get model themes.")
+section("The story", "What happens chapter by chapter. Each chapter's theme is picked by a small AI model running "
+        "on this computer; it is right about half the time, so every label comes with the sentence and words it "
+        "is based on.")
+if not analysis.chapter_events:
+    st.info("This analysis was made before chapter themes existed, so the themes are keywords. "
+            "Analyze the book again to get model themes.")
 
-    st.markdown("#### The story in 3D")
-    if has_emotions:
-        components.html(explore3d.scene_html(analysis, "skyline"), height=580)
-        st.caption("Each tower is a chapter, built from its emotions: taller means more emotional. The floor shows "
-                   "its mood (blue brighter, red darker), the white line traces the mood, and tags mark the "
-                   "clearest themes. Drag to rotate, click a tower, or fly through the book.")
-    else:
-        st.info("The 3D view needs emotions, which were not detected for this book.")
-
-    st.markdown("#### Timeline")
-    labels = st.slider("Themes to label", 0, min(30, len(events)), min(12, len(events)), key="theme_labels",
-                       help="Labels the chapters whose theme stands out most. Hover any chapter for all its details.")
+left, right = panel("Timeline", "**Top:** each chapter's mood as a bar (blue brighter, red darker) with the "
+                    "trend as a line, and the clearest chapter themes pinned above. **Bottom:** how the mix of "
+                    "emotions shifts through the book.\n\nHover any chapter for its theme, main sentence, "
+                    "characters and place.")
+with left:
+    labels = st.slider("Themes to label", 0, min(30, len(events)), min(12, len(events)), key="theme_labels")
+with right:
     st.plotly_chart(charts.story_timeline(analysis, theme, events, labels), width="stretch")
 
-    st.markdown("#### Story arc and turning points")
-    arc, turning, acts = story_arc(analysis.chapter_sentiment)
-    st.caption("The mood smoothed into the story's overall shape. The biggest peaks and dips are turning points; "
-               "each dip starts a new act.")
+arc, turning, acts = story_arc(analysis.chapter_sentiment)
+left, right = panel("Story arc", f"The mood smoothed into the story's overall shape. The biggest peaks and dips "
+                    f"are **turning points**, labelled with their chapter's theme, and every dip starts a new "
+                    f"**act**: this book has {len(acts)}.")
+with right:
     st.plotly_chart(charts.story_arc_chart(analysis, theme, events, arc, turning, acts), width="stretch")
 
-    st.markdown("#### Chapter by chapter")
-    details = charts.chapter_details(analysis)
-    st.html(chapter_cards(events, details))
+left, right = panel("Chapter by chapter", "One card per chapter: its theme, its most telling sentence, its mood, "
+                    "its mix of emotions, who is in it and where it happens.\n\n**Scroll sideways** through "
+                    "the cards.")
+with right:
+    st.html(chapter_cards(events, charts.chapter_details(analysis)))
     table(pd.DataFrame([
         {"Chapter": c.title, "Theme": e.theme, "Main event": e.event, "Keywords": ", ".join(e.keywords),
          "Mood": round(analysis.chapter_sentiment[i], 3)}
         for i, (c, e) in enumerate(zip(analysis.chapters, events))
     ]))
 
-# --- Mentions -------------------------------------------------------------------
+# --- Mood --------------------------------------------------------------------------------------
 
-with mentions:
-    top = how_many("Characters to show", len(analysis.characters), 15, "mentions_top")
-    st.plotly_chart(charts.mentions_bars(analysis, theme, top), width="stretch")
-    by_name = pd.Series([m.character_id for m in analysis.mentions if m.source == "name"]).value_counts()
-    table(pd.DataFrame([
-        {"Character": c.name, "Mentions": c.mentions, "By name": int(by_name.get(c.id, 0)),
-         "Also called": ", ".join(c.aliases[1:6])}
-        for c in charts.top_characters(analysis, len(analysis.characters))
-    ]))
+section("Mood", "The tone of the sentences, from −1 (negative) to +1 (positive), scored by an AI model.")
 
-# --- Story sentiment --------------------------------------------------------------
-
-with mood:
-    candidates = charts.top_characters(analysis, 8)
-    left, right = st.columns([3, 1])
-    chosen = left.multiselect(
-        "Compare with characters (shows the tone of the sentences that mention them)",
-        [c.name for c in candidates], default=[c.name for c in candidates[:2]], max_selections=4,
-    )
-    smooth = right.select_slider("Smoothing", options=[1, 3, 5, 7], value=3,
-                                 help="Average over this many neighbouring chapters to show the trend")
-    ids = [c.id for c in candidates if c.name in chosen]
+candidates = charts.top_characters(analysis, 8)
+left, right = panel("Mood by chapter", "The average tone of each chapter for the **whole book** (gray), next to "
+                    "the tone of the sentences that mention the characters you pick. Smoothing averages "
+                    "neighbouring chapters to show the trend.")
+with left:
+    chosen = st.multiselect("Characters", [c.name for c in candidates], default=[c.name for c in candidates[:2]],
+                            max_selections=4, key="mood_characters")
+    smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=3, key="mood_smooth")
+ids = [c.id for c in candidates if c.name in chosen]
+with right:
     st.plotly_chart(charts.story_sentiment(analysis, theme, ids, smooth), width="stretch")
     rows = []
     for i, chapter in enumerate(analysis.chapters):
@@ -284,86 +341,121 @@ with mood:
         rows.append(row)
     table(pd.DataFrame(rows))
 
-    st.markdown("#### Mood sentence by sentence")
-    detail = st.radio("Detail", ["Detailed", "Broad"], horizontal=True, label_visibility="collapsed",
+moments = key_moments(analysis.sentences, window=20, n=3)
+left, right = panel("Mood sentence by sentence", "The mood along the whole book, sentence by sentence: **blue** "
+                    "above the line is brighter, **red** below is darker. ▼ and ▲ mark the darkest and brightest "
+                    "passages, quoted below.\n\n**Detailed** follows the small ups and downs, **Broad** the "
+                    "big movements.")
+with left:
+    detail = st.radio("Detail", ["Detailed", "Broad"], horizontal=True, key="mood_detail",
                       captions=["average of 15 sentences", "average of 60 sentences"])
+with right:
     window = 15 if detail == "Detailed" else 60
-    moments = key_moments(analysis.sentences, window=20, n=3)
     st.plotly_chart(charts.mood_arc(analysis, theme, rolling_sentiment(analysis.sentences, window), moments),
                     width="stretch")
 
-    st.markdown("#### Key moments")
-    st.caption("The passages of 20 sentences with the darkest and the brightest tone (marked ▼ and ▲ above).")
+left, right = panel("Key moments", "The passages of 20 sentences with the darkest and the brightest tone in the "
+                    "book, so you can read what the numbers point at.")
+with right:
     for column, kind, found in zip(st.columns(2), ("Darkest", "Brightest"), moments):
         with column:
             for n, m in enumerate(found, start=1):
                 st.markdown(f"**{kind} {n}** · {analysis.chapters[m.chapter].title} · tone {m.score:+.2f}")
                 st.markdown(f"> {passage(analysis, m)}")
 
-# --- Emotions -------------------------------------------------------------------------
+# --- Emotions -----------------------------------------------------------------------------------
 
-with feelings:
-    if not has_emotions:
-        st.info("Emotions were not detected for this book.")
-    else:
-        book_mix = average_emotions([s.emotions for s in analysis.sentences])
-        st.caption(f"About {book_mix.get('neutral', 0):.0%} of the text is neutral narration. The charts below "
-                   "show how the rest divides between the six emotions.")
-        st.markdown("#### The book's emotional mix")
+section("Emotions", f"Each sentence gets one of seven emotions from an AI model. About "
+        f"{book_mix.get('neutral', 0):.0%} of this book is neutral narration; the charts show how the rest divides. "
+        "\"Disgust\" mostly means disapproval or contempt.")
+if not has_emotions:
+    st.info("Emotions were not detected for this book.")
+else:
+    left, right = panel("The book's emotional mix", "How the emotional (non-neutral) sentences of the book divide "
+                        "between the six emotions.")
+    with right:
         st.plotly_chart(charts.emotion_bars(theme, book_mix), width="stretch")
 
-        st.markdown("#### Emotions through the story")
-        smooth = st.select_slider("Smoothing  ", options=[1, 3, 5, 7], value=5, key="emotion_smooth",
-                                  help="Average over this many neighbouring chapters to show the trend")
+    left, right = panel("Emotions through the story", "How the mix of emotions changes from chapter to chapter. "
+                        "Each colour band is one emotion; a wider band means that emotion is a bigger part of "
+                        "the chapter.")
+    with left:
+        smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="emotion_smooth")
+    with right:
         st.plotly_chart(charts.emotion_journey(analysis, theme, smooth), width="stretch")
         table(pd.DataFrame([
             {"Chapter": c.title, **{charts.EMOTION_LABELS[e]: round(mix.get(e, 0), 3) for e in mix}}
             for c, mix in zip(analysis.chapters, analysis.chapter_emotions)
         ]))
 
-        st.markdown("#### A character's emotions")
-        st.caption("The emotions of the sentences that mention them, next to the whole book in gray.")
-        options = charts.top_characters(analysis, 20)
-        who = st.selectbox("Character", options, format_func=lambda c: c.name, key="emotion_character")
+    left, right = panel("A character's emotions", "The emotions of the sentences that mention one character "
+                        "(in colour), next to the whole book (in gray). Bars longer than the gray ones are what "
+                        "stands out about them.")
+    with left:
+        who = st.selectbox("Character", charts.top_characters(analysis, 20), format_func=lambda c: c.name,
+                           key="emotion_character")
+    with right:
         st.plotly_chart(charts.emotion_bars(theme, analysis.character_emotions[who.id], book_mix, name=who.name),
                         width="stretch")
 
-# --- Timeline -------------------------------------------------------------------------
+# --- Characters ---------------------------------------------------------------------------------
 
-with timeline:
-    st.write("Where each character appears: darker means mentioned more in that chapter.")
+section("Characters", "Who the book is about. Mentions count names and pronouns (\"she\", \"his\"); pronouns are "
+        "linked by an AI model that is right about 3 times in 4, so treat counts as estimates.")
+
+left, right = panel("Mentions", "How often each character is mentioned, **by name** and **by pronoun or "
+                    "description**. Two names for one person (a nickname, a married name)? Merge them in the "
+                    "sidebar.")
+with left:
+    top = how_many("Characters to show", len(analysis.characters), 15, "mentions_top")
+with right:
+    st.plotly_chart(charts.mentions_bars(analysis, theme, top), width="stretch")
+    by_name = pd.Series([m.character_id for m in analysis.mentions if m.source == "name"]).value_counts()
+    table(pd.DataFrame([
+        {"Character": c.name, "Mentions": c.mentions, "By name": int(by_name.get(c.id, 0)),
+         "Also called": ", ".join(c.aliases[1:6])}
+        for c in charts.top_characters(analysis, len(analysis.characters))
+    ]))
+
+left, right = panel("Where they appear", "Each row is a character, each column a chapter: the darker the "
+                    "square, the more they are mentioned there. It shows who carries which part of the story.")
+with left:
     top = how_many("Characters to show", len(analysis.characters), 15, "timeline_top")
+with right:
     st.plotly_chart(charts.timeline_heatmap(analysis, theme, top), width="stretch")
-    shown = charts.top_characters(analysis, top)
     table(pd.DataFrame(
-        {c.name: analysis.mentions_by_chapter[c.id] for c in shown},
+        {c.name: analysis.mentions_by_chapter[c.id] for c in charts.top_characters(analysis, top)},
         index=[ch.title for ch in analysis.chapters],
     ).reset_index(names="Chapter"))
 
-# --- Relationships -------------------------------------------------------------------------
+# --- Relationships ------------------------------------------------------------------------------
 
-with relations:
-    if not analysis.relationships:
-        st.info("No characters appear together often enough to show relationships.")
-    else:
-        left, right = st.columns(2)
-        with left:
-            top = how_many("Characters in the network", len(analysis.characters), 20, "network_top")
-        min_count = right.slider("Hide links with fewer moments together than", 3, 50, 10)
-        st.caption("Bigger dot = mentioned more. Thicker line = together more often. "
-                   "Line colour = average tone of their shared moments.")
+section("Relationships", "Two characters are together when both are mentioned in the same or neighbouring "
+        "sentences. A relationship's tone is the tone of those shared moments.")
+if not analysis.relationships:
+    st.info("No characters appear together often enough to show relationships.")
+else:
+    left, right = panel("Who is connected", "Each dot is a character (bigger = mentioned more). A line joins two "
+                        "characters who share moments: **thicker** means together more often, and its **colour** "
+                        "is the average tone of those moments (blue brighter, red darker).")
+    with left:
+        top = how_many("Characters in the network", len(analysis.characters), 20, "network_top")
+        min_count = st.slider("Hide links with fewer moments together than", 3, 50, 10, key="network_min")
+    with right:
         st.plotly_chart(charts.relationship_network(analysis, theme, top, min_count), width="stretch")
 
-        st.markdown("#### How a relationship changes")
-        names = {c.id: c.name for c in analysis.characters}
-        labels = [f"{names[r.source]} & {names[r.target]} ({r.count})" for r in analysis.relationships[:40]]
-        picked = st.selectbox("Pair", range(len(labels)), format_func=lambda i: labels[i])
-        pair = analysis.relationships[picked]
-        smooth = st.select_slider("Smoothing ", options=[1, 3, 5, 7], value=5, key="pair_smooth")
+    left, right = panel("How a relationship changes", "Pick a pair to follow through the book: the **tone** of "
+                        "their shared moments chapter by chapter, **how often** they meet, and their **emotions** "
+                        "in the early, middle and late book.")
+    with left:
+        pair_labels = [f"{names[r.source]} & {names[r.target]} ({r.count})" for r in analysis.relationships[:40]]
+        picked = st.selectbox("Pair", range(len(pair_labels)), format_func=lambda i: pair_labels[i], key="pair")
+        smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="pair_smooth")
+    pair = analysis.relationships[picked]
+    with right:
         st.plotly_chart(charts.pair_tone(analysis, theme, pair, smooth), width="stretch")
         st.plotly_chart(charts.pair_moments(analysis, theme, pair), width="stretch")
         if any(pair.emotions_by_part):
-            st.markdown("**Their emotions in the early, middle and late book**")
             st.plotly_chart(charts.pair_emotions(theme, pair), width="stretch")
         table(pd.DataFrame([
             {"Character": names[r.source], "With": names[r.target], "Moments together": r.count,
@@ -371,50 +463,24 @@ with relations:
             for r in analysis.relationships
         ]))
 
-# --- Explore in 3D -------------------------------------------------------------------------
+# --- Places ---------------------------------------------------------------------------------------
 
-SCENE_HELP = {
-    "skyline": "Each chapter is a tower built from its emotions (taller = more emotional), standing on a floor "
-               "coloured by its mood. The white line traces the mood and tags mark the clearest themes. Click a "
-               "tower or press Fly through.",
-    "constellation": "Each character is a star. Left to right: darker to brighter tone. Bottom to top: early to "
-                     "late in the book. Back to front: cold to warm emotions. Size = mentions, colour = strongest "
-                     "emotion, lines = relationships. Click a star to see only its relationships.",
-    "terrain": "Each character is a ridge running through the chapters. Height = how much they are mentioned, "
-               "colour = the tone around them (red darker, blue brighter). Hover to read the values.",
-    "crystal": "One character as a hologram: each spike is an emotion, as long as its share. The ring goes once "
-               "round the book and rises (blue) in bright chapters and sinks (red) in dark ones.",
-    "dna": "Two characters as the strands of a double helix. A rung joins them in every chapter where they "
-           "share a moment: thicker when they meet more, coloured by tone. Gaps = chapters apart.",
-    "tunnel": "Fly through the book. Each chapter is a ring split into its emotions; bright chapters open wide, "
-              "dark chapters close in. Use the slider to jump to a chapter.",
-}
-
-with explore:
-    # starts on the constellation: the skyline is already on the Story timeline tab
-    scene = st.radio("Scene", list(explore3d.SCENES), format_func=explore3d.SCENES.get, horizontal=True,
-                     label_visibility="collapsed", key="scene", index=list(explore3d.SCENES).index("constellation"))
-    st.caption(SCENE_HELP[scene] + " Drag to rotate. These views are for exploring; the other tabs give "
-               "exact numbers.")
-    if scene in explore3d.EMOTION_SCENES and not has_emotions:
-        st.info("This scene needs emotions, which were not detected for this book.")
-    else:
-        components.html(explore3d.scene_html(analysis, scene), height=580)
-
-# --- Entities -------------------------------------------------------------------------------
-
-with entities:
-    if not analysis.entities:
-        st.info("No places or other entities were found.")
-    else:
-        places = [e for e in analysis.entities if e.kind == "place"]
-        if places:
-            st.markdown("#### Where the story happens")
-            st.caption("Places by chapter: darker means mentioned more in that chapter.")
+section("Places", "Places, organizations and other named things in the book.")
+if not analysis.entities:
+    st.info("No places or other entities were found.")
+else:
+    places = [e for e in analysis.entities if e.kind == "place"]
+    if places:
+        left, right = panel("Where the story happens", "Each row is a place, each column a chapter: the darker "
+                            "the square, the more the place is mentioned there. It traces the story's journey.")
+        with left:
             top = how_many("Places to show", len(places), 15, "places_top")
+        with right:
             st.plotly_chart(charts.places_heatmap(analysis, theme, top), width="stretch")
 
-        st.markdown("#### Most mentioned")
+    left, right = panel("Most mentioned", "The places, organizations and groups (such as families) named most "
+                        "often in the book.")
+    with right:
         kinds = [(k, label) for k, label in KINDS.items() if any(e.kind == k for e in analysis.entities)]
         for column, (kind, label) in zip(st.columns(len(kinds)), kinds):
             with column:

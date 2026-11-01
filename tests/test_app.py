@@ -66,18 +66,32 @@ def app():
     return at.run()
 
 
-def test_every_tab_renders(app):
+def test_the_dashboard_shows_every_section_in_order(app):
     assert not app.exception
-    assert [t.label for t in app.tabs] == ["Overview", "Story timeline", "Mentions", "Story sentiment", "Emotions",
-                                           "Timeline", "Relationships", "Places & entities", "Explore in 3D"]
+    assert not app.tabs, "one scrolling page, no tabs"
+    assert [h.value for h in app.header] == ["Explore in 3D", "The story", "Mood", "Emotions", "Characters",
+                                             "Relationships", "Places"]
+    assert not app.info, "every section has data to show (no 'nothing found' messages)"
+
+
+def test_kpis_come_first(app):
+    metrics = {m.label: m.value for m in app.metric}
     assert [m.value for m in app.metric][:3] == ["4", "80", "6"]
-    assert not app.info, "every tab has data to show (no 'nothing found' messages)"
+    assert metrics["Main character"] == "Anna"
+    assert metrics["Closest pair"].startswith("Anna & ")
+    assert {"Overall mood", "Strongest emotion", "Darkest chapter", "Brightest chapter"} <= set(metrics)
+
+
+def test_every_visualization_has_an_explanation(app):
+    titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
+    # 6 3D views + timeline, arc, cards + 3 mood + 3 emotion + 2 character + 2 relationship + 2 places
+    assert len(titles) == 6 + 3 + 3 + 3 + 2 + 2 + 2
 
 
 def test_editing_the_title(app):
-    app.text_input[0].set_value("My Better Title").run()
+    app.sidebar.text_input[0].set_value("My Better Title").run()
     assert app.session_state["analyses"]["book"]["title"] == "My Better Title"
-    assert app.subheader[0].value == "My Better Title"
+    assert any(t.value == "My Better Title" for t in app.title)
 
 
 def test_book_without_emotions_still_renders(app):
@@ -91,7 +105,7 @@ def test_book_without_emotions_still_renders(app):
 def test_merging_characters_from_the_sidebar(app):
     app.sidebar.selectbox[0].select("Lizzy").run()
     app.sidebar.selectbox[1].select("Anna").run()
-    app.sidebar.button[0].click().run()
+    next(b for b in app.sidebar.button if b.label == "Merge").click().run()
     assert not app.exception
     assert app.session_state["analyses"]["book"]["merges"] == [("Lizzy", "Anna")]
     assert app.metric[2].value == "5"  # one character fewer

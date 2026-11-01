@@ -142,9 +142,13 @@ function stage({ camera = [0, 4, 16], autoRotate = true, controls = true, fog = 
   }
   const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };
   new ResizeObserver(resize).observe(canvas); resize();
+  // The dashboard shows several 3D views on one page: only draw while this one
+  // is on screen, so the others don't slow the computer down
+  let onScreen = true;
+  new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; }).observe(canvas);
   const tick = [], clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
-    if (document.hidden) return;
+    if (document.hidden || !onScreen) return;
     const t = clock.getElapsedTime();
     orbit?.update(); tick.forEach((f) => f(t)); renderer.render(scene, cam);
   });
