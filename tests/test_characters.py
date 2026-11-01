@@ -1,29 +1,8 @@
 """Tests for the grouping rules, using hand-made entities so the results do
 not depend on spaCy's guesses."""
 
-import re
-
 from analyzer.characters import MIN_MENTIONS, find_characters
-from analyzer.models import Entity, Sentence
-
-
-def make_sentences(lines: list[str]) -> tuple[list[Sentence], str]:
-    """One sentence per line. Words in [brackets] become entities, e.g.
-    "[Darcy|PERSON]" -> entity "Darcy" with label PERSON."""
-    text, sentences = "", []
-    for i, line in enumerate(lines):
-        start = len(text)
-        entities, plain, pos = [], "", 0
-        for m in re.finditer(r"\[([^|\]]+)\|(\w+)\]", line):
-            plain += line[pos:m.start()]
-            entity_start = start + len(plain)
-            plain += m.group(1)
-            entities.append(Entity(m.group(1), m.group(2), entity_start, entity_start + len(m.group(1))))
-            pos = m.end()
-        plain += line[pos:]
-        sentences.append(Sentence(i, plain, start, start + len(plain), 0, entities))
-        text += plain + "\n"
-    return sentences, text
+from helpers import make_sentences
 
 
 def repeat(line: str, times: int = MIN_MENTIONS) -> list[str]:
