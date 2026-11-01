@@ -33,3 +33,32 @@ class Chapter:
     index: int
     title: str
     start: int  # offset where the chapter's story text begins
+
+
+@dataclass
+class Character:
+    id: int
+    name: str  # display name, e.g. "Mr. Darcy"
+    aliases: list[str]  # every way the book names them, most frequent first
+    mentions: int = 0
+
+
+@dataclass
+class Mention:
+    """One place in the text that refers to a character."""
+
+    character_id: int
+    sentence_index: int
+    start: int
+    end: int
+    text: str
+    source: str = "name"  # "name" (found by spaCy) or "coref" (a pronoun etc.)
+
+
+@dataclass
+class EntityCount:
+    """A non-character entity (place, organization, ...) and how often it appears."""
+
+    name: str
+    label: str
+    count: int

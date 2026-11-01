@@ -7,7 +7,8 @@ torch==2.15.0
 
 # NLP
 spacy==3.8.18
-en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+# "lg" finds names much better than "sm" at the same speed (tested on Pride and Prejudice)
+en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl
 fastcoref==2.1.6
 # fastcoref breaks with transformers 5 and datasets 5, so keep them on version 4
 transformers==4.57.6
