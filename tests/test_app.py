@@ -38,8 +38,11 @@ def small_analysis() -> BookAnalysis:
         chapter = i // 20
         tone = 0.5 if chapter % 2 else -0.4
         mood = {"joy": 0.6, "neutral": 0.4} if tone > 0 else {"anger": 0.3, "fear": 0.2, "neutral": 0.5}
+        fine = {"amusement": 0.6} if tone > 0 else {"frustration": 0.3, "nervousness": 0.2}
+        if i % 3 == 0:  # the sentences that mention Anna and Tom's neighbour-free lines
+            fine["guilt"] = 0.5
         sentences.append(Sentence(i, f"s{i}", 0, 0, chapter, sentiment=tone,
-                                  emotions={e: mood.get(e, 0.0) for e in charts.EMOTION_LABELS}))
+                                  emotions={e: mood.get(e, 0.0) for e in charts.EMOTION_LABELS}, fine=fine))
         for c in {0, i % 3, (i + 1) % len(names)}:
             mentions.append(Mention(c, i, 0, 0, "x", "name" if i % 2 else "coref"))
     characters = [Character(i, n, [n], sum(m.character_id == i for m in mentions)) for i, n in enumerate(names)]
@@ -55,6 +58,8 @@ def small_analysis() -> BookAnalysis:
         title="Test Book", author="Ann Example",
         chapter_emotions=chapter_emotions(sentences, len(chapters)),
         character_emotions=emotions_by_character(mentions, sentences, len(characters)),
+        chapter_fine=chapter_emotions(sentences, len(chapters), "fine"),
+        character_fine=emotions_by_character(mentions, sentences, len(characters), "fine"),
         chapter_events=[ChapterEvent(theme, 1.5 + i, f"Something happens in chapter {i + 1}.", ["word", "other"])
                         for i, theme in enumerate(["Ball", "Letter", "Journey", "Wedding"])],
     )
@@ -121,14 +126,28 @@ def test_a_character_keeps_one_colour_everywhere():
 
 def test_every_visualization_has_an_explanation(app):
     titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
-    # 4 3D views + timeline, arc, cards + 3 mood + 3 emotion + 2 character + 2 relationship + 2 places
-    assert len(titles) == 4 + 3 + 3 + 3 + 2 + 2 + 2
+    # 4 3D views + timeline, arc, cards + 3 mood + 4 emotion + 2 character + 2 relationship + 2 places
+    assert len(titles) == 4 + 3 + 3 + 4 + 2 + 2 + 2
 
 
 def test_editing_the_title(app):
     app.sidebar.text_input[0].set_value("My Better Title").run()
     assert app.session_state["analyses"]["book"]["title"] == "My Better Title"
     assert "My Better Title" in app.get("html")[0].proto.body  # the hero banner
+
+
+def test_fine_emotions_show_what_stands_out(app):
+    # Anna is in every sentence, so nothing about her is above the book: no line
+    assert not [m for m in app.markdown if m.value.startswith("**Stands out for")]
+    # Max is only in every 6th sentence, all of which carry guilt (3x the book)
+    app.selectbox(key="emotion_character").select(next(c for c in app.session_state["analyses"]["book"]["analysis"]
+                                                        .characters if c.name == "Max")).run()
+    lines = [m.value for m in app.markdown if m.value.startswith("**Stands out for")]
+    assert lines and lines[0].startswith("**Stands out for Max:** guilt")
+    data = explore3d.scene_data(small_analysis())
+    assert data["warm"] == ["love", "joy", "surprise"]
+    assert len(data["chapterStandOut"]) == 4 and all(isinstance(x, list) for x in data["chapterStandOut"])
+    assert all(len(shares) == len(charts.EMOTION_ORDER) for shares in data["chapterEmotions"])
 
 
 def test_book_without_emotions_still_renders(app):
@@ -166,6 +185,7 @@ def test_charts_build_in_both_themes(mode):
         charts.emotion_bars(theme, analysis.chapter_emotions[0]),
         charts.emotion_bars(theme, analysis.character_emotions[0], analysis.chapter_emotions[1], name="Anna"),
         charts.emotion_journey(analysis, theme, smooth=3),
+        charts.fine_bars(theme, {"guilt": 0.2, "calmness": 0.1, "grief": 0.05}),
         charts.places_heatmap(analysis, theme),
         charts.entity_bars(analysis.entities, theme),
         charts.story_timeline(analysis, theme, analysis.chapter_events, labels=3),

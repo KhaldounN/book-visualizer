@@ -24,11 +24,15 @@ def load_classifier(model_name: str) -> Classifier:
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name).eval()
     labels = [model.config.id2label[i].lower() for i in range(model.config.num_labels)]
+    # "multi-label" models score each label on its own (sigmoid: several can be
+    # high at once); the others share 100% between their labels (softmax)
+    multi_label = model.config.problem_type == "multi_label_classification"
 
     def classify(texts: list[str]) -> list[dict[str, float]]:
         batch = tokenizer(texts, padding=True, truncation=True, max_length=MAX_TOKENS, return_tensors="pt")
         with torch.inference_mode():  # no training, so skip the bookkeeping for it
-            probabilities = model(**batch).logits.softmax(dim=-1)
+            logits = model(**batch).logits
+            probabilities = logits.sigmoid() if multi_label else logits.softmax(dim=-1)
         return [dict(zip(labels, row.tolist())) for row in probabilities]
 
     return classify

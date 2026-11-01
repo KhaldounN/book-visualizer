@@ -21,7 +21,7 @@ import streamlit.components.v1 as components  # noqa: E402
 import charts  # noqa: E402
 import design  # noqa: E402
 import explore3d  # noqa: E402
-from analyzer.emotions import average_emotions  # noqa: E402
+from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
 from analyzer.progression import key_moments, rolling_sentiment, story_arc  # noqa: E402
@@ -168,6 +168,7 @@ with st.sidebar:
 has_emotions = any(analysis.chapter_emotions)
 events = explore3d.events_of(analysis)
 book_mix = average_emotions([s.emotions for s in analysis.sentences])
+book_fine = average_emotions([s.fine for s in analysis.sentences])  # the 38 fine emotions
 names = {c.id: c.name for c in analysis.characters}
 
 # --- Header and KPIs ---------------------------------------------------------------
@@ -186,9 +187,10 @@ with st.container():
             "and look at trends. \"I\" and \"you\" in dialogue are not counted.\n"
             "- Two characters are **together** when both are mentioned in the same or neighbouring "
             "sentences. Their tone is the tone of those shared moments.\n"
-            "- **Emotions** come from a third AI model that picks one of seven for each sentence "
-            "(most sentences in a novel are *neutral*). Its \"disgust\" mostly means disapproval or "
-            "contempt, which classic novels are full of.\n"
+            "- **Emotions** come from a third AI model, trained on sentences from classic books, that "
+            "scores 38 fine emotions (grief, guilt, gratitude, curiosity…) in every sentence. The charts "
+            "group them into 8 families; most sentences in a novel are *neutral*. On a hand check it was "
+            "right about 4 times in 5, and it is weakest at fear.\n"
             "- If a character appears twice under different names, merge them in the sidebar."
         )
     st.caption("Analysis time: " + ", ".join(f"{k} {v:.0f}s" for k, v in analysis.timings.items()))
@@ -204,12 +206,13 @@ SCENE_HELP = {
             "to stop at a chapter.",
     "constellation": "**Each character is a star.** Where it sits says who they are emotionally: left to right "
                      "is darker to brighter tone, bottom to top is early to late in the book, back to front is "
-                     "cold emotions (anger, disgust, fear, sadness) to warm ones (joy, surprise). Size = how "
+                     "cold emotions (sadness, anger, fear, shame, disapproval) to warm ones (love, joy, "
+                     "surprise). Size = how "
                      "often they are mentioned; colour = the emotion that stands out for them; lines = "
                      "relationships, coloured by tone.\n\n**Try:** click a star to light up only its "
                      "relationships and open its emotion card.",
-    "crystal": "**A hologram portrait of one character.** Six crystal spikes grow from the core, one per "
-               "emotion, as long as that emotion's share. The ring around it goes once round the book: it rises "
+    "crystal": "**A hologram portrait of one character.** Eight crystal spikes grow from the core, one per "
+               "emotion family, as long as that family's share. The ring around it goes once round the book: it rises "
                "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\n**Try:** switch "
                "characters and compare their shapes.",
     "dna": "**A relationship as a double helix.** The two strands are two characters running through the "
@@ -246,10 +249,12 @@ def chapter_cards(events: list, details: list[dict]) -> str:
         place = f"<br>at {html.escape(detail['place'])}" if detail["place"] else ""
         people = ", ".join(f'<b style="color:{colors.get(n, theme["muted"])}">●</b> {html.escape(n)}'
                            for n in detail["people"])
+        feels = stand_out(analysis.chapter_fine[ch], book_fine) if analysis.chapter_fine else []
+        feels = f'<span class="feels">{html.escape(", ".join(feels))}</span>' if feels else ""
         cards.append(
             f'<article><div class="top"><span>{html.escape(analysis.chapters[ch].title)}</span>'
             f'<b style="background:{color}">{tone:+.2f}</b></div>'
-            f'<h4>{html.escape(event.theme)}</h4><p>{html.escape(event.event)}</p><div class="mix">{mix}</div>'
+            f'<h4>{html.escape(event.theme)}</h4><p>{html.escape(event.event)}</p><div class="mix">{mix}</div>{feels}'
             f'<small>{people}{place}<br>{html.escape(" · ".join(event.keywords))}</small></article>'
         )
     return f"""<style>
@@ -261,6 +266,7 @@ def chapter_cards(events: list, details: list[dict]) -> str:
       .cards h4 {{ margin: 0; font-size: 19px; }}
       .cards p {{ margin: 0; font-size: 13px; color: {theme["ink2"]}; line-height: 1.4; }}
       .cards .mix {{ display: flex; gap: 1px; height: 7px; border-radius: 2px; overflow: hidden; }}
+      .cards .feels {{ font-size: 12px; font-style: italic; color: {theme["ink2"]}; }}
       .cards small {{ color: {theme["muted"]}; font-size: 12px; line-height: 1.45; }}
     </style><div class="cards">{"".join(cards)}</div>"""
 
@@ -347,35 +353,47 @@ with right:
 
 # --- Emotions -----------------------------------------------------------------------------------
 
-section("Emotions", f"Each sentence gets one of seven emotions from an AI model. About "
-        f"{book_mix.get('neutral', 0):.0%} of this book is neutral narration; the charts show how the rest divides. "
-        "\"Disgust\" mostly means disapproval or contempt.")
+section("Emotions", "An AI model trained on classic books scores 38 fine emotions in every sentence; the "
+        f"charts group them into 8 families. About {book_mix.get('neutral', 0):.0%} of this book is neutral "
+        "narration; the charts show how the rest divides.")
 if not has_emotions:
     st.info("Emotions were not detected for this book.")
 else:
     left, right = panel("The book's emotional mix", "How the emotional (non-neutral) sentences of the book divide "
-                        "between the six emotions.")
+                        "between the 8 emotion families. Hover a bar to see which fine emotions it holds.")
     with right:
         st.plotly_chart(charts.emotion_bars(theme, book_mix), width="stretch")
 
+    left, right = panel("The finer feelings", "The fine emotions behind the families: how strongly each one runs "
+                        "through the book, on average per sentence. Each bar has its family's colour (gray = calm "
+                        "feelings, which count as neutral).")
+    with left:
+        fine_top = st.slider("Emotions to show", 5, 38, 15, key="fine_top")
+    with right:
+        st.plotly_chart(charts.fine_bars(theme, book_fine, fine_top), width="stretch")
+
     left, right = panel("Emotions through the story", "How the mix of emotions changes from chapter to chapter. "
-                        "Each colour band is one emotion; a wider band means that emotion is a bigger part of "
+                        "Each colour band is one emotion family; a wider band means that family is a bigger part of "
                         "the chapter.")
     with left:
         smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="emotion_smooth")
     with right:
         st.plotly_chart(charts.emotion_journey(analysis, theme, smooth), width="stretch")
         table(pd.DataFrame([
-            {"Chapter": c.title, **{charts.EMOTION_LABELS[e]: round(mix.get(e, 0), 3) for e in mix}}
+            {"Chapter": c.title, **{charts.EMOTION_LABELS[e]: round(mix.get(e, 0), 3)
+                                    for e in [*charts.EMOTION_ORDER, "neutral"]}}
             for c, mix in zip(analysis.chapters, analysis.chapter_emotions)
         ]))
 
     left, right = panel("A character's emotions", "The emotions of the sentences that mention one character "
                         "(in colour), next to the whole book (in gray). Bars longer than the gray ones are what "
-                        "stands out about them.")
+                        "stands out about them, and the fine emotions most above the book's average are named.")
     with left:
         who = st.selectbox("Character", charts.top_characters(analysis, 20), format_func=lambda c: c.name,
                            key="emotion_character")
+        feels = stand_out(analysis.character_fine[who.id], book_fine) if analysis.character_fine else []
+        if feels:
+            st.markdown(f"**Stands out for {who.name}:** " + ", ".join(feels))
     with right:
         st.plotly_chart(charts.emotion_bars(theme, analysis.character_emotions[who.id], book_mix, name=who.name),
                         width="stretch")

@@ -7,7 +7,7 @@ Colours come from `charts.THEMES`, so light and dark mode both work.
 from html import escape
 
 import charts
-from analyzer.emotions import average_emotions
+from analyzer.emotions import FAMILIES, average_emotions
 from analyzer.models import BookAnalysis
 
 SERIF = '"Fraunces", Georgia, "Times New Roman", serif'
@@ -255,8 +255,12 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict) -> list[dict]:
     ]
     if shares:
         top = max(shares, key=shares.get)
-        cards.append(dict(icon="🎭", label="Strongest emotion", value=charts.EMOTION_LABELS[top].split(" (")[0],
-                          note=f"{shares[top]:.0%} of the emotional sentences",
+        # the fine emotions that make up most of that family, e.g. "mostly disapproval, disgust"
+        fine = average_emotions([s.fine for s in analysis.sentences])
+        members = sorted((e for e in FAMILIES[top] if fine.get(e)), key=fine.get, reverse=True)[:2]
+        cards.append(dict(icon="🎭", label="Strongest emotion", value=charts.short_label(top),
+                          note=f"{shares[top]:.0%} of the emotional sentences"
+                               + (f" · mostly {', '.join(members)}" if members else ""),
                           art=_stack([(shares[e], theme["emotions"][e], f"{charts.EMOTION_LABELS[e]} {shares[e]:.0%}")
                                       for e in charts.EMOTION_ORDER])))
     else:

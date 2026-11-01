@@ -39,7 +39,7 @@ input[type="range"] { accent-color: var(--holo); width: min(260px, 45vw); }
 .card h3 { margin: 0; font: 600 17px/1.1 var(--display); color: var(--holo); }
 .meta { font: 400 12px/1.4 var(--mono); color: var(--ink-2); }
 .bars { display: grid; gap: 4px; }
-.bar { display: grid; grid-template-columns: 70px 1fr 34px; gap: 6px; align-items: center; font: 400 12px/1 var(--mono); color: var(--ink-2); }
+.bar { display: grid; grid-template-columns: 88px 1fr 34px; gap: 6px; align-items: center; font: 400 12px/1 var(--mono); color: var(--ink-2); }
 .bar s { display: block; height: 7px; border-radius: 1px; text-decoration: none; }
 .bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 10px; font: 400 12px/1 var(--mono); color: var(--ink-2); }
@@ -178,6 +178,8 @@ function grid(size, divisions, y) {
 function emotionBars(shares) {
   return `<div class="bars">${EMO.map((e, i) => `<div class="bar"><span>${EMO_LABEL[e]}</span><s style="width:${Math.min(100, Math.round(shares[i] * 260))}%;background:${EMO_COLOR[e]}"></s><em>${Math.round(shares[i] * 100)}%</em></div>`).join("")}</div>`;
 }
+// "stands out: guilt, gratitude" (fine emotions above the book's average)
+const standOut = (list) => list && list.length ? `<br><span style="color:var(--ink)">stands out: ${list.map(escape).join(", ")}</span>` : "";
 function picker(labelText, options, onChange, start = 0) {
   const id = "pick";
   hud.insertAdjacentHTML("beforeend", `<label class="chip" for="${id}">${labelText}</label><select id="${id}"></select>`);
@@ -296,7 +298,7 @@ function road() {
     const d = details[i], shares = data.chapterEmotions[i];
     card.hidden = false;
     card.innerHTML = `<h3>${describe(i)}</h3><div class="meta" style="color:var(--ink)">“${escape(events[i].event)}”</div>
-      <div class="meta">mood ${fmtTone(tone[i])}${d.place ? " · at " + escape(d.place) : ""}<br>${people(d.people)}</div>
+      <div class="meta">mood ${fmtTone(tone[i])}${d.place ? " · at " + escape(d.place) : ""}<br>${people(d.people)}${standOut(data.chapterStandOut[i])}</div>
       ${shares.some((s) => s > 0) ? emotionBars(shares) : ""}`;
     slider.value = String(i + 1);
   }
@@ -342,7 +344,8 @@ function constellation() {
   const st = stage({ camera: [9, 6, 15] });
   const norm = (vals) => { const lo = Math.min(...vals), hi = Math.max(...vals); return vals.map((v) => ((v - lo) / (hi - lo || 1)) * 10 - 5); };
   const when = chars.map((c) => { const tot = c.byChapter.reduce((a, b) => a + b, 0) || 1; return c.byChapter.reduce((a, n, i) => a + i * n, 0) / tot; });
-  const warm = chars.map((c) => c.emotions[0] + c.emotions[1] - (c.emotions[2] + c.emotions[3] + c.emotions[4] + c.emotions[5]));
+  // warm families (love, joy, surprise) minus the others, looked up by name
+  const warm = chars.map((c) => EMO.reduce((sum, e, k) => sum + (data.warm.includes(e) ? 1 : -1) * c.emotions[k], 0));
   const X = norm(chars.map((c) => c.sentiment)), Y = norm(when), Z = norm(warm);
   const pos = chars.map((_, i) => new THREE.Vector3(X[i], Y[i] * 0.8, Z[i]));
   const maxM = Math.max(...chars.map((c) => c.mentions));
@@ -379,7 +382,7 @@ function constellation() {
       line.material.opacity = on ? Math.min(1, line.userData.base + 0.45) : 0.04;
     });
     const mine = data.links.filter((l) => l.a === i || l.b === i).sort((a, b) => b.count - a.count).slice(0, 3);
-    card.innerHTML = `<h3 style="color:${c.color}">${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}</div>${emotionBars(c.emotions)}
+    card.innerHTML = `<h3 style="color:${c.color}">${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}
       <div class="meta">${mine.length ? "Closest: " + mine.map((l) => `${escape(chars[l.a === i ? l.b : l.a].name)} (${l.count})`).join(", ") : "No strong relationships"}</div>`;
   }
   const hit = hover(st, () => stars, (h) => {
@@ -432,7 +435,7 @@ function crystal() {
     const bright = present.reduce((b, x) => (x[0] > b[0] ? x : b), present[0] || [0, 0]);
     const dark = present.reduce((b, x) => (x[0] < b[0] ? x : b), present[0] || [0, 0]);
     card.hidden = false;
-    card.innerHTML = `<h3 style="color:${c.color}">${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}<br>brightest: ${escape(data.chapterTitles[bright[1]])}<br>darkest: ${escape(data.chapterTitles[dark[1]])}</div>${emotionBars(c.emotions)}`;
+    card.innerHTML = `<h3 style="color:${c.color}">${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}<br>brightest: ${escape(data.chapterTitles[bright[1]])}<br>darkest: ${escape(data.chapterTitles[dark[1]])}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}`;
   }
   st.tick.push((t) => {
     if (!group) return;

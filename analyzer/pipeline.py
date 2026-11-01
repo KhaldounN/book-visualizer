@@ -26,17 +26,17 @@ SPACY_MODEL = "en_core_web_lg"
 
 # Bump this whenever BookAnalysis changes shape or the analysis changes, so
 # results saved by an older version are re-analyzed instead of loaded
-ANALYSIS_VERSION = 4
+ANALYSIS_VERSION = 5  # 5: EmoLit's 38 fine emotions in 8 families
 
-# (step name, share of the total time) measured on Pride and Prejudice;
-# used to turn each step's own progress into one overall progress bar
+# (step name, share of the total time) measured on Great Expectations
+# (~12 min); used to turn each step's own progress into one overall progress bar
 STEPS = {
-    "Reading sentences": 0.04,  # ~17 s
+    "Reading sentences": 0.04,  # ~29 s
     "Finding characters": 0.01,  # <1 s
-    "Linking pronouns": 0.35,  # ~145 s
-    "Scoring sentiment": 0.39,  # ~165 s
-    "Detecting emotions": 0.19,  # ~80 s
-    "Naming chapters": 0.01,  # ~5 s
+    "Linking pronouns": 0.26,  # ~184 s
+    "Scoring sentiment": 0.34,  # ~249 s
+    "Detecting emotions": 0.33,  # ~245 s
+    "Naming chapters": 0.01,  # ~4 s
     "Finding relationships": 0.01,  # <1 s
 }
 
@@ -158,6 +158,8 @@ def analyze(
         timings=timings,
         chapter_emotions=chapter_emotions(sentences, n_chapters),
         character_emotions=emotions_by_character(mentions, sentences, n_chars),
+        chapter_fine=chapter_emotions(sentences, n_chapters, "fine"),
+        character_fine=emotions_by_character(mentions, sentences, n_chars, "fine"),
         chapter_events=events,
     )
     analysis.title, analysis.author = book_info(data, filename)

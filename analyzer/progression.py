@@ -89,22 +89,22 @@ def story_arc(chapter_tone: list[float], smooth: int = 4, points: int = 6
     return arc, turning, acts
 
 
-def chapter_emotions(sentences: list[Sentence], num_chapters: int) -> list[dict[str, float]]:
-    """Average emotion mix of each chapter."""
+def chapter_emotions(sentences: list[Sentence], num_chapters: int, kind: str = "emotions") -> list[dict[str, float]]:
+    """Average emotion mix of each chapter (kind="fine" for the fine emotions)."""
     by_chapter: list[list[dict[str, float]]] = [[] for _ in range(num_chapters)]
     for s in sentences:
-        by_chapter[s.chapter].append(s.emotions)
+        by_chapter[s.chapter].append(getattr(s, kind))
     return [average_emotions(mixes) for mixes in by_chapter]
 
 
 def emotions_by_character(mentions: list[Mention], sentences: list[Sentence],
-                          num_characters: int) -> list[dict[str, float]]:
+                          num_characters: int, kind: str = "emotions") -> list[dict[str, float]]:
     """[character] -> average emotion mix of the sentences that mention them
     (each sentence once, however often the character is named in it)."""
     mixes: list[list[dict[str, float]]] = [[] for _ in range(num_characters)]
     for sentence, present in zip(sentences, characters_per_sentence(sentences, mentions)):
         for character_id in present:
-            mixes[character_id].append(sentence.emotions)
+            mixes[character_id].append(getattr(sentence, kind))
     return [average_emotions(m) for m in mixes]
 
 

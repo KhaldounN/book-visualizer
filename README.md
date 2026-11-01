@@ -9,8 +9,10 @@ Upload an English novel as a `.txt` file and explore:
 - **Characters**: who appears and how often, counting names *and* pronouns ("she", "his")
 - **Story sentiment**: the mood per chapter (whole book or per character), the mood sentence by
   sentence, and the **key moments**: the darkest and brightest passages, quoted
-- **Emotions**: joy, sadness, anger, fear, disgust, surprise (and neutral) for every sentence: the
-  book's mix, how it changes chapter by chapter, and each character's profile
+- **Emotions**: 38 fine emotions (grief, guilt, gratitude, curiosity, envy…) for every sentence, from a
+  model trained on classic books, grouped into 8 families (love, joy, surprise, shame, sadness, anger,
+  fear, disapproval): the book's mix, how it changes chapter by chapter, each character's profile, and
+  what stands out for each character and chapter
 - **Timeline**: where each character appears across the chapters
 - **Relationships**: who shares scenes with whom, how the tone of those scenes changes, and their
   emotions early, midway and late in the book
@@ -64,7 +66,7 @@ book opens instantly the next time. The uploaded text itself is never saved.
 | Group name variants into characters (Mr. Darcy = Darcy) | our own rules (`analyzer/characters.py`) |
 | Link pronouns to characters | [fastcoref](https://github.com/shon-otmazgin/fastcoref) |
 | Score each sentence from −1 (negative) to +1 (positive) | [`cardiffnlp/twitter-roberta-base-sentiment-latest`](https://huggingface.co/cardiffnlp/twitter-roberta-base-sentiment-latest) |
-| Detect the emotion of each sentence | [`j-hartmann/emotion-english-distilroberta-base`](https://huggingface.co/j-hartmann/emotion-english-distilroberta-base) |
+| Detect the emotions of each sentence | [`lrei/roberta-base-emolit`](https://huggingface.co/lrei/roberta-base-emolit) (EmoLit, trained on Project Gutenberg sentences) |
 | Pick each chapter's theme | [`sentence-transformers/all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) embeddings + our key sentences and keywords (`analyzer/chapter_events.py`) |
 | Tell places from organizations ("at Pemberley") | our own rules (`analyzer/characters.py`) |
 | Charts | [Plotly](https://plotly.com/python/) in [Streamlit](https://streamlit.io) |
@@ -72,8 +74,9 @@ book opens instantly the next time. The uploaded text itself is never saved.
 ## Limits worth knowing
 
 - **Tone is about words, not feelings.** Polite flattery scores positive even when the story mocks it.
-- **"Disgust" mostly means disapproval or contempt** in classic novels, which are full of social
-  judgement. Emotions are best read as trends across chapters, not sentence by sentence.
+- **Emotions are right about 4 times in 5** on a hand check of 60 sentences (the previous,
+  tweet-trained model: about 3 in 4), and weakest at fear. Read them as trends across chapters, not
+  sentence by sentence.
 - **Pronoun links are right about 3 times out of 4**, so treat mention counts as estimates and look at
   trends. "I" and "you" in dialogue are not counted.
 - **Nicknames and married names** (Lizzy, Eliza = Elizabeth) need knowledge of the story; merge them in

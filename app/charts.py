@@ -19,8 +19,9 @@ THEMES = {
         "sequential": ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"],
         # diverging for sentiment: red (negative) - gray - blue (positive)
         "diverging": ["#e34948", "#c3c2b7", "#2a78d6"],
-        "emotions": {"joy": "#eda100", "surprise": "#1baf7a", "sadness": "#2a78d6", "disgust": "#008300",
-                     "fear": "#6250d6", "anger": "#e34948", "neutral": "#898781"},
+        "emotions": {"love": "#e87ba4", "joy": "#eda100", "surprise": "#1baf7a", "shame": "#eb6834",
+                     "sadness": "#2a78d6", "anger": "#e34948", "fear": "#6250d6", "disapproval": "#008300",
+                     "neutral": "#898781"},
     },
     "dark": {
         "surface": "#1a1a19", "ink": "#f0efec", "ink2": "#c3c2b7", "muted": "#898781",
@@ -28,15 +29,28 @@ THEMES = {
         "series": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
         "sequential": ["#104281", "#1c5cab", "#2a78d6", "#5598e7", "#86b6ef", "#cde2fb"],
         "diverging": ["#e66767", "#52514e", "#3987e5"],
-        "emotions": {"joy": "#c98500", "surprise": "#199e70", "sadness": "#3987e5", "disgust": "#008300",
-                     "fear": "#9085e9", "anger": "#e66767", "neutral": "#898781"},
+        "emotions": {"love": "#d55181", "joy": "#c98500", "surprise": "#199e70", "shame": "#d95926",
+                     "sadness": "#3987e5", "anger": "#e66767", "fear": "#9085e9", "disapproval": "#008300",
+                     "neutral": "#898781"},
     },
 }
-# Emotion colours in this order passed the colour-blind check as neighbours
-# in a stacked chart (sadness next to fear did not: blue vs violet)
-EMOTION_ORDER = ["joy", "surprise", "sadness", "disgust", "fear", "anger"]
-EMOTION_LABELS = {"joy": "Joy", "surprise": "Surprise", "sadness": "Sadness", "fear": "Fear", "anger": "Anger",
-                  "disgust": "Disgust (disapproval, contempt)", "neutral": "Neutral"}
+# The 8 emotion families (analyzer/emotions.py), warm ones first. Colours in
+# this order passed the dataviz validator as stacked neighbours in light and
+# dark mode (worst colour-blind difference 8.4, target >= 8): re-run it if you
+# reorder them.
+EMOTION_ORDER = ["love", "joy", "surprise", "shame", "sadness", "anger", "fear", "disapproval"]
+WARM_EMOTIONS = {"love", "joy", "surprise"}
+# legends use the part before " (" ; hovers and tables show the whole label
+EMOTION_LABELS = {
+    "love": "Love (caring, admiration, gratitude, trust)", "joy": "Joy (amusement, excitement, relief, pride)",
+    "surprise": "Surprise (and curiosity)", "shame": "Shame (guilt, embarrassment)",
+    "sadness": "Sadness (grief, despair, disappointment)", "anger": "Anger (annoyance, frustration)",
+    "fear": "Fear (nervousness, doubt)", "disapproval": "Disapproval (disgust, envy, greed)", "neutral": "Neutral",
+}
+
+
+def short_label(emotion: str) -> str:
+    return EMOTION_LABELS[emotion].split(" (")[0]
 FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
 TONE_RANGE = 0.3  # sentiment beyond +-0.3 gets the full colour (averages rarely go further)
 
@@ -297,7 +311,7 @@ def story_timeline(analysis: BookAnalysis, theme: dict, events: list, labels: in
         shares = [without_neutral(mix) for mix in analysis.chapter_emotions]
         for e in EMOTION_ORDER:
             fig.add_scatter(x=chapters, y=_smooth([s.get(e) if s else None for s in shares], 3), mode="lines",
-                            stackgroup="mix", groupnorm="percent", name=EMOTION_LABELS[e],
+                            stackgroup="mix", groupnorm="percent", name=short_label(e),
                             line=dict(width=1, color=theme["surface"]), fillcolor=theme["emotions"][e],
                             hovertemplate=f"{EMOTION_LABELS[e]} %{{y:.0f}}%<extra></extra>", row=2, col=1)
     # pin the clearest themes above their bars, alternating heights so labels don't collide
@@ -362,21 +376,39 @@ def emotion_bars(theme: dict, mix: dict[str, float], compare: dict[str, float] |
     a gray bar next to each one shows the book average for reference."""
     shares = without_neutral(mix)
     order = sorted(shares, key=shares.get)  # biggest at the top
-    labels = [EMOTION_LABELS[e] for e in order]
+    labels = [short_label(e) for e in order]  # the full label (with its fine emotions) is in the hover
+    full = [EMOTION_LABELS[e] for e in order]
     fig = go.Figure()
     if compare:
         reference = without_neutral(compare)
         fig.add_bar(y=labels, x=[reference.get(e, 0) for e in order], name=compare_name, orientation="h",
-                    marker=dict(color=theme["axis"], line=dict(color=theme["surface"], width=2)),
-                    hovertemplate=f"{compare_name}: %{{x:.0%}}<extra></extra>")
-    fig.add_bar(y=labels, x=[shares[e] for e in order], name=name or "Share", orientation="h",
+                    marker=dict(color=theme["axis"], line=dict(color=theme["surface"], width=2)), customdata=full,
+                    hovertemplate=f"{compare_name}: %{{customdata}} %{{x:.0%}}<extra></extra>")
+    fig.add_bar(y=labels, x=[shares[e] for e in order], name=name or "Share", orientation="h", customdata=full,
                 marker=dict(color=[theme["emotions"][e] for e in order], line=dict(color=theme["surface"], width=2)),
-                hovertemplate=f"{name + ': ' if name else ''}%{{y}} %{{x:.0%}}<extra></extra>")
+                hovertemplate=f"{name + ': ' if name else ''}%{{customdata}} %{{x:.0%}}<extra></extra>")
     fig.update_xaxes(title="Share of the emotional content", tickformat=".0%")
     # No legend: the coloured bars have one colour per emotion, so a legend
     # swatch for them would be misleading; the page caption says gray = book
     return _layout(fig, theme, height=90 + 34 * len(order) * (2 if compare else 1),
                    barmode="group", bargap=0.3, showlegend=False)
+
+
+def fine_bars(theme: dict, fine: dict[str, float], top: int = 15) -> go.Figure:
+    """The most common fine emotions (e.g. curiosity, grief, guilt), each bar in
+    its family's colour. Values are average scores per sentence."""
+    from analyzer.emotions import FAMILY_OF  # calm feelings have no family: gray
+    ranked = sorted(fine, key=fine.get, reverse=True)[:top][::-1]  # biggest at the top
+    families = [FAMILY_OF.get(e) for e in ranked]
+    fig = go.Figure(go.Bar(
+        y=ranked, x=[fine[e] for e in ranked], orientation="h",
+        marker=dict(color=[theme["emotions"][f] if f else theme["muted"] for f in families],
+                    line=dict(color=theme["surface"], width=2)),
+        customdata=[short_label(f) if f else "Calm (no family)" for f in families],
+        hovertemplate="%{y} (%{customdata}): %{x:.3f}<extra></extra>",
+    ))
+    fig.update_xaxes(title="Average strength per sentence")
+    return _layout(fig, theme, height=70 + 26 * len(ranked), showlegend=False, bargap=0.3)
 
 
 def emotion_journey(analysis: BookAnalysis, theme: dict, smooth: int) -> go.Figure:
@@ -389,14 +421,16 @@ def emotion_journey(analysis: BookAnalysis, theme: dict, smooth: int) -> go.Figu
         values = [s.get(e) if s else None for s in shares]
         values = _smooth(values, smooth) if smooth > 1 else values
         fig.add_scatter(
-            x=chapters, y=values, name=EMOTION_LABELS[e], mode="lines", stackgroup="mix", groupnorm="percent",
+            x=chapters, y=values, name=short_label(e), mode="lines", stackgroup="mix", groupnorm="percent",
             line=dict(width=2, color=theme["surface"]),  # 2px gap between the coloured bands
             fillcolor=theme["emotions"][e], customdata=titles,
             hovertemplate=f"{EMOTION_LABELS[e]}: %{{y:.0f}}%<extra></extra>",
         )
     fig.update_xaxes(title="Chapter", range=[1, len(chapters)])
     fig.update_yaxes(title="Share of the emotional content", ticksuffix="%", range=[0, 100])
-    return _layout(fig, theme, height=440, hovermode="x unified")
+    fig = _layout(fig, theme, height=440, hovermode="x unified")
+    fig.update_layout(legend_traceorder="normal")  # Love ... Disapproval, like the other emotion charts
+    return fig
 
 
 def pair_emotions(theme: dict, r: Relationship) -> go.Figure:
@@ -405,7 +439,7 @@ def pair_emotions(theme: dict, r: Relationship) -> go.Figure:
     shares = [without_neutral(mix) for mix in r.emotions_by_part]
     fig = go.Figure()
     for e in EMOTION_ORDER:
-        fig.add_bar(y=parts, x=[s.get(e, 0) if s else 0 for s in shares], name=EMOTION_LABELS[e],
+        fig.add_bar(y=parts, x=[s.get(e, 0) if s else 0 for s in shares], name=short_label(e),
                     orientation="h", marker=dict(color=theme["emotions"][e],
                                                  line=dict(color=theme["surface"], width=2)),
                     hovertemplate=f"%{{y}}: {EMOTION_LABELS[e]} %{{x:.0%}}<extra></extra>")

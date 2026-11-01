@@ -37,6 +37,9 @@ def main() -> None:
     book_mix = average_emotions([s.emotions for s in result.sentences])
     if book_mix:
         print("Emotions: " + ", ".join(f"{e} {p:.0%}" for e, p in sorted(book_mix.items(), key=lambda kv: -kv[1])))
+        fine = average_emotions([s.fine for s in result.sentences])
+        print("Most common fine emotions: " + ", ".join(
+            f"{e} {p:.0%}" for e, p in sorted(fine.items(), key=lambda kv: -kv[1])[:8]))
 
     print("\nMost mentioned characters:")
     for c in sorted(result.characters, key=lambda c: -c.mentions)[:10]:

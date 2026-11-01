@@ -55,4 +55,5 @@ def _recompute(analysis: BookAnalysis, characters: list[Character], mentions: li
         mentions_by_chapter=mentions_by_chapter(mentions, sentences, len(characters), n_chapters),
         sentiment_by_chapter=sentiment_by_chapter(mentions, sentences, len(characters), n_chapters),
         character_emotions=emotions_by_character(mentions, sentences, len(characters)),
+        character_fine=emotions_by_character(mentions, sentences, len(characters), "fine"),
     )

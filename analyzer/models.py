@@ -26,7 +26,8 @@ class Sentence:
     chapter: int
     entities: list[Entity] = field(default_factory=list)
     sentiment: float = 0.0  # -1 (very negative) to +1 (very positive)
-    emotions: dict[str, float] = field(default_factory=dict)  # emotion -> probability
+    emotions: dict[str, float] = field(default_factory=dict)  # emotion family (and "neutral") -> score
+    fine: dict[str, float] = field(default_factory=dict)  # fine emotion (e.g. "guilt") -> score, only those present
 
 
 @dataclass
@@ -122,6 +123,8 @@ class BookAnalysis:
     author: str | None = None
     chapter_emotions: list[dict[str, float]] = field(default_factory=list)  # [chapter] -> mix
     character_emotions: list[dict[str, float]] = field(default_factory=list)  # [character] -> mix
+    chapter_fine: list[dict[str, float]] = field(default_factory=list)  # [chapter] -> fine emotion mix
+    character_fine: list[dict[str, float]] = field(default_factory=list)  # [character] -> fine emotion mix
     # [chapter] -> its theme and event. A plain None default (not a list
     # factory) so analyses saved before this field existed still load:
     # unpickling falls back to the class default.
