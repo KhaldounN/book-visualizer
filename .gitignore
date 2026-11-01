@@ -1,0 +1,23 @@
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Downloaded models and test books (large, can be re-downloaded)
+models/
+data/
+
+# Analysis results and uploaded files
+uploads/
+results/
+
+# Secrets (API keys)
+.env
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

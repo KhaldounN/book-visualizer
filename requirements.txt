@@ -1,0 +1,23 @@
+# Install with:
+#   python -m pip install -r requirements.txt
+
+# CPU-only PyTorch (much smaller download than the GPU version)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.15.0
+
+# NLP
+spacy==3.8.18
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+fastcoref==2.1.6
+# fastcoref breaks with transformers 5 and datasets 5, so keep them on version 4
+transformers==4.57.6
+datasets==4.8.5
+huggingface-hub==0.36.2
+
+# Website and charts
+streamlit==1.66.1
+plotly==7.1.0
+networkx==3.7
+
+# Testing
+pytest==9.2.0
