@@ -46,6 +46,9 @@ class _Progress:
     def __init__(self, callback: ProgressCallback | None):
         self.callback = callback
         self.done = 0.0  # share of the work finished in earlier steps
+        # Adding decimal shares gives tiny rounding errors (0.98999997 vs 0.99),
+        # so never report less than before: a progress bar must not go backwards
+        self.highest = 0.0
 
     def step(self, name: str) -> Callable[[int, int], None]:
         """Start a step; returns a (done, total) callback for that step."""
@@ -53,8 +56,9 @@ class _Progress:
         self.done += share
 
         def report(done: int, total: int) -> None:
+            self.highest = max(self.highest, min(start + share * done / max(total, 1), 1.0))
             if self.callback:
-                self.callback(name, start + share * done / max(total, 1))
+                self.callback(name, self.highest)
 
         report(0, 1)
         return report
