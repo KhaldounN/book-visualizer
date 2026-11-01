@@ -487,51 +487,7 @@ function dna() {
   hint.textContent = "rung thickness = moments together · colour = tone";
 }
 
-/* ---- Chapter tunnel ---- */
-function tunnel() {
-  const st = stage({ controls: false, fog: 0.045 });
-  const GAP = 4, n = data.chapters;
-  hud.innerHTML = `<button id="play" type="button">Pause</button><input id="slide" type="range" min="1" max="${n}" step="1" value="1" aria-label="Chapter"><span class="chip" id="info"></span>
-    <div class="legend chip">${EMO.map((e) => `<span><i style="background:${EMO_COLOR[e]}"></i>${EMO_LABEL[e]}</span>`).join("")}</div>`;
-  const slider = document.getElementById("slide"), play = document.getElementById("play"), info = document.getElementById("info");
-  data.chapterEmotions.forEach((shares, i) => {
-    const r = 2.6 + Math.max(-1.2, Math.min(1.6, data.chapterTone[i] * 9));
-    let start = Math.PI / 2;
-    shares.forEach((s, k) => {
-      const len = s * Math.PI * 2;
-      if (len < 0.05) { start += len; return; }
-      const seg = new THREE.Mesh(new THREE.RingGeometry(r - 0.14, r + 0.14, 48, 1, start + 0.02, len - 0.04),
-        new THREE.MeshBasicMaterial({ color: EMO_COLOR[EMO[k]], side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
-      seg.position.z = -i * GAP; st.scene.add(seg); start += len;
-    });
-    const halo = new THREE.Mesh(new THREE.RingGeometry(r + 0.3, r + 0.34, 64), new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
-    halo.position.z = -i * GAP; st.scene.add(halo);
-    if (i % 5 === 0) { const s = label(data.chapterTitles[i], { size: 0.26, color: "#9fb0c4", weight: 500 }); s.position.set(r + 0.5, r * 0.5, -i * GAP); st.scene.add(s); }
-  });
-  const stars = new THREE.BufferGeometry(), sp = [];
-  for (let i = 0; i < 1500; i++) { const a = Math.random() * Math.PI * 2, r = 6 + Math.random() * 18; sp.push(Math.cos(a) * r, Math.sin(a) * r, -Math.random() * n * GAP); }
-  stars.setAttribute("position", new THREE.Float32BufferAttribute(sp, 3));
-  st.scene.add(new THREE.Points(stars, new THREE.PointsMaterial({ color: 0x9fb0c4, size: 0.06 })));
-  let at = 0, playing = !REDUCE, last = 0;
-  const look = new THREE.Vector2();
-  play.textContent = playing ? "Pause" : "Play";
-  play.addEventListener("click", () => { playing = !playing; play.textContent = playing ? "Pause" : "Play"; });
-  slider.addEventListener("input", () => { at = +slider.value - 1; playing = false; play.textContent = "Play"; });
-  canvas.addEventListener("pointermove", (e) => { const r = canvas.getBoundingClientRect(); look.set((e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5); });
-  st.tick.push((t) => {
-    const dt = Math.min(0.05, t - last); last = t;
-    if (playing) { at += dt * 0.8; if (at > n - 1) at = 0; }
-    const ch = Math.round(at);
-    st.camera.position.set(look.x * 1.5, -look.y * 1.5, -at * GAP + 7);
-    st.camera.lookAt(look.x * 3, -look.y * 3, -at * GAP - 10);
-    if (+slider.value !== ch + 1) slider.value = String(ch + 1);
-    const order = data.chapterEmotions[ch].map((s, k) => [s, EMO_LABEL[EMO[k]]]).sort((x, y) => y[0] - x[0]);
-    info.textContent = `${data.chapterTitles[ch]} · tone ${fmtTone(data.chapterTone[ch])} · mostly ${order[0][1].toLowerCase()}, ${order[1][1].toLowerCase()}`;
-  });
-  hint.textContent = "move the mouse to look around";
-}
-
-({ road, constellation, crystal, dna, tunnel })[SCENE]();
+({ road, constellation, crystal, dna })[SCENE]();
 window.sceneStarted = true;
 </script>
 </body>

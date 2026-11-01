@@ -20,11 +20,10 @@ SCENES = {
     "constellation": "Character constellation",
     "crystal": "Emotion crystal",
     "dna": "Relationship DNA",
-    "tunnel": "Chapter tunnel",
 }
 TOP_CHARACTERS = 14  # more stars than this crowd the scenes
 MIN_LINK = 10  # relationships with fewer shared moments are left out
-EMOTION_SCENES = {"crystal", "tunnel"}  # scenes that need emotions to say anything
+EMOTION_SCENES = {"crystal"}  # scenes that need emotions to say anything
 
 
 def _shares(mix: dict[str, float]) -> list[float]:

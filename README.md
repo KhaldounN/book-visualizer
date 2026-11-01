@@ -15,9 +15,8 @@ Upload an English novel as a `.txt` file and explore:
 - **Relationships**: who shares scenes with whom, how the tone of those scenes changes, and their
   emotions early, midway and late in the book
 - **Places & entities**: where the story happens chapter by chapter, plus organizations and groups
-- **Explore in 3D**: five interactive scenes to rotate and click: a story road, a character constellation,
-  an emotion crystal per character, a relationship double helix, and a fly-through chapter
-  tunnel (needs an internet connection to load the 3D library)
+- **Explore in 3D**: four interactive scenes to rotate and click: a story road, a character constellation,
+  an emotion crystal per character and a relationship double helix (needs an internet connection to load the 3D library)
 
 The title and author are read from the book (Project Gutenberg files include them).
 
@@ -30,7 +29,7 @@ Requires Python 3.13. The first run downloads about 2 GB of AI models.
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe scripts\download_samples.py   # optional: Pride and Prejudice for testing
+.\.venv\Scripts\python.exe scripts\download_samples.py   # optional: sample books (Great Expectations for the website's sample button, Pride and Prejudice)
 ```
 
 ## Use it

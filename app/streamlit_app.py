@@ -26,7 +26,8 @@ from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
 from analyzer.progression import key_moments, rolling_sentiment, story_arc  # noqa: E402
 
-SAMPLE = ROOT / "data" / "pride_and_prejudice.txt"
+SAMPLE = ROOT / "data" / "great_expectations.txt"  # from scripts/download_samples.py
+SAMPLE_TITLE = "Great Expectations"
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
 ENTITY_TYPES = {
     "GPE": "Country or city", "LOC": "Place", "FAC": "Building", "ORG": "Organization",
@@ -101,7 +102,7 @@ with st.sidebar:
     st.caption("Upload an English novel as a `.txt` file to see its characters, how they relate, "
                "and how the mood changes through the story.")
     uploaded = st.file_uploader("Book file", type=["txt"])
-    sample_clicked = SAMPLE.exists() and st.button("Try it with *Pride and Prejudice*")
+    sample_clicked = SAMPLE.exists() and st.button(f"Try it with *{SAMPLE_TITLE}*")
 
 if uploaded is not None:
     data, filename = uploaded.getvalue(), uploaded.name
@@ -215,9 +216,6 @@ SCENE_HELP = {
            "book. A rung joins them in every chapter where they share a moment: thicker when they meet more, "
            "coloured by the mood of those moments. Gaps are chapters they spend apart.\n\n**Try:** pick "
            "different pairs and compare how often, and when, they meet.",
-    "tunnel": "**Fly through the book.** Every chapter is a glowing ring split into the colours of its "
-              "emotions. Bright chapters open wide around you, dark chapters close in.\n\n**Try:** press play, "
-              "or drag the slider to jump to a chapter; move the mouse to look around.",
 }
 
 section("Explore in 3D", "Interactive views to explore the book. Drag any of them to rotate. They are best for "

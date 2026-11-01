@@ -121,8 +121,8 @@ def test_a_character_keeps_one_colour_everywhere():
 
 def test_every_visualization_has_an_explanation(app):
     titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
-    # 5 3D views + timeline, arc, cards + 3 mood + 3 emotion + 2 character + 2 relationship + 2 places
-    assert len(titles) == 5 + 3 + 3 + 3 + 2 + 2 + 2
+    # 4 3D views + timeline, arc, cards + 3 mood + 3 emotion + 2 character + 2 relationship + 2 places
+    assert len(titles) == 4 + 3 + 3 + 3 + 2 + 2 + 2
 
 
 def test_editing_the_title(app):
