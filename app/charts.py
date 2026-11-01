@@ -51,6 +51,11 @@ def character_colors(analysis: BookAnalysis, theme: dict) -> dict[int, str]:
     return colors
 
 
+def name_tag(name: str, color: str) -> str:
+    """A name with its character's colour dot in front, for axis labels."""
+    return f"<span style='color:{color}'>●</span> {name}"
+
+
 def top_characters(analysis: BookAnalysis, n: int):
     return sorted(analysis.characters, key=lambda c: -c.mentions)[:n]
 
@@ -96,17 +101,21 @@ def mentions_bars(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figu
     for m in analysis.mentions:
         if m.source == "name" and m.character_id in by_name:
             by_name[m.character_id] += 1
+    colors = character_colors(analysis, theme)
     names = [c.name for c in characters]
     fig = go.Figure()
-    for label, values, color in (
-        ("By name", [by_name[c.id] for c in characters], theme["series"][0]),
-        ("By pronoun or description", [c.mentions - by_name[c.id] for c in characters], theme["series"][1]),
+    for label, values, opacity in (
+        ("By name (solid)", [by_name[c.id] for c in characters], 1.0),
+        ("By pronoun or description (pale)", [c.mentions - by_name[c.id] for c in characters], 0.4),
     ):
         fig.add_bar(
-            y=names, x=values, name=label, orientation="h", marker_color=color,
-            marker_line=dict(color=theme["surface"], width=2),  # 2px gap between segments
-            hovertemplate="%{y}: %{x:,} " + label.lower() + "<extra></extra>",
+            y=names, x=values, name=label, orientation="h",
+            marker=dict(color=[colors[c.id] for c in characters], opacity=opacity,
+                        line=dict(color=theme["surface"], width=2)),  # 2px gap between segments
+            customdata=[label.split(" (")[0].lower()] * len(names),
+            hovertemplate="%{y}: %{x:,} %{customdata}<extra></extra>",
         )
+    fig.update_yaxes(tickvals=names, ticktext=[name_tag(c.name, colors[c.id]) for c in characters])
     fig.update_xaxes(title="Mentions")
     fig = _layout(fig, theme, height=60 + 28 * len(characters), barmode="stack", bargap=0.35)
     fig.update_layout(legend_traceorder="normal")  # "By name" first, like the bars
@@ -149,7 +158,7 @@ def story_sentiment(analysis: BookAnalysis, theme: dict, character_ids: list[int
     _tone_axis(fig, all_values)
     if len(lines) > 1:
         _end_labels(fig, theme, ends, fig.layout.yaxis.range)
-    fig.update_xaxes(title="Chapter", range=[0.5, len(chapters) + (6 if len(lines) > 1 else 0.5)])
+    fig.update_xaxes(title="Chapter", range=[0.5, len(chapters) + (len(chapters) * 0.14 + 3 if len(lines) > 1 else 0.5)])
     return _layout(fig, theme, height=440, hovermode="x unified")
 
 
@@ -157,8 +166,12 @@ def story_sentiment(analysis: BookAnalysis, theme: dict, character_ids: list[int
 
 def timeline_heatmap(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figure:
     characters = top_characters(analysis, top)
-    return _heatmap(analysis, theme, [c.name for c in characters],
-                    [analysis.mentions_by_chapter[c.id] for c in characters])
+    colors = character_colors(analysis, theme)
+    fig = _heatmap(analysis, theme, [c.name for c in characters],
+                   [analysis.mentions_by_chapter[c.id] for c in characters])
+    fig.update_yaxes(tickvals=[c.name for c in characters],
+                     ticktext=[name_tag(c.name, colors[c.id]) for c in characters])
+    return fig
 
 
 def places_heatmap(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figure:
@@ -192,7 +205,7 @@ def entity_bars(entities: list, theme: dict) -> go.Figure:
     entities = entities[::-1]
     fig = go.Figure(go.Bar(
         y=[e.name for e in entities], x=[e.count for e in entities], orientation="h",
-        marker=dict(color=theme["series"][0], line=dict(color=theme["surface"], width=2)),
+        marker=dict(color=theme["ink2"], line=dict(color=theme["surface"], width=2)),
         hovertemplate="%{y}: %{x} mentions<extra></extra>",
     ))
     fig.update_xaxes(title="Mentions")
@@ -322,7 +335,7 @@ def story_arc_chart(analysis: BookAnalysis, theme: dict, events: list,
                     text=[events[i].theme for i, _ in turning], showlegend=False, hoverinfo="skip",
                     textposition=["top center" if kind == "high" else "bottom center" for _, kind in turning],
                     textfont=dict(color=theme["ink"], size=12),
-                    marker=dict(size=11, color=theme["series"][0], line=dict(color=theme["surface"], width=2)))
+                    marker=dict(size=11, color=theme["ink"], line=dict(color=theme["surface"], width=2)))
     for k, (first, last) in enumerate(acts):
         if k % 2:
             fig.add_vrect(x0=first + 0.5, x1=last + 1.5, fillcolor=theme["grid"], opacity=0.5, line_width=0, layer="below")
@@ -478,7 +491,9 @@ def pair_tone(analysis: BookAnalysis, theme: dict, r: Relationship, smooth: int)
     values = _smooth(r.chapter_sentiment, smooth) if smooth > 1 else r.chapter_sentiment
     fig = go.Figure(go.Scatter(
         x=chapters, y=values, mode="lines+markers",  # the line breaks where they never meet
-        line=dict(color=theme["series"][0], width=2), marker=dict(size=8),
+        line=dict(color=theme["axis"], width=2),
+        marker=dict(size=9, color=[theme["surface"] if v is None else _tone_color(theme, v) for v in values],
+                    line=dict(color=theme["surface"], width=1.5)),  # each dot coloured by its tone
         customdata=[c.title for c in analysis.chapters],
         hovertemplate="%{customdata}: tone %{y:+.2f}<extra></extra>",
     ))
@@ -491,7 +506,7 @@ def pair_tone(analysis: BookAnalysis, theme: dict, r: Relationship, smooth: int)
 def pair_moments(analysis: BookAnalysis, theme: dict, r: Relationship) -> go.Figure:
     fig = go.Figure(go.Bar(
         x=list(range(1, len(analysis.chapters) + 1)), y=r.chapter_counts,
-        marker=dict(color=theme["series"][0], line=dict(color=theme["surface"], width=2)),
+        marker=dict(color=theme["ink2"], line=dict(color=theme["surface"], width=2)),
         customdata=[c.title for c in analysis.chapters],
         hovertemplate="%{customdata}: %{y} moments together<extra></extra>",
     ))

@@ -47,11 +47,14 @@ def _round(value: float | None) -> float | None:
 def scene_data(analysis: BookAnalysis) -> dict:
     characters = charts.top_characters(analysis, TOP_CHARACTERS)
     index = {c.id: i for i, c in enumerate(characters)}
+    # the stage is always dark, so characters keep their dark-mode chart colour
+    colors = charts.character_colors(analysis, charts.THEMES["dark"])
     people = []
     for c in characters:
         tones = [t for t in analysis.sentiment_by_chapter[c.id] if t is not None]
         people.append({
             "name": c.name,
+            "color": colors[c.id],
             "mentions": c.mentions,
             "emotions": _shares(analysis.character_emotions[c.id] if analysis.character_emotions else {}),
             "sentiment": round(sum(tones) / len(tones), 3) if tones else 0.0,

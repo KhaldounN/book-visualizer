@@ -5,6 +5,7 @@
 
 import hashlib
 import html
+import itertools
 import pickle
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ sys.path.insert(0, str(ROOT))  # so "analyzer" can be imported when Streamlit ru
 import streamlit.components.v1 as components  # noqa: E402
 
 import charts  # noqa: E402
+import design  # noqa: E402
 import explore3d  # noqa: E402
 from analyzer.emotions import average_emotions  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
@@ -33,7 +35,10 @@ ENTITY_TYPES = {
 KINDS = {"place": "Places", "organization": "Organizations", "group": "Groups and families", "other": "Other"}
 
 st.set_page_config(page_title="Book Analyzer", page_icon="📖", layout="wide")
-theme = charts.THEMES["dark" if st.context.theme.type == "dark" else "light"]
+MODE = "dark" if st.context.theme.type == "dark" else "light"
+theme = charts.THEMES[MODE]
+st.html(design.page_css(theme, MODE))
+PANELS = itertools.count()  # numbers each visualization card (restarts on every rerun)
 
 
 def table(df: pd.DataFrame) -> None:
@@ -76,7 +81,8 @@ def panel(title: str, explanation: str, columns: tuple = (1, 2.4)):
     """One dashboard row: what the visualization shows on the left, the
     visualization itself on the right. Returns both columns."""
     st.space("small")
-    left, right = st.columns(columns, gap="large")
+    with st.container(key=f"panel-{next(PANELS)}"):  # the key gives the card its CSS class
+        left, right = st.columns(columns, gap="large")
     with left:
         st.markdown(f"#### {title}")
         st.markdown(explanation)
@@ -84,7 +90,6 @@ def panel(title: str, explanation: str, columns: tuple = (1, 2.4)):
 
 
 def section(title: str, intro: str) -> None:
-    st.divider()
     st.header(title, anchor=title.lower().replace(" ", "-"))
     st.caption(intro)
 
@@ -105,8 +110,7 @@ elif sample_clicked:
 elif "current" in st.session_state:
     data, filename = None, None  # keep showing the last book
 else:
-    st.title("📖 Book Analyzer")
-    st.info("Upload a novel in the sidebar, or try the sample book there, to see its dashboard.")
+    st.html(design.landing())
     st.stop()
 
 analyses = st.session_state.setdefault("analyses", {})
@@ -151,6 +155,14 @@ with st.sidebar:
         if st.button("Undo all merges"):
             book["merges"].clear()
             st.rerun()
+    st.divider()
+    st.subheader("Character colours")
+    st.caption("Each main character keeps one colour in every chart and 3D view.")
+    st.html(design.cast_legend(analysis, theme))
+    st.divider()
+    st.subheader("Jump to")
+    st.markdown("\n".join(f"- [{name}](#{name.lower().replace(' ', '-')})" for name in (
+        "Explore in 3D", "The story", "Mood", "Emotions", "Characters", "Relationships", "Places")))
 
 has_emotions = any(analysis.chapter_emotions)
 events = explore3d.events_of(analysis)
@@ -159,36 +171,8 @@ names = {c.id: c.name for c in analysis.characters}
 
 # --- Header and KPIs ---------------------------------------------------------------
 
-st.title(book["title"])
-if analysis.author:
-    st.caption(f"by {analysis.author}")
-
-main = charts.top_characters(analysis, 1)[0]
-book_tone = sum(analysis.chapter_sentiment) / len(analysis.chapter_sentiment)
-ranked = sorted(range(len(analysis.chapters)), key=lambda i: analysis.chapter_sentiment[i])
-shares = charts.without_neutral(book_mix)
-top_emotion = max(shares, key=shares.get) if shares else None
-strongest = analysis.relationships[0] if analysis.relationships else None
-
-row = st.columns(4)
-row[0].metric("Chapters", len(analysis.chapters), border=True)
-row[1].metric("Sentences", f"{len(analysis.sentences):,}", border=True)
-row[2].metric("Characters", len(analysis.characters), border=True)
-row[3].metric("Character mentions", f"{len(analysis.mentions):,}", border=True)
-row = st.columns(4)
-row[0].metric("Main character", main.name, f"{main.mentions:,} mentions", delta_color="off", border=True)
-row[1].metric("Overall mood", f"{book_tone:+.2f}",
-              "brighter than neutral" if book_tone > 0.02 else "darker than neutral" if book_tone < -0.02 else "neutral",
-              delta_color="off", border=True)
-row[2].metric("Strongest emotion", charts.EMOTION_LABELS[top_emotion].split(" (")[0] if top_emotion else "—",
-              f"{shares[top_emotion]:.0%} of the emotional text" if top_emotion else None, delta_color="off", border=True)
-row[3].metric("Closest pair", f"{names[strongest.source]} & {names[strongest.target]}" if strongest else "—",
-              f"{strongest.count} moments together" if strongest else None, delta_color="off", border=True)
-row = st.columns(2)
-row[0].metric("Darkest chapter", analysis.chapters[ranked[0]].title,
-              f"mood {analysis.chapter_sentiment[ranked[0]]:+.2f} · {events[ranked[0]].theme}", delta_color="off", border=True)
-row[1].metric("Brightest chapter", analysis.chapters[ranked[-1]].title,
-              f"mood {analysis.chapter_sentiment[ranked[-1]]:+.2f} · {events[ranked[-1]].theme}", delta_color="off", border=True)
+st.html(design.hero(analysis, book["title"], events, theme))
+st.html(design.kpi_html(design.kpis(analysis, events, theme)))
 
 with st.container():
     with st.expander("How to read these results"):
@@ -256,6 +240,8 @@ for scene, title in explore3d.SCENES.items():
 def chapter_cards(events: list, details: list[dict]) -> str:
     """A sideways-scrolling strip of chapter cards (plain HTML and CSS)."""
     negative, middle, positive = theme["diverging"]
+    by_id = charts.character_colors(analysis, theme)
+    colors = {c.name: by_id[c.id] for c in analysis.characters}
     cards = []
     for ch, (event, detail) in enumerate(zip(events, details)):
         tone = analysis.chapter_sentiment[ch]
@@ -264,11 +250,13 @@ def chapter_cards(events: list, details: list[dict]) -> str:
         mix = "".join(f'<i style="flex:{mix_shares[e]};background:{theme["emotions"][e]}"></i>'
                       for e in charts.EMOTION_ORDER if mix_shares.get(e))
         place = f"<br>at {html.escape(detail['place'])}" if detail["place"] else ""
+        people = ", ".join(f'<b style="color:{colors.get(n, theme["muted"])}">●</b> {html.escape(n)}'
+                           for n in detail["people"])
         cards.append(
             f'<article><div class="top"><span>{html.escape(analysis.chapters[ch].title)}</span>'
             f'<b style="background:{color}">{tone:+.2f}</b></div>'
             f'<h4>{html.escape(event.theme)}</h4><p>{html.escape(event.event)}</p><div class="mix">{mix}</div>'
-            f'<small>{html.escape(", ".join(detail["people"]))}{place}<br>{html.escape(" · ".join(event.keywords))}</small></article>'
+            f'<small>{people}{place}<br>{html.escape(" · ".join(event.keywords))}</small></article>'
         )
     return f"""<style>
       .cards {{ display: grid; grid-auto-flow: column; grid-auto-columns: 230px; gap: 10px; overflow-x: auto; padding-bottom: 10px; }}

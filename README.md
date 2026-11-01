@@ -41,6 +41,10 @@ python -m venv .venv
 .\.venv\Scripts\streamlit.exe run app\streamlit_app.py
 ```
 
+One scrolling page: the book's title over a "mood barcode" (one stripe per chapter), headline cards,
+then 3D views and charts, each with an explanation next to it. Every main character keeps one colour
+in every chart and 3D view (the legend is in the sidebar).
+
 **Command line** (prints a summary):
 
 ```powershell

@@ -4,3 +4,22 @@ maxUploadSize = 5
 
 [browser]
 gatherUsageStats = false
+
+# The look: a serif display font for headings, a clean sans for text,
+# and a warm paper-like page with the visualizations on slightly lighter cards
+[theme]
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Fraunces:https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap, serif"
+baseRadius = "0.7rem"
+# a neutral slate: every brighter colour on the page belongs to a character or an emotion
+primaryColor = "#5a667d"
+
+[theme.light]
+backgroundColor = "#f3f2ee"
+secondaryBackgroundColor = "#e9e7e0"
+textColor = "#0b0b0b"
+
+[theme.dark]
+backgroundColor = "#0f0f0e"
+secondaryBackgroundColor = "#1f1f1d"
+textColor = "#f0efec"

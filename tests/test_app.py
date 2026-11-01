@@ -1,4 +1,4 @@
-"""The website renders every tab, using a small hand-made analysis."""
+"""The website renders every section, using a small hand-made analysis."""
 
 import json
 import re
@@ -19,12 +19,14 @@ from analyzer.progression import (
     sentiment_by_chapter,
     story_arc,
 )
+from analyzer.merge import merge_characters
 from analyzer.relationships import find_relationships
 
 APP = Path(__file__).resolve().parent.parent / "app" / "streamlit_app.py"
 sys.path.insert(0, str(APP.parent))  # so "import charts" works here too
 
 import charts  # noqa: E402
+import design  # noqa: E402
 import explore3d  # noqa: E402
 
 
@@ -74,12 +76,47 @@ def test_the_dashboard_shows_every_section_in_order(app):
     assert not app.info, "every section has data to show (no 'nothing found' messages)"
 
 
+def kpi_values(analysis, mode="light"):
+    cards = design.kpis(analysis, explore3d.events_of(analysis), charts.THEMES[mode])
+    return {c["label"]: c["value"] for c in cards}
+
+
 def test_kpis_come_first(app):
-    metrics = {m.label: m.value for m in app.metric}
-    assert [m.value for m in app.metric][:3] == ["4", "80", "6"]
-    assert metrics["Main character"] == "Anna"
-    assert metrics["Closest pair"].startswith("Anna & ")
-    assert {"Overall mood", "Strongest emotion", "Darkest chapter", "Brightest chapter"} <= set(metrics)
+    page = app.get("html")
+    assert "ba-hero" in page[0].proto.body and "ba-kpis" in page[1].proto.body, "hero, then KPI cards, on top"
+    values = kpi_values(small_analysis())
+    assert [values[k] for k in ("Chapters", "Sentences", "Characters")] == ["4", "80", "6"]
+    assert values["Main character"] == "Anna"
+    assert values["Closest pair"].startswith("Anna &amp; ")
+    assert values["Darkest chapter"].startswith("Chapter 1 ")  # chapters 1 and 3 are dark, 1 comes first
+    assert {"Overall mood", "Strongest emotion", "Brightest chapter", "Mentions"} <= set(values)
+
+
+@pytest.mark.parametrize("mode", ["light", "dark"])
+def test_kpi_cards_and_hero_build(mode):
+    analysis, theme = small_analysis(), charts.THEMES[mode]
+    page = design.kpi_html(design.kpis(analysis, explore3d.events_of(analysis), theme))
+    assert len(re.findall(r'class="ba-kpi[ "]', page)) == 10
+    assert page.count("<svg") >= 3, "the cards carry small pictures"
+    hero = design.hero(analysis, "Test <Book>", explore3d.events_of(analysis), theme)
+    assert hero.count("<i style=\"height:") == 4, "one barcode stripe per chapter"
+    assert "Test &lt;Book&gt;" in hero, "the title is escaped"
+    assert "</style>" in design.page_css(theme, mode)
+
+
+def test_a_character_keeps_one_colour_everywhere():
+    theme, analysis = charts.THEMES["light"], small_analysis()
+    anna = charts.character_colors(analysis, theme)[0]
+    mentions = charts.mentions_bars(analysis, theme)
+    assert mentions.data[0].marker.color[-1] == anna  # Anna is the biggest bar (last = top)
+    assert anna in charts.timeline_heatmap(analysis, theme).layout.yaxis.ticktext[0]
+    assert anna in design.cast_legend(analysis, theme)
+    data = explore3d.scene_data(analysis)
+    assert data["characters"][0]["color"] == charts.character_colors(analysis, charts.THEMES["dark"])[0]
+    # charts about things that are not one character never borrow a character's colour
+    for figure in (charts.pair_moments(analysis, theme, analysis.relationships[0]),
+                   charts.entity_bars(analysis.entities, theme)):
+        assert figure.data[0].marker.color not in theme["series"]
 
 
 def test_every_visualization_has_an_explanation(app):
@@ -91,7 +128,7 @@ def test_every_visualization_has_an_explanation(app):
 def test_editing_the_title(app):
     app.sidebar.text_input[0].set_value("My Better Title").run()
     assert app.session_state["analyses"]["book"]["title"] == "My Better Title"
-    assert any(t.value == "My Better Title" for t in app.title)
+    assert "My Better Title" in app.get("html")[0].proto.body  # the hero banner
 
 
 def test_book_without_emotions_still_renders(app):
@@ -108,7 +145,8 @@ def test_merging_characters_from_the_sidebar(app):
     next(b for b in app.sidebar.button if b.label == "Merge").click().run()
     assert not app.exception
     assert app.session_state["analyses"]["book"]["merges"] == [("Lizzy", "Anna")]
-    assert app.metric[2].value == "5"  # one character fewer
+    merged = app.session_state["analyses"]["book"]
+    assert kpi_values(merge_characters(merged["analysis"], merged["merges"]))["Characters"] == "5"
 
 
 @pytest.mark.parametrize("mode", ["light", "dark"])
