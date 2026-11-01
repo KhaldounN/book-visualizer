@@ -38,8 +38,10 @@ python -m venv .venv
 **Website:**
 
 ```powershell
-.\.venv\Scripts\streamlit.exe run app\streamlit_app.py
+.\run_website.ps1
 ```
+
+(It runs `streamlit run app\streamlit_app.py` with a memory-saving setting, see the script.)
 
 One scrolling page: the book's title over a "mood barcode" (one stripe per chapter), headline cards,
 then 3D views and charts, each with an explanation next to it. Every main character keeps one colour

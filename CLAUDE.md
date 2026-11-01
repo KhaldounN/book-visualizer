@@ -16,7 +16,7 @@ python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r requirements.
 .\.venv\Scripts\python.exe -m pytest tests/test_coref.py::test_pronoun_of_the_wrong_gender_is_dropped   # one test
 .\.venv\Scripts\python.exe -m analyzer data\pride_and_prejudice.txt   # full analysis, prints a summary (~7 min)
 .\.venv\Scripts\python.exe -m analyzer book.txt --no-coref --no-emotions   # faster, skips those steps
-.\.venv\Scripts\streamlit.exe run app\streamlit_app.py                # the website
+.\run_website.ps1                                                      # the website (sets OPENBLAS_NUM_THREADS=1)
 ```
 
 There is no linter or build step.
@@ -51,6 +51,7 @@ The page is one scrolling dashboard (the owner asked for no tabs): upload, title
 
 - **Keep `transformers<5` and `datasets<5`** (pinned in `requirements.txt`): fastcoref crashes with version 5 of either.
 - **Memory:** this machine has the Windows page file off, and the owner's read-aloud voice server (`pythonw … piper_server.py`, never kill it) reserves ~2.6 GB, so often only ~2–3 GB is left. Out-of-memory can show up as a Windows "access violation" crash, not a Python error. Don't load several big models in one process, and don't run the full pipeline, the website and the tests at the same time. The tests use `en_core_web_sm` (see `tests/conftest.py`) for this reason.
+- **OpenBLAS out of memory:** numpy's OpenBLAS reserves a buffer per CPU thread, which crashed the website ("OpenBLAS error: Memory allocation still failed"). Start it with `run_website.ps1` (or set `OPENBLAS_NUM_THREADS=1` for any Python run); setting it inside the script is too late, Streamlit imports numpy first.
 - **Speed:** a full novel takes ~7 min (coref ~2 min, sentiment ~3 min, emotions ~1.5 min). Int8 quantization of the sentiment model was tested and rejected: only 71% of sentences kept the same category.
 - **Commits:** Windows PowerShell 5.1 mangles double quotes in `git commit -m`. Write the message to a file and use `git commit -F <file>`.
 - **Measured accuracy:** coref is ~75% correct on a hand check, and the UI tells users the counts are estimates. The emotion model's "disgust" mostly means disapproval/contempt in classic novels, so the UI labels it that way. Nicknames and married names (Lizzy/Eliza = Elizabeth, Mrs. Collins = Charlotte) are deliberately not auto-merged; the sidebar merge handles them.
