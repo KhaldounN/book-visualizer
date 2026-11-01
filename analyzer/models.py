@@ -62,3 +62,33 @@ class EntityCount:
     name: str
     label: str
     count: int
+
+
+@dataclass
+class Relationship:
+    """Two characters who appear close together in the text."""
+
+    source: int  # character id (always the smaller of the two)
+    target: int
+    count: int  # how many times they appear together
+    sentiment: float  # average tone of the sentences where they appear together
+    # the same two numbers per chapter, to show how the relationship changes
+    chapter_counts: list[int] = field(default_factory=list)
+    chapter_sentiment: list[float | None] = field(default_factory=list)
+
+
+@dataclass
+class BookAnalysis:
+    """Everything the website needs to draw its charts."""
+
+    chapters: list[Chapter]
+    sentences: list[Sentence]
+    characters: list[Character]
+    mentions: list[Mention]
+    entities: list[EntityCount]
+    relationships: list[Relationship]
+    chapter_sentiment: list[float]  # [chapter] -> average sentence sentiment
+    mentions_by_chapter: list[list[int]]  # [character][chapter] -> mention count
+    # [character][chapter] -> average sentiment of sentences mentioning them (None: absent)
+    sentiment_by_chapter: list[list[float | None]]
+    timings: dict[str, float] = field(default_factory=dict)  # step -> seconds
