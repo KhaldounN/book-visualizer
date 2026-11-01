@@ -61,8 +61,10 @@ class EntityCount:
     """A non-character entity (place, organization, ...) and how often it appears."""
 
     name: str
-    label: str
+    label: str  # spaCy's label, e.g. GPE
     count: int
+    kind: str = "other"  # place / organization / group / other
+    chapter_counts: list[int] = field(default_factory=list)  # [chapter] -> mentions
 
 
 @dataclass

@@ -70,6 +70,22 @@ def test_trailing_punctuation_is_cut_from_names():
     assert {m.text for m in mentions} == {"Jane Bennet"}
 
 
+def test_entity_kinds_and_chapters():
+    lines = (
+        ["They dined at [Pemberley|ORG]."] * 2      # an estate spaCy calls an organization
+        + ["Her [Ladyship|ORG] was displeased."] * 2  # a real organization-like name
+        + ["He went to [London|GPE]."] * 2
+        + ["We called on the [Lucases|PERSON]."] * 2  # a family, not a place
+        + repeat("[Lucas|PERSON] laughed.")
+    )
+    chapters = [0, 1, 0, 0, 1, 1, 0, 0] + [0] * MIN_MENTIONS
+    sentences, text = make_sentences(lines, chapters)
+    _, _, others = find_characters(sentences, text)
+    kinds = {e.name: e.kind for e in others}
+    assert kinds == {"Pemberley": "place", "Ladyship": "organization", "London": "place", "Lucases": "group"}
+    assert next(e for e in others if e.name == "Pemberley").chapter_counts == [1, 1]
+
+
 def test_rare_names_are_ignored():
     sentences, text = make_sentences(repeat("[Anna|PERSON] smiled.", MIN_MENTIONS - 1))
     assert find_characters(sentences, text)[0] == []

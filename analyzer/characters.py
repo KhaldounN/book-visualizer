@@ -178,6 +178,12 @@ def _group(forms: Counter, displays: dict) -> dict:
     return assignment
 
 
+def _after_place_word(text: str, start: int) -> bool:
+    """True if the word before `start` usually comes before places: "in Meryton"."""
+    before = _WORD_BEFORE.search(text[max(0, start - 15):start])
+    return bool(before) and before.group(1).lower() in PLACE_CUES
+
+
 def find_characters(
     sentences: list[Sentence], text: str
 ) -> tuple[list[Character], list[Mention], list[EntityCount]]:
@@ -201,9 +207,7 @@ def find_characters(
     for n in names:
         if n.title is None:
             untitled_counts[n.display] += 1
-            before = _WORD_BEFORE.search(text[max(0, n.start - 15):n.start])
-            if before and before.group(1).lower() in PLACE_CUES:
-                cue_counts[n.display] += 1
+            cue_counts[n.display] += _after_place_word(text, n.start)
     places = {
         name for name, count in untitled_counts.items()
         if cue_counts[name] >= PLACE_CUE_SHARE * count
@@ -243,24 +247,47 @@ def find_characters(
         if id(assignment[n.key]) in ids
     ]
     person_names = {n.display for n in names if n.title is None}
-    return characters, mentions, _other_entities(sentences, person_names, places)
+    return characters, mentions, _other_entities(sentences, text, person_names, places)
+
+
+def _kind(label: str, after_place_word: int, count: int) -> str:
+    """place / organization / group / other. spaCy calls many houses and
+    estates organizations (Netherfield, Pemberley); like Meryton, they give
+    themselves away by following place words: "at Pemberley"."""
+    if label in {"GPE", "LOC", "FAC"}:
+        return "place"
+    if label == "ORG":
+        return "place" if after_place_word >= PLACE_CUE_SHARE * count else "organization"
+    return "group" if label == "NORP" else "other"
 
 
 def _other_entities(
-    sentences: list[Sentence], person_names: set[str], places: set[str]
+    sentences: list[Sentence], text: str, person_names: set[str], places: set[str]
 ) -> list[EntityCount]:
+    num_chapters = max((s.chapter for s in sentences), default=-1) + 1
     labels: dict[str, Counter] = {}
+    chapters: dict[str, list[int]] = {}
+    cues: Counter = Counter()
     for s in sentences:
         for e in s.entities:
             name = _clean_name(e.text)
             if not name or not name[0].isupper() or name in person_names:
                 continue
             if e.label in OTHER_LABELS:
-                labels.setdefault(name, Counter())[e.label] += 1
+                label = e.label
             elif e.label == "PERSON" and name in places:  # a place mistaken for a person
-                labels.setdefault(name, Counter())["LOC"] += 1
-    counts = [
-        EntityCount(name=name, label=c.most_common(1)[0][0], count=sum(c.values()))
-        for name, c in labels.items()
-    ]
+                label = "LOC"
+            else:
+                continue
+            labels.setdefault(name, Counter())[label] += 1
+            chapters.setdefault(name, [0] * num_chapters)[s.chapter] += 1
+            cues[name] += _after_place_word(text, e.start)
+    # "the Lucases" follows a place word but is a family: a plural of a character's name
+    name_words = {w for n in person_names for w in n.split()}
+    counts = []
+    for name, c in labels.items():
+        label, count = c.most_common(1)[0][0], sum(c.values())
+        family = name.endswith("s") and (name[:-1] in name_words or name[:-2] in name_words)
+        counts.append(EntityCount(name=name, label=label, count=count, chapter_counts=chapters[name],
+                                  kind="group" if family else _kind(label, cues[name], count)))
     return sorted((e for e in counts if e.count >= 2), key=lambda e: -e.count)
