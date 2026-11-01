@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from analyzer.models import BookAnalysis, Chapter, Character, EntityCount, Mention, Sentence
+from analyzer.models import BookAnalysis, Chapter, ChapterEvent, Character, EntityCount, Mention, Sentence
 from analyzer.progression import (
     chapter_emotions,
     chapter_sentiment,
@@ -17,6 +17,7 @@ from analyzer.progression import (
     mentions_by_chapter,
     rolling_sentiment,
     sentiment_by_chapter,
+    story_arc,
 )
 from analyzer.relationships import find_relationships
 
@@ -52,6 +53,8 @@ def small_analysis() -> BookAnalysis:
         title="Test Book", author="Ann Example",
         chapter_emotions=chapter_emotions(sentences, len(chapters)),
         character_emotions=emotions_by_character(mentions, sentences, len(characters)),
+        chapter_events=[ChapterEvent(theme, 1.5 + i, f"Something happens in chapter {i + 1}.", ["word", "other"])
+                        for i, theme in enumerate(["Ball", "Letter", "Journey", "Wedding"])],
     )
 
 
@@ -65,8 +68,8 @@ def app():
 
 def test_every_tab_renders(app):
     assert not app.exception
-    assert [t.label for t in app.tabs] == ["Overview", "Mentions", "Story sentiment", "Emotions", "Timeline",
-                                           "Relationships", "Places & entities", "Explore in 3D"]
+    assert [t.label for t in app.tabs] == ["Overview", "Story timeline", "Mentions", "Story sentiment", "Emotions",
+                                           "Timeline", "Relationships", "Places & entities", "Explore in 3D"]
     assert [m.value for m in app.metric][:3] == ["4", "80", "6"]
     assert not app.info, "every tab has data to show (no 'nothing found' messages)"
 
@@ -113,6 +116,8 @@ def test_charts_build_in_both_themes(mode):
         charts.emotion_journey(analysis, theme, smooth=3),
         charts.places_heatmap(analysis, theme),
         charts.entity_bars(analysis.entities, theme),
+        charts.story_timeline(analysis, theme, analysis.chapter_events, labels=3),
+        charts.story_arc_chart(analysis, theme, analysis.chapter_events, *story_arc(analysis.chapter_sentiment, smooth=1)),
     ):
         assert figure.data, "every chart has something to draw"
 
@@ -134,6 +139,20 @@ def test_3d_page_cannot_be_broken_by_a_name():
     analysis.characters[0].name = "</script><b>Anna"
     html = explore3d.scene_html(analysis, "constellation")
     assert "</script><b>" not in html  # the name can't end the script tag early
+
+
+def test_old_analysis_without_themes_falls_back_to_keywords(app):
+    app.session_state["analyses"]["book"]["analysis"].chapter_events = None
+    app.run()
+    assert not app.exception
+    assert any("before chapter themes existed" in i.value for i in app.info)
+
+
+def test_chapter_details_name_people_and_places():
+    details = charts.chapter_details(small_analysis())
+    assert len(details) == 4
+    assert details[0]["place"] == "London" and details[1]["place"] is None  # London isn't in chapter 2
+    assert all(1 <= len(d["people"]) <= 2 for d in details)
 
 
 def test_unknown_3d_scene_is_refused():

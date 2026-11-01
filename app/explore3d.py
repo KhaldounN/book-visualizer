@@ -9,11 +9,13 @@ import json
 from pathlib import Path
 
 import charts
+from analyzer.chapter_events import name_chapters
 from analyzer.emotions import average_emotions
 from analyzer.models import BookAnalysis
 
 TEMPLATE = Path(__file__).with_name("explore3d.html")
 SCENES = {
+    "skyline": "Story skyline",
     "constellation": "Character constellation",
     "terrain": "Story terrain",
     "crystal": "Emotion crystal",
@@ -22,13 +24,20 @@ SCENES = {
 }
 TOP_CHARACTERS = 14  # more stars than this crowd the scenes
 MIN_LINK = 10  # relationships with fewer shared moments are left out
-EMOTION_SCENES = {"crystal", "tunnel"}  # scenes that need emotions to say anything
+EMOTION_SCENES = {"crystal", "tunnel", "skyline"}  # scenes that need emotions to say anything
 
 
 def _shares(mix: dict[str, float]) -> list[float]:
     """The six emotions' shares (neutral left out), in charts.EMOTION_ORDER."""
     shares = charts.without_neutral(mix)
     return [round(shares.get(e, 0.0), 3) for e in charts.EMOTION_ORDER]
+
+
+def events_of(analysis: BookAnalysis) -> list:
+    """The analysis's chapter events; analyses saved before themes existed
+    get keyword-only events (instant, no model)."""
+    return analysis.chapter_events or name_chapters(
+        analysis.sentences, analysis.characters, len(analysis.chapters), embed=None)
 
 
 def _round(value: float | None) -> float | None:
@@ -65,6 +74,11 @@ def scene_data(analysis: BookAnalysis) -> dict:
         "chapterTone": [round(t, 3) for t in analysis.chapter_sentiment],
         "chapterEmotions": [_shares(mix) for mix in analysis.chapter_emotions] or [[0.0] * 6] * len(analysis.chapters),
         "bookEmotions": _shares(average_emotions([s.emotions for s in analysis.sentences])),
+        "chapterNeutral": [round(mix.get("neutral", 0.0), 3) for mix in analysis.chapter_emotions]
+                          or [1.0] * len(analysis.chapters),
+        "chapterEvents": [{"theme": e.theme, "event": e.event, "keywords": e.keywords, "strength": e.strength}
+                          for e in events_of(analysis)],
+        "chapterDetails": charts.chapter_details(analysis),
         "characters": people,
         "links": links,
     }

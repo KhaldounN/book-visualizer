@@ -2,6 +2,10 @@
 
 Upload an English novel as a `.txt` file and explore:
 
+- **Story timeline**: every chapter's theme (ball, proposal, scandal, journey…), its most telling sentence and
+  keywords, along the mood and emotions of the book; the story's arc with its turning points and acts; and a 3D
+  "skyline" of the chapters to fly through. Themes come from a small model running on your computer and are
+  right about half the time, so each one is shown with the sentence and words it is based on
 - **Characters**: who appears and how often, counting names *and* pronouns ("she", "his")
 - **Story sentiment**: the mood per chapter (whole book or per character), the mood sentence by
   sentence, and the **key moments**: the darkest and brightest passages, quoted
@@ -56,6 +60,7 @@ book opens instantly the next time. The uploaded text itself is never saved.
 | Link pronouns to characters | [fastcoref](https://github.com/shon-otmazgin/fastcoref) |
 | Score each sentence from −1 (negative) to +1 (positive) | [`cardiffnlp/twitter-roberta-base-sentiment-latest`](https://huggingface.co/cardiffnlp/twitter-roberta-base-sentiment-latest) |
 | Detect the emotion of each sentence | [`j-hartmann/emotion-english-distilroberta-base`](https://huggingface.co/j-hartmann/emotion-english-distilroberta-base) |
+| Pick each chapter's theme | [`sentence-transformers/all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) embeddings + our key sentences and keywords (`analyzer/chapter_events.py`) |
 | Tell places from organizations ("at Pemberley") | our own rules (`analyzer/characters.py`) |
 | Charts | [Plotly](https://plotly.com/python/) in [Streamlit](https://streamlit.io) |
 

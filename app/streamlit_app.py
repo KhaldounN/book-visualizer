@@ -4,6 +4,7 @@
 """
 
 import hashlib
+import html
 import pickle
 import sys
 from pathlib import Path
@@ -21,7 +22,7 @@ import explore3d  # noqa: E402
 from analyzer.emotions import average_emotions  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
-from analyzer.progression import key_moments, rolling_sentiment  # noqa: E402
+from analyzer.progression import key_moments, rolling_sentiment, story_arc  # noqa: E402
 
 SAMPLE = ROOT / "data" / "pride_and_prejudice.txt"
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
@@ -134,9 +135,9 @@ with st.expander("✏️ Edit title"):
         book["title"] = new_title.strip()
         st.rerun()
 has_emotions = any(analysis.chapter_emotions)
-overview, mentions, mood, feelings, timeline, relations, entities, explore = st.tabs(
-    ["Overview", "Mentions", "Story sentiment", "Emotions", "Timeline", "Relationships", "Places & entities",
-     "Explore in 3D"]
+overview, story, mentions, mood, feelings, timeline, relations, entities, explore = st.tabs(
+    ["Overview", "Story timeline", "Mentions", "Story sentiment", "Emotions", "Timeline", "Relationships",
+     "Places & entities", "Explore in 3D"]
 )
 
 # --- Overview -----------------------------------------------------------------
@@ -178,6 +179,76 @@ with overview:
             "- If a character appears twice under different names, merge them in the sidebar."
         )
     st.caption("Analysis time: " + ", ".join(f"{k} {v:.0f}s" for k, v in analysis.timings.items()))
+
+# --- Story timeline ----------------------------------------------------------------
+
+def chapter_cards(events: list, details: list[dict]) -> str:
+    """A sideways-scrolling strip of chapter cards (plain HTML and CSS)."""
+    negative, middle, positive = theme["diverging"]
+    cards = []
+    for ch, (event, detail) in enumerate(zip(events, details)):
+        tone = analysis.chapter_sentiment[ch]
+        color = positive if tone >= 0.04 else negative if tone <= -0.04 else middle
+        shares = charts.without_neutral(analysis.chapter_emotions[ch]) if has_emotions else {}
+        mix = "".join(f'<i style="flex:{shares[e]};background:{theme["emotions"][e]}"></i>' for e in charts.EMOTION_ORDER
+                      if shares.get(e))
+        place = f"<br>at {html.escape(detail['place'])}" if detail["place"] else ""
+        cards.append(
+            f'<article><div class="top"><span>{html.escape(analysis.chapters[ch].title)}</span>'
+            f'<b style="background:{color}">{tone:+.2f}</b></div>'
+            f'<h4>{html.escape(event.theme)}</h4><p>{html.escape(event.event)}</p><div class="mix">{mix}</div>'
+            f'<small>{html.escape(", ".join(detail["people"]))}{place}<br>{html.escape(" · ".join(event.keywords))}</small></article>'
+        )
+    return f"""<style>
+      .cards {{ display: grid; grid-auto-flow: column; grid-auto-columns: 230px; gap: 10px; overflow-x: auto; padding-bottom: 10px; }}
+      .cards article {{ border: 1px solid {theme["grid"]}; border-radius: 6px; padding: 12px; display: grid; gap: 7px;
+                        align-content: start; background: {theme["surface"]}; color: {theme["ink"]}; }}
+      .cards .top {{ display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: {theme["muted"]}; }}
+      .cards .top b {{ color: #fff; font-weight: 500; font-size: 12px; padding: 2px 6px; border-radius: 3px; }}
+      .cards h4 {{ margin: 0; font-size: 19px; }}
+      .cards p {{ margin: 0; font-size: 13px; color: {theme["ink2"]}; line-height: 1.4; }}
+      .cards .mix {{ display: flex; gap: 1px; height: 7px; border-radius: 2px; overflow: hidden; }}
+      .cards small {{ color: {theme["muted"]}; font-size: 12px; line-height: 1.45; }}
+    </style><div class="cards">{"".join(cards)}</div>"""
+
+
+with story:
+    events = explore3d.events_of(analysis)
+    st.caption("Each chapter gets a theme picked by a small AI model running on this computer, and its most "
+               "telling sentence as its main event. The model is right about half the time and close most of the "
+               "rest, so each label shows its sentence and keywords too.")
+    if not analysis.chapter_events:
+        st.info("This analysis was made before chapter themes existed, so the themes below are keywords. "
+                "Analyze the book again to get model themes.")
+
+    st.markdown("#### The story in 3D")
+    if has_emotions:
+        components.html(explore3d.scene_html(analysis, "skyline"), height=580)
+        st.caption("Each tower is a chapter, built from its emotions: taller means more emotional. The floor shows "
+                   "its mood (blue brighter, red darker), the white line traces the mood, and tags mark the "
+                   "clearest themes. Drag to rotate, click a tower, or fly through the book.")
+    else:
+        st.info("The 3D view needs emotions, which were not detected for this book.")
+
+    st.markdown("#### Timeline")
+    labels = st.slider("Themes to label", 0, min(30, len(events)), min(12, len(events)), key="theme_labels",
+                       help="Labels the chapters whose theme stands out most. Hover any chapter for all its details.")
+    st.plotly_chart(charts.story_timeline(analysis, theme, events, labels), width="stretch")
+
+    st.markdown("#### Story arc and turning points")
+    arc, turning, acts = story_arc(analysis.chapter_sentiment)
+    st.caption("The mood smoothed into the story's overall shape. The biggest peaks and dips are turning points; "
+               "each dip starts a new act.")
+    st.plotly_chart(charts.story_arc_chart(analysis, theme, events, arc, turning, acts), width="stretch")
+
+    st.markdown("#### Chapter by chapter")
+    details = charts.chapter_details(analysis)
+    st.html(chapter_cards(events, details))
+    table(pd.DataFrame([
+        {"Chapter": c.title, "Theme": e.theme, "Main event": e.event, "Keywords": ", ".join(e.keywords),
+         "Mood": round(analysis.chapter_sentiment[i], 3)}
+        for i, (c, e) in enumerate(zip(analysis.chapters, events))
+    ]))
 
 # --- Mentions -------------------------------------------------------------------
 
@@ -303,6 +374,9 @@ with relations:
 # --- Explore in 3D -------------------------------------------------------------------------
 
 SCENE_HELP = {
+    "skyline": "Each chapter is a tower built from its emotions (taller = more emotional), standing on a floor "
+               "coloured by its mood. The white line traces the mood and tags mark the clearest themes. Click a "
+               "tower or press Fly through.",
     "constellation": "Each character is a star. Left to right: darker to brighter tone. Bottom to top: early to "
                      "late in the book. Back to front: cold to warm emotions. Size = mentions, colour = strongest "
                      "emotion, lines = relationships. Click a star to see only its relationships.",
@@ -317,8 +391,9 @@ SCENE_HELP = {
 }
 
 with explore:
+    # starts on the constellation: the skyline is already on the Story timeline tab
     scene = st.radio("Scene", list(explore3d.SCENES), format_func=explore3d.SCENES.get, horizontal=True,
-                     label_visibility="collapsed", key="scene")
+                     label_visibility="collapsed", key="scene", index=list(explore3d.SCENES).index("constellation"))
     st.caption(SCENE_HELP[scene] + " Drag to rotate. These views are for exploring; the other tabs give "
                "exact numbers.")
     if scene in explore3d.EMOTION_SCENES and not has_emotions:

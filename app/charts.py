@@ -239,6 +239,102 @@ def mood_arc(analysis: BookAnalysis, theme: dict, rolled: list[float], moments: 
     return _layout(fig, theme, height=380, hovermode="x")
 
 
+# --- Story timeline --------------------------------------------------------------------
+
+def chapter_details(analysis: BookAnalysis) -> list[dict]:
+    """Per chapter: its two most mentioned characters and its most mentioned place."""
+    places = [e for e in analysis.entities if e.kind == "place" and e.chapter_counts]
+    details = []
+    for ch in range(len(analysis.chapters)):
+        present = [c for c in analysis.characters if analysis.mentions_by_chapter[c.id][ch]]
+        people = sorted(present, key=lambda c: -analysis.mentions_by_chapter[c.id][ch])[:2]
+        place = max(places, key=lambda e: e.chapter_counts[ch], default=None)
+        details.append({"people": [c.name for c in people],
+                        "place": place.name if place and place.chapter_counts[ch] else None})
+    return details
+
+
+def _chapter_hover(analysis: BookAnalysis, events: list, details: list[dict]) -> list[str]:
+    hover = []
+    for ch, (event, detail) in enumerate(zip(events, details)):
+        where = f" · at {detail['place']}" if detail["place"] else ""
+        hover.append(f"<b>{analysis.chapters[ch].title} · {event.theme}</b><br>{event.event}<br>"
+                     f"{', '.join(detail['people'])}{where}<br>keywords: {', '.join(event.keywords)}")
+    return hover
+
+
+def story_timeline(analysis: BookAnalysis, theme: dict, events: list, labels: int) -> go.Figure:
+    """Top: each chapter's mood with the clearest themes pinned above.
+    Bottom: how the mix of emotions shifts. One shared chapter axis, two
+    separate y-axes stacked (never two scales on one plot)."""
+    from plotly.subplots import make_subplots
+
+    chapters = list(range(1, len(analysis.chapters) + 1))
+    hover = _chapter_hover(analysis, events, chapter_details(analysis))
+    negative, middle, positive = theme["diverging"]
+    colors = [positive if t >= 0.04 else negative if t <= -0.04 else middle for t in analysis.chapter_sentiment]
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.62, 0.38], vertical_spacing=0.06)
+    # the legend is for the emotions only; the mood axis title explains the bars
+    fig.add_bar(x=chapters, y=analysis.chapter_sentiment, marker=dict(color=colors, line=dict(color=theme["surface"], width=1)),
+                customdata=hover, hovertemplate="%{customdata}<br>mood %{y:+.2f}<extra></extra>", showlegend=False,
+                row=1, col=1)
+    fig.add_scatter(x=chapters, y=_smooth(analysis.chapter_sentiment, 5), mode="lines", hoverinfo="skip",
+                    line=dict(color=theme["ink"], width=2), showlegend=False, row=1, col=1)
+    if any(analysis.chapter_emotions):
+        shares = [without_neutral(mix) for mix in analysis.chapter_emotions]
+        for e in EMOTION_ORDER:
+            fig.add_scatter(x=chapters, y=_smooth([s.get(e) if s else None for s in shares], 3), mode="lines",
+                            stackgroup="mix", groupnorm="percent", name=EMOTION_LABELS[e],
+                            line=dict(width=1, color=theme["surface"]), fillcolor=theme["emotions"][e],
+                            hovertemplate=f"{EMOTION_LABELS[e]} %{{y:.0f}}%<extra></extra>", row=2, col=1)
+    # pin the clearest themes above their bars, alternating heights so labels don't collide
+    clearest = sorted(sorted(range(len(events)), key=lambda c: -events[c].strength)[:labels])
+    for k, ch in enumerate(clearest):
+        tone = analysis.chapter_sentiment[ch]
+        fig.add_annotation(x=ch + 1, y=tone, text=f"<b>{events[ch].theme}</b>", showarrow=True, arrowhead=0,
+                           arrowcolor=theme["muted"], ax=0, ay=(-1 if tone >= 0 else 1) * (28 + (k % 3) * 22),
+                           font=dict(size=12, color=theme["ink"]), bgcolor=theme["surface"],
+                           bordercolor=theme["axis"], borderpad=3, row=1, col=1)
+    fig.add_hline(y=0, line=dict(color=theme["axis"], width=1), row=1, col=1)
+    limit = max(0.15, *(abs(t) for t in analysis.chapter_sentiment)) * 1.6
+    fig.update_yaxes(title="Mood", tickformat="+.2f", range=[-limit, limit], row=1, col=1)
+    fig.update_yaxes(title="Emotions", ticksuffix="%", range=[0, 100], row=2, col=1)
+    fig.update_xaxes(title="Chapter", range=[0.4, len(chapters) + 0.6], row=2, col=1)
+    fig = _layout(fig, theme, height=600, hovermode="x unified", showlegend=True)
+    fig.update_layout(legend_traceorder="normal")
+    return fig
+
+
+def story_arc_chart(analysis: BookAnalysis, theme: dict, events: list,
+                    arc: list[float], turning: list[tuple[int, str]], acts: list[tuple[int, int]]) -> go.Figure:
+    """The smoothed mood of the book with its turning points and acts."""
+    chapters = list(range(1, len(arc) + 1))
+    hover = _chapter_hover(analysis, events, chapter_details(analysis))
+    negative, _, positive = theme["diverging"]
+    fig = go.Figure()
+    for part, color in (([max(v, 0) for v in arc], positive), ([min(v, 0) for v in arc], negative)):
+        fig.add_scatter(x=chapters, y=part, mode="lines", fill="tozeroy", line=dict(width=0, color=color),
+                        fillcolor=color, opacity=0.35, hoverinfo="skip", showlegend=False)
+    fig.add_scatter(x=chapters, y=arc, mode="lines", line=dict(color=theme["ink"], width=2.5, shape="spline"),
+                    customdata=hover, hovertemplate="%{customdata}<br>smoothed mood %{y:+.2f}<extra></extra>",
+                    showlegend=False)
+    fig.add_scatter(x=[i + 1 for i, _ in turning], y=[arc[i] for i, _ in turning], mode="markers+text",
+                    text=[events[i].theme for i, _ in turning], showlegend=False, hoverinfo="skip",
+                    textposition=["top center" if kind == "high" else "bottom center" for _, kind in turning],
+                    textfont=dict(color=theme["ink"], size=12),
+                    marker=dict(size=11, color=theme["series"][0], line=dict(color=theme["surface"], width=2)))
+    for k, (first, last) in enumerate(acts):
+        if k % 2:
+            fig.add_vrect(x0=first + 0.5, x1=last + 1.5, fillcolor=theme["grid"], opacity=0.5, line_width=0, layer="below")
+        fig.add_annotation(x=(first + last) / 2 + 1, y=1, yref="paper", yanchor="top", showarrow=False,
+                           text=f"Act {k + 1}", font=dict(size=12, color=theme["muted"]))
+    fig.add_hline(y=0, line=dict(color=theme["axis"], width=1))
+    _tone_axis(fig, arc)
+    fig.update_yaxes(title="Mood (smoothed)")
+    fig.update_xaxes(title="Chapter", range=[0.5, len(arc) + 0.5])
+    return _layout(fig, theme, height=420, hovermode="closest")
+
+
 # --- Emotions ---------------------------------------------------------------------
 
 def without_neutral(mix: dict[str, float]) -> dict[str, float]:

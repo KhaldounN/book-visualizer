@@ -117,11 +117,12 @@ function glow(color, size) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
   s.scale.setScalar(size); return s;
 }
-function label(text, { size = 0.55, color = "#dbe7f3", weight = 600 } = {}) {
-  const c = document.createElement("canvas"), g = c.getContext("2d"), fs = 64;
+function label(text, { size = 0.55, color = "#dbe7f3", weight = 600, panel = null } = {}) {
+  const c = document.createElement("canvas"), g = c.getContext("2d"), fs = 64, pad = panel ? 20 : 12;
   const font = `${weight} ${fs}px "Chakra Petch", sans-serif`;
-  g.font = font; c.width = Math.ceil(g.measureText(text).width) + 24; c.height = Math.round(fs * 1.35);
-  g.font = font; g.fillStyle = color; g.textBaseline = "middle"; g.fillText(text, 12, c.height / 2);
+  g.font = font; c.width = Math.ceil(g.measureText(text).width) + pad * 2; c.height = Math.round(fs * 1.35);
+  if (panel) { g.fillStyle = panel; g.beginPath(); g.roundRect(0, 0, c.width, c.height, 12); g.fill(); }  // a tag behind the text
+  g.font = font; g.fillStyle = color; g.textBaseline = "middle"; g.fillText(text, pad, c.height / 2);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
   s.scale.set(size * c.width / c.height, size, 1); return s;
@@ -147,7 +148,7 @@ function stage({ camera = [0, 4, 16], autoRotate = true, controls = true, fog = 
     const t = clock.getElapsedTime();
     orbit?.update(); tick.forEach((f) => f(t)); renderer.render(scene, cam);
   });
-  return { scene, camera: cam, tick };
+  return { scene, camera: cam, tick, orbit };
 }
 function hover(st, objects, describe) {
   const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true;
@@ -181,6 +182,95 @@ function picker(labelText, options, onChange, start = 0) {
   select.value = String(start);
   select.addEventListener("change", () => onChange(+select.value));
   onChange(start);
+}
+
+/* ---- Story skyline ---- */
+function skyline() {
+  const st = stage({ camera: [-5, 9.5, 25], autoRotate: false, fog: 0.012 });
+  st.orbit.target.set(0, 4, 0); st.orbit.maxPolarAngle = Math.PI * 0.49;  // never look from under the floor
+  st.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-12, 25, 18); st.scene.add(sun);
+  const n = data.chapters, STEP = Math.min(0.62, 38 / n), events = data.chapterEvents, details = data.chapterDetails;
+  const xOf = (i) => (i - (n - 1) / 2) * STEP;
+  // taller tower = less neutral narration (scaled between the book's least and most emotional chapter)
+  const emotional = data.chapterNeutral.map((v) => 1 - v);
+  const lo = Math.min(...emotional), hi = Math.max(...emotional);
+  const heights = emotional.map((e) => 2 + ((e - lo) / (hi - lo || 1)) * 8);
+  const box = new THREE.BoxGeometry(1, 1, 1), hitBoxes = [];
+  for (let i = 0; i < n; i++) {
+    let y = 0.04;
+    data.chapterEmotions[i].forEach((share, k) => {
+      const h = share * heights[i];
+      if (h < 0.05) return;
+      const block = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: EMO_COLOR[EMO[k]], roughness: 0.55 }));
+      block.scale.set(STEP * 0.74, Math.max(0.01, h - 0.05), 1);  // small gap between blocks
+      block.position.set(xOf(i), y + h / 2, 0); st.scene.add(block); y += h;
+    });
+    const tile = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: toneColor(data.chapterTone[i]), roughness: 0.8 }));
+    tile.scale.set(STEP - 0.04, 0.08, 2.4); tile.position.set(xOf(i), -0.04, 0.4); st.scene.add(tile);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(STEP, heights[i] + 0.4, 2.4), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.set(xOf(i), heights[i] / 2, 0.4); hit.userData.ch = i; st.scene.add(hit); hitBoxes.push(hit);
+    if (i % 5 === 0) { const s = label(`ch ${i + 1}`, { size: 0.55, color: "#8d9199", weight: 500 }); s.position.set(xOf(i), 0.05, 2.4); st.scene.add(s); }
+  }
+  // the mood line floats in front of the towers, around its zero line
+  const MOOD_Y = 3, MOOD_Z = 2;
+  st.scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(data.chapterTone.map((t, i) => new THREE.Vector3(xOf(i), MOOD_Y + t * 10, MOOD_Z))), n * 6, 0.06, 6),
+    new THREE.MeshBasicMaterial({ color: 0xf0efec })));
+  st.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xOf(0) - 0.4, MOOD_Y, MOOD_Z), new THREE.Vector3(xOf(n - 1) + 0.4, MOOD_Y, MOOD_Z)]),
+    new THREE.LineBasicMaterial({ color: 0x5a5e66 })));
+  const moodTag = label("mood", { size: 0.45, color: "#c3c2b7", weight: 500 }); moodTag.position.set(xOf(0) - 1.4, MOOD_Y, MOOD_Z); st.scene.add(moodTag);
+  // tags for the chapters whose theme stands out most
+  const clearest = events.map((e, i) => [e.strength, i]).sort((a, b) => b[0] - a[0]).slice(0, 12).map((x) => x[1]).sort((a, b) => a - b);
+  clearest.forEach((i, j) => {
+    const top = heights[i] + 0.2, y = top + 1.4 + (j % 2) * 1.3;
+    st.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xOf(i), top, 0), new THREE.Vector3(xOf(i), y - 0.35, 0)]),
+      new THREE.LineBasicMaterial({ color: 0x8d9199 })));
+    const tag = label(events[i].theme, { size: 0.6, color: "#05080d", panel: "#f0d48a" });
+    tag.position.set(xOf(i), y, 0); st.scene.add(tag);
+  });
+  // selection outline, card and tooltip
+  const outline = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: 0xffffff }));
+  outline.visible = false; st.scene.add(outline);
+  const describe = (i) => `${escape(data.chapterTitles[i])} · ${escape(events[i].theme)}`;
+  function select(i) {
+    outline.visible = true; outline.scale.set(STEP + 0.02, heights[i] + 0.2, 1.2); outline.position.set(xOf(i), heights[i] / 2 + 0.05, 0);
+    const d = details[i], shares = data.chapterEmotions[i];
+    card.hidden = false;
+    card.innerHTML = `<h3>${describe(i)}</h3><div class="meta">${escape(events[i].event)}</div>
+      <div class="meta">mood ${fmtTone(data.chapterTone[i])} · ${Math.round(emotional[i] * 100)}% emotional text</div>${emotionBars(shares)}
+      <div class="meta">${escape(d.people.join(", "))}${d.place ? " · at " + escape(d.place) : ""}<br>keywords: ${escape(events[i].keywords.join(", "))}</div>`;
+    slider.value = String(i + 1);
+  }
+  const hit = hover(st, () => hitBoxes, (h) => {
+    const i = h.object.userData.ch;
+    return `<b>${describe(i)}</b><br>mood ${fmtTone(data.chapterTone[i])}<br>${escape(events[i].event)}`;
+  });
+  // fly-through along the book
+  hud.innerHTML = `<button id="fly" type="button">Fly through</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
+    <div class="legend chip">${EMO.map((e) => `<span><i style="background:${EMO_COLOR[e]}"></i>${EMO_LABEL[e]}</span>`).join("")}</div>`;
+  const fly = document.getElementById("fly"), slider = document.getElementById("seek");
+  let flying = false, at = 0, last = 0;
+  const stopFlying = () => { flying = false; fly.textContent = "Fly through"; st.orbit.enabled = true; };
+  fly.addEventListener("click", () => {
+    if (flying) { stopFlying(); return; }
+    flying = true; st.orbit.enabled = false; fly.textContent = "Stop"; if (at >= n - 1) at = 0;
+  });
+  slider.addEventListener("input", () => {
+    const i = +slider.value - 1; at = i; stopFlying(); select(i);
+    st.orbit.target.set(xOf(i), 4, 0); st.camera.position.set(xOf(i) - 5, 8, 12);
+  });
+  canvas.addEventListener("click", (e) => { const [h] = hit(e); if (h) { stopFlying(); select(h.object.userData.ch); } });
+  st.tick.push((t) => {
+    const dt = Math.min(0.05, t - last); last = t;
+    if (!flying) return;
+    at = Math.min(n - 1, at + dt * (REDUCE ? 4 : 1.1));
+    st.camera.position.set(xOf(at) - 6, 7.5, 11.5);
+    st.orbit.target.set(xOf(at) + 3, 3.5, 0); st.camera.lookAt(st.orbit.target);
+    if (+slider.value !== Math.round(at) + 1) select(Math.round(at));
+    if (at >= n - 1) stopFlying();
+  });
+  hint.textContent = "drag to rotate · click a tower";
+  select(clearest[Math.floor(clearest.length / 2)] ?? 0);
 }
 
 /* ---- Character constellation ---- */
@@ -413,7 +503,7 @@ function tunnel() {
   hint.textContent = "move the mouse to look around";
 }
 
-({ constellation, terrain, crystal, dna, tunnel })[SCENE]();
+({ skyline, constellation, terrain, crystal, dna, tunnel })[SCENE]();
 window.sceneStarted = true;
 </script>
 </body>
