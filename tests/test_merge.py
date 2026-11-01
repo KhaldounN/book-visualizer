@@ -1,3 +1,5 @@
+import pytest
+
 from analyzer.merge import merge_characters
 from analyzer.models import BookAnalysis, Chapter, Character, Mention, Sentence
 
@@ -24,6 +26,16 @@ def test_merge_combines_mentions_and_aliases():
     assert [(c.id, c.name, c.mentions) for c in merged.characters] == [(0, "Elizabeth", 5), (1, "Mr. Darcy", 3)]
     assert merged.characters[0].aliases == ["Elizabeth", "Lizzy"]
     assert merged.mentions_by_chapter == [[5], [3]]
+
+
+def test_merge_recomputes_character_emotions():
+    analysis = make_analysis()
+    for s in analysis.sentences:
+        s.emotions = {"joy": 1.0 if s.index < 4 else 0.0, "neutral": 0.0 if s.index < 4 else 1.0}
+    merged = merge_characters(analysis, [("Lizzy", "Elizabeth")])
+    assert len(merged.character_emotions) == len(merged.characters)
+    # Elizabeth + Lizzy are named in sentences 0, 2, 4, 6, 7: two joyful, three neutral
+    assert merged.character_emotions[0]["joy"] == pytest.approx(0.4)
 
 
 def test_merge_updates_relationships():

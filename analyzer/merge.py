@@ -8,7 +8,7 @@ from collections import Counter
 from dataclasses import replace
 
 from .models import BookAnalysis, Character, Mention
-from .progression import mentions_by_chapter, sentiment_by_chapter
+from .progression import emotions_by_character, mentions_by_chapter, sentiment_by_chapter
 from .relationships import find_relationships
 
 
@@ -54,4 +54,5 @@ def _recompute(analysis: BookAnalysis, characters: list[Character], mentions: li
         relationships=find_relationships(sentences, mentions, n_chapters),
         mentions_by_chapter=mentions_by_chapter(mentions, sentences, len(characters), n_chapters),
         sentiment_by_chapter=sentiment_by_chapter(mentions, sentences, len(characters), n_chapters),
+        character_emotions=emotions_by_character(mentions, sentences, len(characters)),
     )

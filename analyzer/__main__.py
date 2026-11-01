@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from .emotions import average_emotions
 from .pipeline import analyze
 
 
@@ -32,6 +33,10 @@ def main() -> None:
           f"{len(result.characters)} characters, {len(result.mentions):,} mentions")
     print("Time: " + ", ".join(f"{step} {seconds:.0f}s" for step, seconds in result.timings.items()))
 
+    book_mix = average_emotions([s.emotions for s in result.sentences])
+    if book_mix:
+        print("Emotions: " + ", ".join(f"{e} {p:.0%}" for e, p in sorted(book_mix.items(), key=lambda kv: -kv[1])))
+
     print("\nMost mentioned characters:")
     for c in sorted(result.characters, key=lambda c: -c.mentions)[:10]:
         print(f"  {c.mentions:5,}  {c.name}")
@@ -45,6 +50,10 @@ def main() -> None:
             tone = sum(r.chapter_sentiment[c] * r.chapter_counts[c] for c in chapters if r.chapter_counts[c])
             by_quarter.append(f"{tone / n:+.2f}" if n else "  -  ")
         print(f"  {r.count:4}  {r.sentiment:+.2f}  [{' '.join(by_quarter)}]  {names[r.source]} & {names[r.target]}")
+        if any(r.emotions_by_part):
+            # strongest emotion other than neutral in the early, middle and late book
+            arc = [max((e for e in mix if e != "neutral"), key=mix.get) if mix else "-" for mix in r.emotions_by_part]
+            print(f"{'':19}emotions: {' -> '.join(arc)}")
 
     ranked = sorted(range(len(result.chapters)), key=lambda c: result.chapter_sentiment[c])
     for label, chapters in (("darkest", ranked[:3]), ("brightest", ranked[-3:][::-1])):

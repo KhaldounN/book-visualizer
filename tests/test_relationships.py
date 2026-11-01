@@ -1,7 +1,13 @@
 import pytest
 
 from analyzer.models import Mention, Sentence
-from analyzer.progression import chapter_sentiment, mentions_by_chapter, sentiment_by_chapter
+from analyzer.progression import (
+    chapter_emotions,
+    chapter_sentiment,
+    emotions_by_character,
+    mentions_by_chapter,
+    sentiment_by_chapter,
+)
 from analyzer.relationships import find_relationships
 
 ANNA, TOM, EVE = 0, 1, 2
@@ -67,6 +73,37 @@ def test_relationship_change_per_chapter():
     assert r.chapter_sentiment[0] == pytest.approx(-0.5)
     assert r.chapter_sentiment[1] == pytest.approx(0.7)
     assert r.chapter_sentiment[2] is None
+
+
+def feel(sentences, *mixes):
+    for s, mix in zip(sentences, mixes):
+        s.emotions = mix
+    return sentences
+
+
+ANGRY = {"anger": 0.8, "joy": 0.0, "neutral": 0.2}
+HAPPY = {"anger": 0.0, "joy": 0.9, "neutral": 0.1}
+
+
+def test_relationship_emotions_show_the_arc_across_the_book():
+    # chapters 0..2 = early, middle, late: angry early, happy late
+    sentences, mentions = story(*[(c, 0, [ANNA, TOM]) for c in (0, 0, 0, 1, 2, 2, 2)])
+    feel(sentences, ANGRY, ANGRY, ANGRY, {}, HAPPY, HAPPY, HAPPY)
+    r = pairs(find_relationships(sentences, mentions, num_chapters=3))[(ANNA, TOM)]
+    early, middle, late = r.emotions_by_part
+    assert early["anger"] == pytest.approx(0.8) and late["joy"] == pytest.approx(0.9)
+    assert middle == {}  # no emotions were detected there
+    assert r.emotions["anger"] == pytest.approx(0.4)  # half angry, half happy overall
+
+
+def test_emotions_per_chapter_and_character():
+    sentences, mentions = story((0, 0, [ANNA]), (0, 0, [ANNA, TOM]), (1, 0, [TOM]))
+    feel(sentences, ANGRY, HAPPY, HAPPY)
+    assert chapter_emotions(sentences, 2)[1]["joy"] == pytest.approx(0.9)
+    by_character = emotions_by_character(mentions, sentences, 3)
+    assert by_character[ANNA]["anger"] == pytest.approx(0.4)
+    assert by_character[TOM]["joy"] == pytest.approx(0.9)
+    assert by_character[EVE] == {}  # never mentioned
 
 
 def test_progression_per_chapter_and_character():

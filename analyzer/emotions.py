@@ -28,3 +28,12 @@ def detect_emotions(
 
 def top_emotion(emotions: dict[str, float]) -> str:
     return max(emotions, key=emotions.get) if emotions else "neutral"
+
+
+def average_emotions(mixes: list[dict[str, float]]) -> dict[str, float]:
+    """Average several {emotion: probability} mixes ({} if there are none,
+    e.g. when emotion detection was skipped)."""
+    mixes = [m for m in mixes if m]
+    if not mixes:
+        return {}
+    return {e: sum(m[e] for m in mixes) / len(mixes) for e in mixes[0]}

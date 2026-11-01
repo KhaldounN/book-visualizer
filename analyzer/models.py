@@ -76,6 +76,9 @@ class Relationship:
     # the same two numbers per chapter, to show how the relationship changes
     chapter_counts: list[int] = field(default_factory=list)
     chapter_sentiment: list[float | None] = field(default_factory=list)
+    # average emotion mix of their shared moments, overall and per third of the book
+    emotions: dict[str, float] = field(default_factory=dict)
+    emotions_by_part: list[dict[str, float]] = field(default_factory=list)
 
 
 @dataclass
@@ -95,3 +98,5 @@ class BookAnalysis:
     timings: dict[str, float] = field(default_factory=dict)  # step -> seconds
     title: str = "Untitled book"
     author: str | None = None
+    chapter_emotions: list[dict[str, float]] = field(default_factory=list)  # [chapter] -> mix
+    character_emotions: list[dict[str, float]] = field(default_factory=list)  # [character] -> mix

@@ -1,5 +1,6 @@
 """How the story changes from chapter to chapter."""
 
+from .emotions import average_emotions
 from .models import Mention, Sentence
 from .relationships import characters_per_sentence
 
@@ -14,6 +15,25 @@ def chapter_sentiment(sentences: list[Sentence], num_chapters: int) -> list[floa
     for s in sentences:
         by_chapter[s.chapter].append(s.sentiment)
     return [_average(values) or 0.0 for values in by_chapter]
+
+
+def chapter_emotions(sentences: list[Sentence], num_chapters: int) -> list[dict[str, float]]:
+    """Average emotion mix of each chapter."""
+    by_chapter: list[list[dict[str, float]]] = [[] for _ in range(num_chapters)]
+    for s in sentences:
+        by_chapter[s.chapter].append(s.emotions)
+    return [average_emotions(mixes) for mixes in by_chapter]
+
+
+def emotions_by_character(mentions: list[Mention], sentences: list[Sentence],
+                          num_characters: int) -> list[dict[str, float]]:
+    """[character] -> average emotion mix of the sentences that mention them
+    (each sentence once, however often the character is named in it)."""
+    mixes: list[list[dict[str, float]]] = [[] for _ in range(num_characters)]
+    for sentence, present in zip(sentences, characters_per_sentence(sentences, mentions)):
+        for character_id in present:
+            mixes[character_id].append(sentence.emotions)
+    return [average_emotions(m) for m in mixes]
 
 
 def mentions_by_chapter(mentions: list[Mention], sentences: list[Sentence],

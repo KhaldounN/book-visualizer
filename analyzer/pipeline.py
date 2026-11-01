@@ -12,7 +12,13 @@ from . import coref, emotions, sentiment
 from .characters import find_characters
 from .loaders import book_info, load_text
 from .models import BookAnalysis
-from .progression import chapter_sentiment, mentions_by_chapter, sentiment_by_chapter
+from .progression import (
+    chapter_emotions,
+    chapter_sentiment,
+    emotions_by_character,
+    mentions_by_chapter,
+    sentiment_by_chapter,
+)
 from .relationships import find_relationships
 from .segment import split_sentences
 
@@ -140,6 +146,8 @@ def analyze(
         mentions_by_chapter=mentions_by_chapter(mentions, sentences, n_chars, n_chapters),
         sentiment_by_chapter=sentiment_by_chapter(mentions, sentences, n_chars, n_chapters),
         timings=timings,
+        chapter_emotions=chapter_emotions(sentences, n_chapters),
+        character_emotions=emotions_by_character(mentions, sentences, n_chars),
     )
     analysis.title, analysis.author = book_info(data, filename)
     timed("Finding relationships", started)
