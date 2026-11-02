@@ -69,18 +69,19 @@ def run_analysis(data: bytes, key: str, filename: str):
     saved = CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl"
     if saved.exists():
         return pickle.loads(saved.read_bytes())
-    # the raccoon at work: its card is sent once; only its line and the bar change
+    # the raccoon at work: its card changes with each step (a new animated scene);
+    # in between only the progress bar moves
     holder = st.empty()
     with holder.container():
-        st.html(design.working_card())
-        line = st.empty()
+        card = st.empty()
+        card.html(design.working_card())
         bar = st.progress(0.0, text="Starting… a full novel takes about 10 minutes.")
     shown = [None]
 
     def progress(step: str, fraction: float) -> None:
-        if step != shown[0]:  # a new step: a new line from the raccoon
+        if step != shown[0]:  # a new step: a new scene and line from the raccoon
             shown[0] = step
-            line.markdown(f"🦝 *{design.mascot_line(step)}*")
+            card.html(design.working_card(step))
         bar.progress(min(fraction, 1.0), text=f"{step}… {fraction:.0%}")
 
     try:

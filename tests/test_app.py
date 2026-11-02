@@ -217,8 +217,17 @@ def test_story_road_gets_the_story_arc():
 def test_the_raccoon_has_a_line_for_every_analysis_step():
     from analyzer.pipeline import STEPS
     assert set(STEPS) <= set(design.MASCOT_LINES), "a new pipeline step needs a raccoon line"
-    card = design.working_card()
-    assert card.count('src="data:image/jpeg;base64,') == 1 and card.count("animation-delay") == len(design.MASCOT_TIPS)
+    card = design.working_card("Linking pronouns")
+    assert card.count('src="data:image/svg+xml;base64,') == 1 and card.count("animation-delay") == len(design.MASCOT_TIPS)
+    assert "Harder than it sounds" in card, "the card says what the raccoon is doing now"
+    import xml.etree.ElementTree as ET
+    import raccoon
+    assert set(STEPS) <= set(raccoon.SCENES), "a new pipeline step needs its own raccoon scene"
+    for step in [*STEPS, "anything else"]:
+        svg = raccoon.scene_svg(step)
+        ET.fromstring(svg)  # a valid picture
+        assert "@keyframes" in svg and "prefers-reduced-motion" in svg
+    assert len({raccoon.scene_svg(s) for s in STEPS}) == len(STEPS), "every step looks different"
     assert "data:image/png;base64," in design.sidebar_title()
     assert "raccoon" in design.landing()
 

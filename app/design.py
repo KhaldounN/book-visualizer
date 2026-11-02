@@ -145,11 +145,14 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-mascot img {{ width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 60% 30%; border-radius: 18px;
         box-shadow: var(--ba-glow); border: 1px solid var(--ba-line); }}
     .ba-mascot figcaption {{ font-size: .8rem; font-style: italic; color: var(--ba-muted); margin-top: .5rem; }}
-    .ba-working {{ display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 1.6rem; align-items: center;
+    .ba-working {{ display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 1.6rem; align-items: center;
         padding: 1.4rem 1.6rem; border-radius: 20px; border: 1px solid var(--ba-line); background: var(--ba-surface);
         box-shadow: var(--ba-glow); margin-bottom: .8rem; }}
     .ba-working img {{ width: 170px; aspect-ratio: 1; object-fit: cover; object-position: 55% 62%; border-radius: 16px;
         animation: ba-typing .5s ease-in-out infinite alternate; }}
+    .ba-working img.ba-scene {{ width: 300px; aspect-ratio: 32 / 22; border-radius: 16px; animation: none;
+        object-fit: contain; }}
+    .ba-doing {{ font-size: 1.05rem; font-style: italic; color: var(--ba-ink); margin: 0 0 .6rem; }}
     .ba-working h2 {{ font-family: {SERIF}; font-size: 1.9rem; margin: .4rem 0 .6rem; padding: 0; color: var(--ba-ink); }}
     .ba-dots {{ display: inline-flex; gap: 5px; margin-left: .5rem; vertical-align: middle; }}
     .ba-dots i {{ width: 7px; height: 7px; border-radius: 50%; background: var(--ba-gold);
@@ -191,15 +194,18 @@ def sidebar_title() -> str:
             f'<div><b>Book Analyzer</b><span>with a raccoon at the keyboard</span></div></div>')
 
 
-def working_card() -> str:
-    """Shown while a book is analyzed: the raccoon typing away, a speech bubble with
-    typing dots, and tips that take turns (pure CSS, so it's sent only once)."""
+def working_card(step: str = "") -> str:
+    """Shown while a book is analyzed: an animated cartoon raccoon doing this step's job
+    (app/raccoon.py), what it's up to, typing dots, and tips that take turns."""
+    from raccoon import scene_uri
     tips = "".join(f'<span style="animation-delay:{i * 6}s">{escape(t)}</span>' for i, t in enumerate(MASCOT_TIPS))
+    doing = f'<p class="ba-doing">🦝 {escape(mascot_line(step))}</p>'
     return f"""<section class="ba-working">
-      <img src="{image_uri("raccoon.jpg")}" alt="A raccoon in headphones typing at a computer">
+      <img class="ba-scene" src="{scene_uri(step)}" alt="A cartoon raccoon at work: {escape(step or 'getting started')}">
       <div>
-        <div class="ba-kicker">Analyzing your book</div>
+        <div class="ba-kicker">Analyzing your book{" · " + escape(step) if step else ""}</div>
         <h2>The raccoon is on it<span class="ba-dots"><i></i><i></i><i></i></span></h2>
+        {doing}
         <div class="ba-tips">{tips}</div>
       </div>
     </section>"""
