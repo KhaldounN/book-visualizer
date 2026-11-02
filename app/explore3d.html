@@ -427,52 +427,105 @@ function constellation() {
 }
 
 /* ---- Emotion crystal ---- */
+// One crystal that morphs from character to character: every part is built once,
+// and on each change the spikes, core colour and ring glide to the new values.
 function crystal() {
   const st = stage({ camera: [0, 4.5, 13], fog: 0.02 });
   const scan = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 0.04, 64, 1, true), new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.12, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
   const base = new THREE.Mesh(new THREE.RingGeometry(5.3, 5.45, 96), new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
   base.rotation.x = -Math.PI / 2; base.position.y = -3;
   st.scene.add(scan, base, glow(HOLO, 9));
-  let group = null;
+
+  const group = new THREE.Group(); st.scene.add(group);
+  // the core takes the character's own colour (the one it has in every chart)
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.85, 1), new THREE.MeshBasicMaterial({ color: HOLO.clone(), wireframe: true, transparent: true, opacity: 0.8 }));
+  const aura = glow(HOLO.clone(), 4);
+  group.add(core, aura);
+  // one spike per emotion family: a cone 1 unit long, stretched to its length
+  const UP = new THREE.Vector3(0, 1, 0);
+  const spikes = EMO.map((e, k) => {
+    const a = (k / EMO.length) * Math.PI * 2, dir = new THREE.Vector3(Math.cos(a), k % 2 ? 0.35 : -0.25, Math.sin(a)).normalize();
+    const geo = new THREE.ConeGeometry(0.32, 1, 6); geo.translate(0, 0.5, 0);
+    const holder = new THREE.Group(); holder.quaternion.setFromUnitVectors(UP, dir);
+    holder.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: EMO_COLOR[e], transparent: true, opacity: 0.55, depthWrite: false })),
+               new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: EMO_COLOR[e] })));
+    group.add(holder);
+    return { e, dir, holder, tip: null };
+  });
+  // the ring goes once round the book: up and blue in bright chapters, down and red in dark ones
+  const n = data.chapters;
+  const ringGeo = new THREE.BufferGeometry();
+  ringGeo.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+  ringGeo.setAttribute("color", new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+  group.add(new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({ vertexColors: true })));
+  const start = label("ch 1", { size: 0.32, color: "#6c7d92", weight: 500 }); start.position.set(5.9, -2.4, 0); group.add(start);
+  let nameTag = null;
+
+  // what the crystal should look like for one character
+  const shapeOf = (c) => {
+    const ring = smooth(c.toneByChapter, 2);
+    return {
+      lens: c.emotions.map((s) => 0.8 + s * 15),
+      core: new THREE.Color(c.color),
+      ys: ring.map((t) => -2.4 + (t ?? 0) * 7),
+      cols: ring.flatMap((t) => toneColor(t, 0.12).toArray()),
+    };
+  };
+  const mix = (a, b, f) => ({
+    lens: a.lens.map((v, k) => v + (b.lens[k] - v) * f),
+    core: a.core.clone().lerp(b.core, f),
+    ys: a.ys.map((v, j) => v + (b.ys[j] - v) * f),
+    cols: a.cols.map((v, j) => v + (b.cols[j] - v) * f),
+  });
+  const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);  // slow, fast, slow
+  const DURATION = REDUCE ? 0 : 1600;  // ms for one change
+  let from = null, to = null, now = null, began = 0;
+
+  function show(s) {
+    spikes.forEach((sp, k) => {
+      sp.holder.scale.y = s.lens[k];
+      if (sp.tip) sp.tip.position.copy(sp.dir).multiplyScalar(s.lens[k] + 0.7);
+    });
+    core.material.color.copy(s.core); aura.material.color.copy(s.core);
+    const pos = ringGeo.attributes.position, col = ringGeo.attributes.color;
+    s.ys.forEach((y, j) => {
+      const a = (j / n) * Math.PI * 2;
+      pos.setXYZ(j, Math.cos(a) * 5.4, y, Math.sin(a) * 5.4);
+      col.setXYZ(j, s.cols[j * 3], s.cols[j * 3 + 1], s.cols[j * 3 + 2]);
+    });
+    pos.needsUpdate = true; col.needsUpdate = true;
+  }
+
   function build(i) {
-    if (group) st.scene.remove(group);
-    const c = chars[i]; group = new THREE.Group();
-    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.85, 1), new THREE.MeshBasicMaterial({ color: HOLO, wireframe: true, transparent: true, opacity: 0.6 }));
-    group.add(core, glow(toneColor(c.sentiment, 0.08), 4));
-    EMO.forEach((e, k) => {
-      const len = 0.8 + c.emotions[k] * 15;
-      const a = (k / EMO.length) * Math.PI * 2, dir = new THREE.Vector3(Math.cos(a), k % 2 ? 0.35 : -0.25, Math.sin(a)).normalize();
-      const geo = new THREE.ConeGeometry(0.32, len, 6); geo.translate(0, len / 2, 0);
-      const spike = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: EMO_COLOR[e], transparent: true, opacity: 0.55, depthWrite: false }));
-      spike.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: EMO_COLOR[e] }));
-      edges.quaternion.copy(spike.quaternion);
-      const tip = label(`${EMO_LABEL[e]} ${Math.round(c.emotions[k] * 100)}%`, { size: 0.36 });
-      tip.position.copy(dir.clone().multiplyScalar(len + 0.7));
-      group.add(spike, edges, tip);
+    const c = chars[i];
+    to = shapeOf(c);
+    // start from wherever the crystal is right now (even halfway through a change);
+    // the very first time it grows out of a small seed
+    from = now || { lens: EMO.map(() => 0.8), core: HOLO.clone(), ys: to.ys.map(() => -2.4), cols: to.cols.slice() };
+    began = performance.now();
+    spikes.forEach((sp, k) => {  // the percentages move with their spikes
+      if (sp.tip) group.remove(sp.tip);
+      sp.tip = label(`${EMO_LABEL[sp.e]} ${Math.round(c.emotions[k] * 100)}%`, { size: 0.36 });
+      group.add(sp.tip);
     });
-    // the ring goes once round the book: up and blue in bright chapters, down and red in dark ones
-    const pts = [], cols = [], ring = smooth(c.toneByChapter, 2);
-    ring.forEach((t, j) => {
-      const a = (j / ring.length) * Math.PI * 2;
-      pts.push(new THREE.Vector3(Math.cos(a) * 5.4, -2.4 + (t ?? 0) * 7, Math.sin(a) * 5.4));
-      cols.push(...toneColor(t, 0.12).toArray());
-    });
-    const ringGeo = new THREE.BufferGeometry().setFromPoints(pts); ringGeo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
-    group.add(new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({ vertexColors: true })));
-    const start = label("ch 1", { size: 0.32, color: "#6c7d92", weight: 500 }); start.position.set(5.9, -2.4, 0); group.add(start);
-    group.scale.setScalar(0.01); group.userData.born = performance.now();
-    st.scene.add(group);
+    if (nameTag) st.scene.remove(nameTag);  // the name floats above the crystal, in the character's colour
+    nameTag = label(c.name, { size: 0.9, color: c.color, weight: 600 });
+    nameTag.position.set(0, 4.3, 0); nameTag.material.opacity = 0; st.scene.add(nameTag);
     const present = c.toneByChapter.map((t, j) => [t, j]).filter(([t]) => t != null);
     const bright = present.reduce((b, x) => (x[0] > b[0] ? x : b), present[0] || [0, 0]);
     const dark = present.reduce((b, x) => (x[0] < b[0] ? x : b), present[0] || [0, 0]);
     card.hidden = false;
     card.innerHTML = `<h3 style="color:${c.color}">${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}<br>brightest: ${escape(data.chapterTitles[bright[1]])}<br>darkest: ${escape(data.chapterTitles[dark[1]])}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}`;
   }
+
   st.tick.push((t) => {
-    if (!group) return;
-    const grow = Math.min(1, (performance.now() - group.userData.born) / 700);
-    group.scale.setScalar(REDUCE ? 1 : 1 - Math.pow(1 - grow, 3));
+    if (!to) return;
+    const elapsed = performance.now() - began;
+    if (!now || elapsed < DURATION + 50) {  // only work while something is changing
+      now = mix(from, to, DURATION ? ease(Math.min(1, elapsed / DURATION)) : 1);
+      show(now);
+    }
+    if (nameTag) nameTag.material.opacity = DURATION ? Math.min(1, elapsed / 600) : 1;
     group.rotation.y = REDUCE ? 0 : t * 0.25;
     scan.position.y = REDUCE ? 0 : Math.sin(t * 0.9) * 3;
   });
