@@ -477,6 +477,20 @@ function crystal() {
     scan.position.y = REDUCE ? 0 : Math.sin(t * 0.9) * 3;
   });
   picker("Character", chars.map((c) => c.name), build);
+  // Play through the characters on its own, one every 5 seconds, until the
+  // visitor reaches for the drop-down: from then on they're in charge.
+  const select = document.getElementById("pick");
+  let autoplay = chars.length > 1, shown = 0, visible = true;
+  new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(canvas);
+  const stopAutoplay = () => { autoplay = false; hint.textContent = "drag to rotate"; };
+  ["pointerdown", "focus", "keydown"].forEach((ev) => select.addEventListener(ev, stopAutoplay, { once: true }));
+  setInterval(() => {
+    if (!autoplay || !visible || document.hidden) return;  // no work while nobody can see it
+    shown = (shown + 1) % chars.length;
+    select.value = String(shown);  // the list follows along (this doesn't count as the visitor choosing)
+    build(shown);
+  }, 5000);
+  if (autoplay) hint.textContent = "a new character every 5 s · pick one to stop";
 }
 
 /* ---- Relationship DNA ---- */

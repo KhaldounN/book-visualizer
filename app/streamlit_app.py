@@ -228,8 +228,9 @@ SCENE_HELP = {
                      "relationships and open its emotion card.",
     "crystal": "**A hologram portrait of one character.** Eight crystal spikes grow from the core, one per "
                "emotion family, as long as that family's share. The ring around it goes once round the book: it rises "
-               "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\n**Try:** switch "
-               "characters and compare their shapes.",
+               "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\nIt shows **each "
+               "character in turn**, a new one every 5 seconds. **Try:** pick a character from the list to stop "
+               "and explore, and compare their shapes.",
     "dna": "**A relationship as a double helix.** The two strands are two characters running through the "
            "book. A rung joins them in every chapter where they share a moment: thicker when they meet more, "
            "coloured by the mood of those moments. Gaps are chapters they spend apart.\n\n**Try:** pick "
