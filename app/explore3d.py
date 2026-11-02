@@ -100,6 +100,17 @@ def _round(value: float | None) -> float | None:
     return None if value is None else round(value, 3)
 
 
+def presence(by_chapter: list[list[int]], smooth: int = 1) -> list[list[float]]:
+    """[character][chapter] -> how much of the chapter is about them: their share of the
+    mentions of these characters in it, as a moving average over `smooth` chapters on each
+    side (so a character doesn't blink out for one quiet chapter). Drives who walks the road."""
+    chapters = len(by_chapter[0]) if by_chapter else 0
+    totals = [sum(row[ch] for row in by_chapter) for ch in range(chapters)]
+    shares = [[row[ch] / totals[ch] if totals[ch] else 0.0 for ch in range(chapters)] for row in by_chapter]
+    return [[round(sum(row[max(0, ch - smooth):ch + smooth + 1]) / len(row[max(0, ch - smooth):ch + smooth + 1]), 3)
+             for ch in range(chapters)] for row in shares]
+
+
 def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
     characters = charts.top_characters(analysis, TOP_CHARACTERS)
     index = {c.id: i for i, c in enumerate(characters)}
@@ -126,6 +137,8 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
         for r in analysis.relationships
         if r.source in index and r.target in index and r.count >= MIN_LINK
     ]
+    for person, share in zip(people, presence([p["byChapter"] for p in people])):
+        person["presence"] = share
     arc, turning, acts = story_arc(analysis.chapter_sentiment)  # turning points and acts
     events = events_of(analysis)
     return {

@@ -234,7 +234,9 @@ SCENE_HELP = {
             "each chapter's own mood (blue brighter, red darker). **Signposts** name the turning points: gold "
             "▲ on the high points, red ▼ in the low ones. A **gate** marks where each act begins. Round **badges** show the theme "
             "of the key chapters (⚔️ battle, 💍 proposal, 🪦 death…), and small **faces** at the roadside mark where "
-            "one feeling clearly stands out (😨 fear, 🥰 love, 😢 sadness…).\n\n"
+            "one feeling clearly stands out (😨 fear, 🥰 love, 😢 sadness…). The **cast walks with you**: a "
+            "character's face steps onto the road when they enter the story and walks off it when they leave, so "
+            "the main character travels the whole way and others come and go.\n\n"
             "**Try:** press **Travel** to ride the road and read what happens in each chapter, or click the road "
             "to stop at a chapter.",
     "constellation": "**Each character is a star.** Where it sits says who they are emotionally: left to right "

@@ -4,7 +4,8 @@ Upload an English novel as a `.txt` file and explore:
 
 - **The story**: every chapter's theme (ball, proposal, scandal, journey…), its most telling sentence and
   keywords, mood, emotions, people and place, as a strip of chapter cards; and a 3D "story road" that climbs and
-  dips with the mood, with signposts at the turning points and gates at each act, to travel along. A badge names the story's **shape**: which of the six classic emotional shapes
+  dips with the mood, with signposts at the turning points and gates at each act, to travel along with the cast: each
+  character's face steps onto the road when they enter the story and walks off when they leave it. A badge names the story's **shape**: which of the six classic emotional shapes
   (Rags to riches, Tragedy, Man in a hole, Icarus, Cinderella, Oedipus; Reagan et al., 2016) its mood curve fits best. Themes come from a small model running on your computer and are
   right about half the time, so each one is shown with the sentence and words it is based on
 - **Characters**: who appears and how often, counting names *and* pronouns ("she", "his"), each main

@@ -214,6 +214,17 @@ def test_story_road_gets_the_story_arc():
     assert data["acts"][0][0] == 0 and data["acts"][-1][1] == 3, "the acts cover the whole book"
     assert all(p["kind"] in ("high", "low") for p in data["turning"])
     assert "road" in explore3d.SCENES and "road" not in explore3d.EMOTION_SCENES  # it works without emotions
+    assert all(len(c["presence"]) == 4 for c in data["characters"]), "every walker has a presence per chapter"
+
+
+def test_presence_is_a_smoothed_share_of_each_chapter():
+    # A is in every chapter, B only in chapter 3 (of 4)
+    shares = explore3d.presence([[5, 5, 5, 5], [0, 0, 5, 0]], smooth=0)
+    assert shares == [[1, 1, 0.5, 1], [0, 0, 0.5, 0]]
+    smoothed = explore3d.presence([[5, 5, 5, 5], [0, 0, 5, 0]], smooth=1)
+    # B fades in and out; the last chapter has one neighbour, so it averages two chapters
+    assert (smoothed[1][0], smoothed[1][1], smoothed[1][3]) == (0, round(0.5 / 3, 3), 0.25)
+    assert explore3d.presence([]) == []
 
 
 def test_the_raccoon_has_a_line_for_every_analysis_step():
