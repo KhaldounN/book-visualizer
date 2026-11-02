@@ -25,7 +25,7 @@ from avatars import cast_avatars  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
-from analyzer.progression import key_moments, rolling_sentiment  # noqa: E402
+from analyzer.progression import key_moments, rolling_sentiment, story_shape  # noqa: E402
 
 SAMPLE = ROOT / "data" / "great_expectations.txt"  # from scripts/download_samples.py
 SAMPLE_TITLE = "Great Expectations"
@@ -255,6 +255,9 @@ section("Explore in 3D", "Interactive views to explore the book. Drag any of the
         "spotting patterns; the charts further down give exact numbers.")
 for scene, title in explore3d.SCENES.items():
     left, right = panel(title, SCENE_HELP[scene])
+    if scene == "road":
+        with left:
+            st.html(design.story_shape_card(book["title"], *story_shape(analysis.sentences)))
     with right:
         if scene in explore3d.EMOTION_SCENES and not has_emotions:
             st.info("This view needs emotions, which were not detected for this book.")

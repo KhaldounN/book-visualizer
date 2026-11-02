@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .emotions import average_emotions
 from .pipeline import analyze
+from .progression import story_shape
 
 
 def main() -> None:
@@ -65,6 +66,10 @@ def main() -> None:
         for c in sorted(clearest):
             e = result.chapter_events[c]
             print(f"  {result.chapters[c].title:16} {e.theme:14} {e.event[:70]}")
+
+    fits = story_shape(result.sentences)[1]
+    if fits:
+        print(f"\nStory shape: {fits[0][0]} ({fits[0][1]:.0%} match; next: {fits[1][0]} {fits[1][1]:.0%})")
 
     ranked = sorted(range(len(result.chapters)), key=lambda c: result.chapter_sentiment[c])
     for label, chapters in (("darkest", ranked[:3]), ("brightest", ranked[-3:][::-1])):

@@ -78,6 +78,10 @@ def test_the_dashboard_shows_every_section_in_order(app):
     assert [h.value for h in app.header] == ["Explore in 3D", "The story", "Mood", "Emotions", "Characters",
                                              "Relationships", "Places", "About"]
     assert any("passion project" in h.proto.body for h in app.get("html")), "the About card is shown"
+    assert any("The shape of the story" in h.proto.body for h in app.get("html")), "the story shape badge is shown"
+    weak = design.story_shape_card("A Book", [0, 1, 0], [("Icarus", 0.1), ("Tragedy", 0.05)])
+    assert "follows its own path" in weak and "is loosely" not in weak, "no shape is claimed for a weak fit"
+    assert "is clearly an <b>Icarus</b> story" in design.story_shape_card("A Book", [0, 1, 0], [("Icarus", 0.8), ("Tragedy", 0)])
     assert not app.info, "every section has data to show (no 'nothing found' messages)"
 
 

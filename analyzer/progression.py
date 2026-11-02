@@ -126,3 +126,74 @@ def sentiment_by_chapter(mentions: list[Mention], sentences: list[Sentence],
         for character_id in present:
             scores[character_id][sentence.chapter].append(sentence.sentiment)
     return [[_average(values) for values in row] for row in scores]
+
+
+# --- The shape of the story --------------------------------------------------------------------
+# Reagan et al. (2016) ran sentiment over ~1,700 Project Gutenberg books and found that most
+# follow one of six emotional shapes. Each shape here is a few (position, height) points joined
+# by straight lines; position 0 is the first page and 1 the last.
+
+STORY_SHAPES = {
+    "Rags to riches": ([(0, 0), (1, 1)], "Things keep getting better."),
+    "Tragedy": ([(0, 1), (1, 0)], "Things keep getting worse."),
+    "Man in a hole": ([(0, 1), (.5, 0), (1, 1)], "A fall, then a climb back up."),
+    "Icarus": ([(0, 0), (.5, 1), (1, 0)], "A rise, then a fall."),
+    "Cinderella": ([(0, 0), (.3, .6), (.6, .1), (1, 1)], "A rise, a fall, then a happy ending."),
+    "Oedipus": ([(0, 1), (.3, .4), (.6, .9), (1, 0)], "A fall, a rise, then a final fall."),
+}
+SHAPE_SAMPLES = 50  # every curve is compared at this many evenly spaced points
+WEAK_FIT = 0.2  # below this, the book follows none of the shapes
+
+
+def shape_curve(name: str, samples: int = SHAPE_SAMPLES) -> list[float]:
+    """The template of one story shape, as `samples` heights."""
+    points = STORY_SHAPES[name][0]
+    curve = []
+    for j in range(samples):
+        x = j / (samples - 1)
+        for (x0, y0), (x1, y1) in zip(points, points[1:]):
+            if x <= x1:
+                curve.append(y0 + (y1 - y0) * (x - x0) / (x1 - x0))
+                break
+    return curve
+
+
+def _resample(values: list[float], samples: int) -> list[float]:
+    """`samples` evenly spaced values along `values` (straight lines in between)."""
+    out = []
+    for j in range(samples):
+        p = j / (samples - 1) * (len(values) - 1)
+        i = int(p)
+        nxt = values[min(i + 1, len(values) - 1)]
+        out.append(values[i] + (nxt - values[i]) * (p - i))
+    return out
+
+
+def _standardize(values: list[float]) -> list[float] | None:
+    """Shift to average 0 and stretch to spread 1, so only the shape is left
+    (not how positive the book is overall, nor how strong its swings are)."""
+    mean = sum(values) / len(values)
+    spread = (sum((v - mean) ** 2 for v in values) / len(values)) ** 0.5
+    return [(v - mean) / spread for v in values] if spread > 1e-9 else None
+
+
+def story_shape(sentences: list[Sentence], samples: int = SHAPE_SAMPLES
+                ) -> tuple[list[float], list[tuple[str, float]]]:
+    """The book's overall mood curve and how well each of the six shapes fits it.
+
+    The curve is the sentence mood averaged over a window of a fifth of the book (a tenth on
+    each side; only the big movements are left), then sampled at `samples` points. Each shape's fit is the correlation between the
+    curve and the shape's template: 1 = the same shape, 0 = unrelated, below 0 = opposite.
+    Returns (curve, [(shape, fit)] best first); no fits for a short or perfectly flat book.
+    """
+    if len(sentences) < samples:
+        return [], []
+    curve = _resample(rolling_sentiment(sentences, max(1, len(sentences) // 5)), samples)
+    book = _standardize(curve)
+    if book is None:
+        return curve, []
+    fits = []
+    for name in STORY_SHAPES:
+        template = _standardize(shape_curve(name, samples))
+        fits.append((name, sum(a * b for a, b in zip(book, template)) / samples))
+    return curve, sorted(fits, key=lambda f: -f[1])

@@ -142,6 +142,29 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-brand span {{ font-size: .78rem; color: var(--ba-muted); }}
     .ba-split {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; align-items: center; }}
     .ba-mascot {{ margin: 0; text-align: center; }}
+    .ba-shape {{ margin-top: 1rem; padding: 1rem 1.1rem; border-radius: 14px; border: 1px solid var(--ba-line);
+        background: var(--ba-surface); }}
+    .ba-shape h3 {{ font-family: {SERIF}; font-size: 1.25rem; line-height: 1.3; color: var(--ba-ink); margin: .4rem 0 .6rem;
+        padding: 0; font-weight: 500; }}
+    .ba-shape h3 b {{ color: var(--ba-gold); font-weight: 700; }}
+    .ba-shape p {{ font-size: .85rem; color: var(--ba-ink2); margin: .3rem 0; line-height: 1.45; }}
+    .ba-shape svg {{ display: block; width: 100%; overflow: visible; }}
+    .ba-shape svg.big {{ height: 70px; }}
+    .ba-shape polyline {{ fill: none; stroke-linejoin: round; stroke-linecap: round; }}
+    .ba-shape .book {{ stroke: var(--ba-gold); stroke-width: 3; }}
+    .ba-shape .tpl {{ stroke: var(--ba-muted); stroke-width: 2; stroke-dasharray: 5 4; }}
+    .ba-shape .key {{ font-size: .75rem; color: var(--ba-muted); }}
+    .ba-shape .key span {{ display: inline-block; width: 16px; vertical-align: middle; margin-right: 3px; }}
+    .ba-shape .k-book {{ border-top: 3px solid var(--ba-gold); }}
+    .ba-shape .k-tpl {{ border-top: 2px dashed var(--ba-muted); }}
+    .ba-minis {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem .6rem; margin-top: .7rem; }}
+    .ba-minis figure {{ margin: 0; opacity: .55; }}
+    .ba-minis figure.on {{ opacity: 1; }}
+    .ba-minis svg {{ height: 20px; }}
+    .ba-minis polyline {{ stroke: var(--ba-ink2); stroke-width: 1.6; }}
+    .ba-minis .on polyline {{ stroke: var(--ba-gold); stroke-width: 2.4; }}
+    .ba-minis figcaption {{ font-size: .68rem; color: var(--ba-muted); line-height: 1.25; margin-top: .2rem; }}
+    .ba-minis .on figcaption {{ color: var(--ba-ink); font-weight: 600; }}
     .ba-about {{ display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 2rem; align-items: center;
         margin-top: 1.5rem; padding: 1.6rem 1.8rem; border-radius: 22px; border: 1px solid var(--ba-line);
         background: var(--ba-surface); box-shadow: var(--ba-glow); }}
@@ -271,6 +294,46 @@ def _sparkline(values: list[float], color: str, theme: dict, zero: bool = False)
             f'<polyline points="0,38 {points} 100,38" fill="{color}" fill-opacity=".14" stroke="none"/>'
             f'<polyline points="{points}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round" '
             f'vector-effect="non-scaling-stroke"/></svg>')
+
+
+def _shape_path(values: list[float], width: float, height: float, pad: float = 3) -> str:
+    """SVG points for a curve, stretched to fill the box (only its shape matters)."""
+    low, high = min(values), max(values)
+    span = (high - low) or 1
+    return " ".join(f"{i / (len(values) - 1) * width:.1f},{pad + (high - v) / span * (height - 2 * pad):.1f}"
+                    for i, v in enumerate(values))
+
+
+def story_shape_card(title: str, curve: list[float], fits: list[tuple[str, float]]) -> str:
+    """'<Book> is a Cinderella story': the book's mood curve over the best-fitting of the six
+    classic story shapes, and a row of all six with how well each one fits."""
+    from analyzer.progression import STORY_SHAPES, WEAK_FIT, shape_curve
+    if not fits:
+        return ""
+    best, fit = fits[0]
+    how = "clearly" if fit >= 0.6 else "mostly" if fit >= 0.35 else "loosely"
+    runner = f" Next closest: <b>{escape(fits[1][0])}</b> ({max(fits[1][1], 0):.0%})." if fit < 0.6 else ""
+    article = "an" if best[0] in "AEIOU" else "a"
+    heading = (f"<i>{escape(title)}</i> is {how} {article} <b>{escape(best)}</b> story" if fit >= WEAK_FIT else
+               f"<i>{escape(title)}</i> follows its own path")
+    if fit < WEAK_FIT:  # no shape really fits: say so, and show the closest one only as a hint
+        runner = f" None of the six classic shapes fits well; the closest is <b>{escape(best)}</b>."
+    minis = "".join(
+        f'<figure class="{"on" if name == best else ""}"><svg viewBox="0 0 40 20" preserveAspectRatio="none">'
+        f'<polyline points="{_shape_path(shape_curve(name, 20), 40, 20)}" vector-effect="non-scaling-stroke"/></svg>'
+        f'<figcaption>{escape(name)}<br>{max(f, 0):.0%}</figcaption></figure>'
+        for name, f in sorted(fits, key=lambda f: list(STORY_SHAPES).index(f[0])))
+    return f"""<div class="ba-shape">
+      <div class="ba-kicker">The shape of the story</div>
+      <h3>{heading}</h3>
+      <svg class="big" viewBox="0 0 200 60" preserveAspectRatio="none" role="img"
+           aria-label="The book's mood curve next to the {escape(best)} shape">
+        <polyline class="tpl" points="{_shape_path(shape_curve(best), 200, 60)}" vector-effect="non-scaling-stroke"/>
+        <polyline class="book" points="{_shape_path(curve, 200, 60)}" vector-effect="non-scaling-stroke"/></svg>
+      <p class="key"><span class="k-book"></span> this book's mood &nbsp; <span class="k-tpl"></span> {escape(best)}</p>
+      <p>{escape(STORY_SHAPES[best][1]) + " " if fit >= WEAK_FIT else ""}The curves match {max(fit, 0):.0%}.{runner}</p>
+      <div class="ba-minis">{minis}</div>
+    </div>"""
 
 
 def _mini_bars(values: list[int], color: str) -> str:

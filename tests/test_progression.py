@@ -60,3 +60,27 @@ def test_story_arc_smoothing_and_flat_books():
 
 def test_book_shorter_than_the_window_has_no_key_moments():
     assert key_moments(book(0.1, 0.2), window=20) == ([], [])
+
+
+def test_story_shape_recognizes_each_shape():
+    from analyzer.progression import STORY_SHAPES, shape_curve, story_shape
+    for name in STORY_SHAPES:
+        # a book whose mood follows the shape (stretched to 1,000 sentences, with a mood from -0.5 to +0.5)
+        template = shape_curve(name, 1000)
+        curve, fits = story_shape(book(*[t - 0.5 for t in template]))
+        assert fits[0][0] == name, (name, fits[:2])
+        assert fits[0][1] > 0.9 and len(fits) == len(STORY_SHAPES) and len(curve) == 50
+
+
+def test_story_shape_ignores_level_and_strength_but_not_direction():
+    from analyzer.progression import story_shape
+    rising = [i / 500 for i in range(500)]
+    assert story_shape(book(*[0.3 + t / 10 for t in rising]))[1][0][0] == "Rags to riches"  # a mild, bright book
+    assert story_shape(book(*[-t for t in rising]))[1][0][0] == "Tragedy"
+
+
+def test_story_shape_has_no_answer_for_short_or_flat_books():
+    from analyzer.progression import story_shape
+    assert story_shape(book(0.1, 0.2)) == ([], [])
+    curve, fits = story_shape(book(*[0.2] * 200))
+    assert fits == [] and len(curve) == 50
