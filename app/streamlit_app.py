@@ -127,6 +127,7 @@ elif "current" in st.session_state:
     data, filename = None, None  # keep showing the last book
 else:
     st.html(design.landing())
+    st.html(design.about())
     st.stop()
 
 analyses = st.session_state.setdefault("analyses", {})
@@ -192,7 +193,7 @@ with st.sidebar:
     st.divider()
     st.subheader("Jump to")
     st.markdown("\n".join(f"- [{name}](#{name.lower().replace(' ', '-')})" for name in (
-        "Explore in 3D", "The story", "Mood", "Emotions", "Characters", "Relationships", "Places")))
+        "Explore in 3D", "The story", "Mood", "Emotions", "Characters", "Relationships", "Places", "About")))
 
 has_emotions = any(analysis.chapter_emotions)
 events = explore3d.events_of(analysis)
@@ -510,3 +511,8 @@ else:
              "Mentions": e.count}
             for e in analysis.entities
         ]))
+
+# --- About ----------------------------------------------------------------------------------------
+
+section("About", "Who made this, and why.")
+st.html(design.about())

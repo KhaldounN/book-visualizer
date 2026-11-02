@@ -76,7 +76,8 @@ def test_the_dashboard_shows_every_section_in_order(app):
     assert not app.exception
     assert not app.tabs, "one scrolling page, no tabs"
     assert [h.value for h in app.header] == ["Explore in 3D", "The story", "Mood", "Emotions", "Characters",
-                                             "Relationships", "Places"]
+                                             "Relationships", "Places", "About"]
+    assert any("passion project" in h.proto.body for h in app.get("html")), "the About card is shown"
     assert not app.info, "every section has data to show (no 'nothing found' messages)"
 
 

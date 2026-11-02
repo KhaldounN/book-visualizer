@@ -142,6 +142,17 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-brand span {{ font-size: .78rem; color: var(--ba-muted); }}
     .ba-split {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; align-items: center; }}
     .ba-mascot {{ margin: 0; text-align: center; }}
+    .ba-about {{ display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 2rem; align-items: center;
+        margin-top: 1.5rem; padding: 1.6rem 1.8rem; border-radius: 22px; border: 1px solid var(--ba-line);
+        background: var(--ba-surface); box-shadow: var(--ba-glow); }}
+    .ba-about figure {{ margin: 0; text-align: center; }}
+    .ba-about img {{ width: 100%; aspect-ratio: 1; object-fit: cover; object-position: 60% 30%; border-radius: 50%;
+        box-shadow: 0 0 0 3px var(--ba-gold); }}
+    .ba-about figcaption {{ font-size: .78rem; color: var(--ba-muted); margin-top: .6rem; font-style: italic; }}
+    .ba-about h2 {{ font-family: {SERIF}; font-size: 1.6rem; color: var(--ba-ink); margin: 0 0 .6rem; padding: 0; }}
+    .ba-about p {{ color: var(--ba-ink2); line-height: 1.6; max-width: 46rem; margin: 0 0 .7rem; }}
+    .ba-about .ba-links a {{ color: var(--ba-ink); font-weight: 600; text-decoration: none;
+        border-bottom: 1px solid var(--ba-gold); }}
     .ba-mascot img {{ width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 60% 30%; border-radius: 18px;
         box-shadow: var(--ba-glow); border: 1px solid var(--ba-line); }}
     .ba-mascot figcaption {{ font-size: .8rem; font-style: italic; color: var(--ba-muted); margin-top: .5rem; }}
@@ -170,7 +181,7 @@ def page_css(theme: dict, mode: str) -> str:
     @media (max-width: 900px) {{ .ba-kpis {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
     @media (max-width: 560px) {{
         .ba-kpis {{ grid-template-columns: 1fr; }} .ba-kpi.wide {{ grid-column: auto; }}
-        .ba-split, .ba-working {{ grid-template-columns: 1fr; }} .ba-castgrid .grid {{ grid-template-columns: repeat(2, 1fr); }} .ba-mascot img {{ max-width: 260px; }}
+        .ba-split, .ba-working, .ba-about {{ grid-template-columns: 1fr; }} .ba-about figure {{ max-width: 180px; margin: 0 auto; }} .ba-castgrid .grid {{ grid-template-columns: repeat(2, 1fr); }} .ba-mascot img {{ max-width: 260px; }}
         .ba-hero {{ padding: 1.4rem 1.1rem 1.1rem; }} }}
     </style>"""
 
@@ -187,6 +198,37 @@ def image_uri(name: str) -> str:
 
 def mascot_line(step: str) -> str:
     return MASCOT_LINES.get(step, "Getting comfortable at the keyboard…")
+
+
+# The maker, from his LinkedIn profile (edit here: it is shown on the start page and at the bottom)
+ABOUT = {
+    "name": "Khaldoun Al-Naierat",
+    "paragraphs": [
+        "Hi, I'm Khaldoun. I live in Barcelona and work where data, pricing and tech meet: today at Criteo, "
+        "and before that as a pricing consultant in IT at Ingram Micro, after starting my career in Amman, "
+        "Jordan. I studied data analysis and digital innovation at the University of Barcelona, which is "
+        "where Python and machine learning first got me hooked.",
+        "Book Analyzer is a passion project, made purely for fun while I keep learning AI and programming. "
+        "It began as a small experiment in 2020 and grew into this. Every AI model runs on my own computer, "
+        "so your book never leaves it. Expect the odd mistake: the raccoon is still learning too.",
+    ],
+    "links": [("LinkedIn", "https://www.linkedin.com/in/khaldoun-al-naierat"),
+              ("GitHub", "https://github.com/KhaldounN")],
+}
+
+
+def about() -> str:
+    """Who made the site: a short, friendly card with the raccoon."""
+    text = "".join(f"<p>{escape(p)}</p>" for p in ABOUT["paragraphs"])
+    links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)} ↗</a>'
+                       for label, url in ABOUT["links"])
+    return f"""<section class="ba-about">
+      <figure><img src="{image_uri("raccoon.jpg")}" alt="The Book Analyzer raccoon in headphones at a keyboard">
+      <figcaption>The raccoon, head of reading</figcaption></figure>
+      <div><div class="ba-kicker">About · a passion project</div>
+      <h2>Made for fun by {escape(ABOUT["name"])}</h2>{text}
+      <p class="ba-links">{links}</p></div>
+    </section>"""
 
 
 def sidebar_title() -> str:
