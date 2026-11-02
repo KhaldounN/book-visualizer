@@ -4,12 +4,32 @@ Everything here returns HTML/CSS strings that the app shows with `st.html`.
 Colours come from `charts.THEMES`, so light and dark mode both work.
 """
 
+import base64
+from functools import cache
 from html import escape
+from pathlib import Path
 
 import charts
 from analyzer.emotions import FAMILIES, average_emotions
 from analyzer.models import BookAnalysis
 
+ASSETS = Path(__file__).with_name("assets")
+# The mascot (the owner's raccoon) says what it is doing during each analysis step
+MASCOT_LINES = {
+    "Reading sentences": "Reading the book, one sentence at a time. Snack breaks included.",
+    "Finding characters": "Writing every name on a sticky note.",
+    "Linking pronouns": "Working out who “she” is. Harder than it sounds.",
+    "Scoring sentiment": "Deciding whether each sentence is happy or sad. Some are both.",
+    "Detecting emotions": "Feeling all 38 feelings. Pass the tissues.",
+    "Naming chapters": "Giving every chapter a catchy nickname.",
+    "Finding relationships": "Figuring out who is friends with whom.",
+}
+MASCOT_TIPS = (
+    "A whole novel takes about 10 minutes. Perfect for a cup of tea ☕",
+    "Everything runs on this computer: your book never leaves it.",
+    "The raccoon reads about a thousand sentences a minute. Don't tell its teacher.",
+    "When it's done, try ▶ Travel on the Story road.",
+)
 SERIF = '"Fraunces", Georgia, "Times New Roman", serif'
 ACCENT = {"light": "#b7791f", "dark": "#e0b25b"}  # old-gold, used only for small decorations
 
@@ -100,11 +120,74 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-cast i {{ width: 12px; height: 12px; border-radius: 50%; flex: none; }}
     [data-testid="stSidebar"] a {{ color: inherit; text-decoration-color: var(--ba-muted); }}
 
+    /* The mascot */
+    .ba-brand {{ display: flex; align-items: center; gap: .75rem; margin: .2rem 0 .4rem; }}
+    .ba-brand img {{ width: 52px; height: 52px; border-radius: 50%; box-shadow: 0 0 0 2px var(--ba-gold); }}
+    .ba-brand b {{ display: block; font-family: {SERIF}; font-size: 1.45rem; line-height: 1.1; color: var(--ba-ink); }}
+    .ba-brand span {{ font-size: .78rem; color: var(--ba-muted); }}
+    .ba-split {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; align-items: center; }}
+    .ba-mascot {{ margin: 0; text-align: center; }}
+    .ba-mascot img {{ width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 60% 30%; border-radius: 18px;
+        box-shadow: var(--ba-glow); border: 1px solid var(--ba-line); }}
+    .ba-mascot figcaption {{ font-size: .8rem; font-style: italic; color: var(--ba-muted); margin-top: .5rem; }}
+    .ba-working {{ display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 1.6rem; align-items: center;
+        padding: 1.4rem 1.6rem; border-radius: 20px; border: 1px solid var(--ba-line); background: var(--ba-surface);
+        box-shadow: var(--ba-glow); margin-bottom: .8rem; }}
+    .ba-working img {{ width: 170px; aspect-ratio: 1; object-fit: cover; object-position: 55% 62%; border-radius: 16px;
+        animation: ba-typing .5s ease-in-out infinite alternate; }}
+    .ba-working h2 {{ font-family: {SERIF}; font-size: 1.9rem; margin: .4rem 0 .6rem; padding: 0; color: var(--ba-ink); }}
+    .ba-dots {{ display: inline-flex; gap: 5px; margin-left: .5rem; vertical-align: middle; }}
+    .ba-dots i {{ width: 7px; height: 7px; border-radius: 50%; background: var(--ba-gold);
+        animation: ba-dot 1.2s ease-in-out infinite; }}
+    .ba-dots i:nth-child(2) {{ animation-delay: .2s; }} .ba-dots i:nth-child(3) {{ animation-delay: .4s; }}
+    .ba-tips {{ position: relative; min-height: 2.8em; color: var(--ba-ink2); font-size: .95rem; }}
+    .ba-tips span {{ position: absolute; inset: 0; opacity: 0; animation: ba-tip 24s infinite; }}
+    @keyframes ba-typing {{ from {{ transform: translateY(0) rotate(0deg); }} to {{ transform: translateY(-2px) rotate(.4deg); }} }}
+    @keyframes ba-dot {{ 0%, 60%, 100% {{ opacity: .25; transform: translateY(0); }} 30% {{ opacity: 1; transform: translateY(-4px); }} }}
+    @keyframes ba-tip {{ 0% {{ opacity: 0; }} 3%, 22% {{ opacity: 1; }} 25%, 100% {{ opacity: 0; }} }}
+    @media (prefers-reduced-motion: reduce) {{
+        .ba-working img, .ba-dots i {{ animation: none; }}
+        .ba-tips span {{ animation: none; }} .ba-tips span:first-child {{ opacity: 1; }} }}
+
     @media (max-width: 900px) {{ .ba-kpis {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
     @media (max-width: 560px) {{
         .ba-kpis {{ grid-template-columns: 1fr; }} .ba-kpi.wide {{ grid-column: auto; }}
+        .ba-split, .ba-working {{ grid-template-columns: 1fr; }} .ba-mascot img {{ max-width: 260px; }}
         .ba-hero {{ padding: 1.4rem 1.1rem 1.1rem; }} }}
     </style>"""
+
+
+# --- the mascot ------------------------------------------------------------------------------
+
+
+@cache  # read and encode each picture once per server
+def image_uri(name: str) -> str:
+    """A picture from app/assets as a data: URI, so it can sit inside st.html."""
+    kind = "png" if name.endswith(".png") else "jpeg"
+    return f"data:image/{kind};base64," + base64.b64encode((ASSETS / name).read_bytes()).decode()
+
+
+def mascot_line(step: str) -> str:
+    return MASCOT_LINES.get(step, "Getting comfortable at the keyboard…")
+
+
+def sidebar_title() -> str:
+    return (f'<div class="ba-brand"><img src="{image_uri("raccoon-face.png")}" alt="">'
+            f'<div><b>Book Analyzer</b><span>with a raccoon at the keyboard</span></div></div>')
+
+
+def working_card() -> str:
+    """Shown while a book is analyzed: the raccoon typing away, a speech bubble with
+    typing dots, and tips that take turns (pure CSS, so it's sent only once)."""
+    tips = "".join(f'<span style="animation-delay:{i * 6}s">{escape(t)}</span>' for i, t in enumerate(MASCOT_TIPS))
+    return f"""<section class="ba-working">
+      <img src="{image_uri("raccoon.jpg")}" alt="A raccoon in headphones typing at a computer">
+      <div>
+        <div class="ba-kicker">Analyzing your book</div>
+        <h2>The raccoon is on it<span class="ba-dots"><i></i><i></i><i></i></span></h2>
+        <div class="ba-tips">{tips}</div>
+      </div>
+    </section>"""
 
 
 # --- small pictures inside the cards ------------------------------------------------------
@@ -202,14 +285,16 @@ def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
 
 def landing() -> str:
     """The page before any book is chosen."""
-    return """<section class="ba-hero">
+    return f"""<section class="ba-hero ba-split"><div>
       <div class="ba-kicker">📖 Book Analyzer</div>
       <h1>Turn a novel into pictures.</h1>
       <p class="ba-lede">Give it a book and AI models running on this computer read every sentence: who appears,
       who meets whom, where the story goes, and how the mood and emotions rise and fall. The words become a
       road through the story, a constellation, a crystal and a dozen charts you can dive into.</p>
       <p class="ba-lede"><b>Start in the sidebar:</b> upload an English novel as a <code>.txt</code> file, or try
-      the sample book.</p>
+      the sample book.</p></div>
+      <figure class="ba-mascot"><img src="{image_uri("raccoon.jpg")}" alt="A raccoon in headphones at a keyboard">
+      <figcaption>Your reader for today. Fast, careful, slightly snack-obsessed.</figcaption></figure>
     </section>"""
 
 

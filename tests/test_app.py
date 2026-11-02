@@ -214,6 +214,22 @@ def test_story_road_gets_the_story_arc():
     assert "road" in explore3d.SCENES and "road" not in explore3d.EMOTION_SCENES  # it works without emotions
 
 
+def test_the_raccoon_has_a_line_for_every_analysis_step():
+    from analyzer.pipeline import STEPS
+    assert set(STEPS) <= set(design.MASCOT_LINES), "a new pipeline step needs a raccoon line"
+    card = design.working_card()
+    assert card.count('src="data:image/jpeg;base64,') == 1 and card.count("animation-delay") == len(design.MASCOT_TIPS)
+    assert "data:image/png;base64," in design.sidebar_title()
+    assert "raccoon" in design.landing()
+
+
+def test_start_page_shows_the_mascot():
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    assert not at.exception
+    assert any("Turn a novel into pictures" in h.proto.body and "data:image/jpeg" in h.proto.body
+               for h in at.get("html"))
+
+
 def test_every_chapter_theme_has_an_icon():
     from analyzer.chapter_events import THEMES
     assert set(THEMES) == set(explore3d.THEME_ICONS), "a new theme needs an icon (and an old one loses it)"

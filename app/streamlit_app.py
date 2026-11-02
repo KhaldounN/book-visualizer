@@ -35,7 +35,8 @@ ENTITY_TYPES = {
 }
 KINDS = {"place": "Places", "organization": "Organizations", "group": "Groups and families", "other": "Other"}
 
-st.set_page_config(page_title="Book Analyzer", page_icon="📖", layout="wide")
+st.set_page_config(page_title="Book Analyzer", page_icon=str(ROOT / "app" / "assets" / "raccoon-face.png"),
+                   layout="wide")
 MODE = "dark" if st.context.theme.type == "dark" else "light"
 theme = charts.THEMES[MODE]
 st.html(design.page_css(theme, MODE))
@@ -67,12 +68,24 @@ def run_analysis(data: bytes, key: str, filename: str):
     saved = CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl"
     if saved.exists():
         return pickle.loads(saved.read_bytes())
-    bar = st.progress(0.0, text="Starting… a full novel takes about 7 minutes.")
+    # the raccoon at work: its card is sent once; only its line and the bar change
+    holder = st.empty()
+    with holder.container():
+        st.html(design.working_card())
+        line = st.empty()
+        bar = st.progress(0.0, text="Starting… a full novel takes about 10 minutes.")
+    shown = [None]
+
+    def progress(step: str, fraction: float) -> None:
+        if step != shown[0]:  # a new step: a new line from the raccoon
+            shown[0] = step
+            line.markdown(f"🦝 *{design.mascot_line(step)}*")
+        bar.progress(min(fraction, 1.0), text=f"{step}… {fraction:.0%}")
+
     try:
-        result = analyze(data, lambda step, f: bar.progress(min(f, 1.0), text=f"{step}… {f:.0%}"),
-                         filename=filename)
+        result = analyze(data, progress, filename=filename)
     finally:
-        bar.empty()
+        holder.empty()
     CACHE.mkdir(exist_ok=True)
     saved.write_bytes(pickle.dumps(result))
     return result
@@ -98,7 +111,7 @@ def section(title: str, intro: str) -> None:
 # --- Upload and analysis (in the sidebar, so the page is all dashboard) -----------
 
 with st.sidebar:
-    st.title("📖 Book Analyzer")
+    st.html(design.sidebar_title())
     st.caption("Upload an English novel as a `.txt` file to see its characters, how they relate, "
                "and how the mood changes through the story.")
     uploaded = st.file_uploader("Book file", type=["txt"])
