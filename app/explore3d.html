@@ -191,6 +191,8 @@ function grid(size, divisions, y) {
 function emotionBars(shares) {
   return `<div class="bars">${EMO.map((e, i) => `<div class="bar"><span>${EMO_LABEL[e]}</span><s style="width:${Math.min(100, Math.round(shares[i] * 260))}%;background:${EMO_COLOR[e]}"></s><em>${Math.round(shares[i] * 100)}%</em></div>`).join("")}</div>`;
 }
+// a character's avatar as a small round <img> (nothing for minor characters)
+const avatarImg = (c, size = 30) => c && c.avatar ? `<img src="${c.avatar}" alt="" style="width:${size}px;height:${size}px;border-radius:50%;vertical-align:middle;margin-right:8px">` : "";
 // "stands out: guilt, gratitude" (fine emotions above the book's average)
 const standOut = (list) => list && list.length ? `<br><span style="color:var(--ink)">stands out: ${list.map(escape).join(", ")}</span>` : "";
 function picker(labelText, options, onChange, start = 0) {
@@ -324,7 +326,8 @@ function road() {
     b.userData.ch = i; st.scene.add(b); hitBoxes.push(b);
   }
   const colorOfName = Object.fromEntries(chars.map((c) => [c.name, c.color]));
-  const people = (names) => names.map((nm) => `<span style="color:${colorOfName[nm] || "#c3c2b7"}">●</span> ${escape(nm)}`).join(", ");
+  const byName = Object.fromEntries(chars.map((c) => [c.name, c]));
+  const people = (names) => names.map((nm) => byName[nm] && byName[nm].avatar ? `${avatarImg(byName[nm], 22)}${escape(nm)}` : `<span style="color:${colorOfName[nm] || "#c3c2b7"}">●</span> ${escape(nm)}`).join(", ");
   const describe = (i) => `${events[i].icon} ${escape(data.chapterTitles[i])} · ${escape(events[i].theme)}`;
   function select(i) {
     const d = details[i], shares = data.chapterEmotions[i];
@@ -414,7 +417,7 @@ function constellation() {
       line.material.opacity = on ? Math.min(1, line.userData.base + 0.45) : 0.04;
     });
     const mine = data.links.filter((l) => l.a === i || l.b === i).sort((a, b) => b.count - a.count).slice(0, 3);
-    card.innerHTML = `<h3 style="color:${c.color}">${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}
+    card.innerHTML = `<h3 style="color:${c.color}">${avatarImg(c, 40)}${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}
       <div class="meta">${mine.length ? "Closest: " + mine.map((l) => `${escape(chars[l.a === i ? l.b : l.a].name)} (${l.count})`).join(", ") : "No strong relationships"}</div>`;
   }
   const hit = hover(st, () => stars, (h) => {
@@ -460,6 +463,13 @@ function crystal() {
   group.add(new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({ vertexColors: true })));
   const start = label("ch 1", { size: 0.32, color: "#6c7d92", weight: 500 }); start.position.set(5.9, -2.4, 0); group.add(start);
   let nameTag = null;
+  const portrait = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, opacity: 0 }));
+  portrait.scale.setScalar(1.7); portrait.position.set(0, 4.5, 0); portrait.visible = false; st.scene.add(portrait);
+  const portraits = {}, loader = new THREE.TextureLoader();
+  const portraitOf = (c) => {
+    if (!portraits[c.name]) { portraits[c.name] = loader.load(c.avatar); portraits[c.name].colorSpace = THREE.SRGBColorSpace; }
+    return portraits[c.name];
+  };
 
   // what the crystal should look like for one character
   const shapeOf = (c) => {
@@ -510,12 +520,14 @@ function crystal() {
     });
     if (nameTag) st.scene.remove(nameTag);  // the name floats above the crystal, in the character's colour
     nameTag = label(c.name, { size: 0.9, color: c.color, weight: 600 });
-    nameTag.position.set(0, 4.3, 0); nameTag.material.opacity = 0; st.scene.add(nameTag);
+    nameTag.position.set(0, 3.35, 0); nameTag.material.opacity = 0; st.scene.add(nameTag);
+    portrait.visible = !!c.avatar;
+    if (c.avatar) { portrait.material.map = portraitOf(c); portrait.material.needsUpdate = true; }
     const present = c.toneByChapter.map((t, j) => [t, j]).filter(([t]) => t != null);
     const bright = present.reduce((b, x) => (x[0] > b[0] ? x : b), present[0] || [0, 0]);
     const dark = present.reduce((b, x) => (x[0] < b[0] ? x : b), present[0] || [0, 0]);
     card.hidden = false;
-    card.innerHTML = `<h3 style="color:${c.color}">${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}<br>brightest: ${escape(data.chapterTitles[bright[1]])}<br>darkest: ${escape(data.chapterTitles[dark[1]])}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}`;
+    card.innerHTML = `<h3 style="color:${c.color}">${avatarImg(c, 40)}${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}<br>brightest: ${escape(data.chapterTitles[bright[1]])}<br>darkest: ${escape(data.chapterTitles[dark[1]])}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}`;
   }
 
   st.tick.push((t) => {
@@ -525,7 +537,7 @@ function crystal() {
       now = mix(from, to, DURATION ? ease(Math.min(1, elapsed / DURATION)) : 1);
       show(now);
     }
-    if (nameTag) nameTag.material.opacity = DURATION ? Math.min(1, elapsed / 600) : 1;
+    if (nameTag) nameTag.material.opacity = portrait.material.opacity = DURATION ? Math.min(1, elapsed / 600) : 1;
     group.rotation.y = REDUCE ? 0 : t * 0.25;
     scan.position.y = REDUCE ? 0 : Math.sin(t * 0.9) * 3;
   });

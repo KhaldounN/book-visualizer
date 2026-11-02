@@ -118,6 +118,21 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-cast {{ list-style: none; padding: 0; margin: 0; display: grid; gap: .3rem; font-size: .88rem; }}
     .ba-cast li {{ display: flex; align-items: center; gap: .5rem; margin: 0; }}
     .ba-cast i {{ width: 12px; height: 12px; border-radius: 50%; flex: none; }}
+    .ba-avatar {{ border-radius: 50%; flex: none; vertical-align: middle; }}
+    .ba-dot {{ display: inline-block; border-radius: 50%; flex: none; vertical-align: middle; }}
+    .ba-faces img {{ margin-right: -6px; }}
+    .ba-castgrid {{ margin: 1.4rem 0 .4rem; }}
+    .ba-castgrid .grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+        margin-top: .7rem; }}
+    .ba-castgrid article {{ display: flex; flex-direction: column; align-items: center; text-align: center; gap: .3rem;
+        padding: 1rem .7rem .9rem; border: 1px solid var(--ba-line); border-radius: 16px; background: var(--ba-surface);
+        box-shadow: var(--ba-glow); transition: transform .2s ease; }}
+    .ba-castgrid article:hover {{ transform: translateY(-3px); }}
+    .ba-castgrid article b {{ font-family: {SERIF}; font-size: 1.1rem; margin-top: .3rem; }}
+    .ba-castgrid .look {{ font-size: .82rem; color: var(--ba-ink); }}
+    .ba-castgrid .meta {{ font-size: .75rem; color: var(--ba-ink2); }}
+    .ba-castgrid small {{ font-size: .7rem; color: var(--ba-muted); font-style: italic; line-height: 1.35; }}
+    .ba-castgrid .note {{ font-size: .75rem; color: var(--ba-muted); margin: .6rem 0 0; }}
     [data-testid="stSidebar"] a {{ color: inherit; text-decoration-color: var(--ba-muted); }}
 
     /* The mascot */
@@ -152,7 +167,7 @@ def page_css(theme: dict, mode: str) -> str:
     @media (max-width: 900px) {{ .ba-kpis {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
     @media (max-width: 560px) {{
         .ba-kpis {{ grid-template-columns: 1fr; }} .ba-kpi.wide {{ grid-column: auto; }}
-        .ba-split, .ba-working {{ grid-template-columns: 1fr; }} .ba-mascot img {{ max-width: 260px; }}
+        .ba-split, .ba-working {{ grid-template-columns: 1fr; }} .ba-castgrid .grid {{ grid-template-columns: repeat(2, 1fr); }} .ba-mascot img {{ max-width: 260px; }}
         .ba-hero {{ padding: 1.4rem 1.1rem 1.1rem; }} }}
     </style>"""
 
@@ -237,17 +252,26 @@ def _initials(name: str) -> str:
     return "".join(w[0] for w in words[-2:]) or name[:2]
 
 
-def _faces(characters: list, colors: dict) -> str:
-    """Round badges with initials, each in the character's own colour."""
+def face(avatars: dict | None, character, size: int, color: str = "") -> str:
+    """A character's avatar as an <img>, or (without one) a dot in their colour."""
+    if avatars and character.id in avatars:
+        return (f'<img class="ba-avatar" src="{avatars[character.id]}" alt="" title="{escape(character.name)}" '
+                f'style="width:{size}px;height:{size}px">')
+    return f'<i class="ba-dot" style="background:{color};width:{size // 2}px;height:{size // 2}px"></i>'
+
+
+def _faces(characters: list, colors: dict, avatars: dict | None = None) -> str:
+    """The characters' avatars side by side (round initials in their colour if there is no avatar)."""
     return '<div class="ba-faces">' + "".join(
+        face(avatars, c, 38) if avatars and c.id in avatars else
         f'<span style="background:{colors[c.id]}" title="{escape(c.name)}">{escape(_initials(c.name))}</span>'
         for c in characters) + "</div>"
 
 
-def cast_legend(analysis: BookAnalysis, theme: dict) -> str:
-    """The colour of each main character, used in every chart on the page."""
+def cast_legend(analysis: BookAnalysis, theme: dict, avatars: dict | None = None) -> str:
+    """The colour (and avatar) of each main character, used in every chart on the page."""
     colors = charts.character_colors(analysis, theme)
-    rows = "".join(f'<li><i style="background:{colors[c.id]}"></i>{escape(c.name)}</li>'
+    rows = "".join(f'<li>{face(avatars, c, 28, colors[c.id])}{escape(c.name)}</li>'
                    for c in charts.top_characters(analysis, len(theme["series"])))
     return f'<ul class="ba-cast">{rows}<li><i style="background:{theme["muted"]}"></i>everyone else</li></ul>'
 
@@ -301,7 +325,33 @@ def landing() -> str:
 # --- KPI cards ------------------------------------------------------------------------------
 
 
-def kpis(analysis: BookAnalysis, events: list, theme: dict) -> list[dict]:
+def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, n: int = 8) -> str:
+    """The main characters as portrait cards: avatar, name, their look in words and
+    what it is based on (the book's own words, or the story when it says nothing)."""
+    from analyzer.emotions import stand_out
+    from avatars import look_in_words
+    colors = charts.character_colors(analysis, theme)
+    book_fine = average_emotions([s.fine for s in analysis.sentences])
+    cards = []
+    for c in charts.top_characters(analysis, n):
+        look = looks.get(c.id)
+        if not look:
+            continue
+        feels = stand_out(analysis.character_fine[c.id], book_fine) if analysis.character_fine else []
+        source = ("From the book: " + ", ".join(look.evidence)) if look.evidence else "Imagined from the story"
+        cards.append(
+            f'<article>{face(avatars, c, 88)}<b style="color:{colors[c.id]}">{escape(c.name)}</b>'
+            f'<span class="look">{escape(look_in_words(look))}</span>'
+            f'<span class="meta">{c.mentions:,} mentions{" · " + escape(", ".join(feels)) if feels else ""}</span>'
+            f'<small>{escape(source)}</small></article>')
+    return (f'<section class="ba-castgrid"><div class="ba-kicker">The cast</div>'
+            f'<div class="grid">{"".join(cards)}</div>'
+            f'<p class="note">Portraits are drawn by this website from what the book says about each character; '
+            f'where it says nothing, the story fills in the blanks (title, job, the book\'s world and mood).</p>'
+            f'</section>')
+
+
+def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None = None) -> list[dict]:
     """The headline numbers of the book, each with a small picture.
     Each card: icon, label, value, note, art (HTML), and optional wide/tone."""
     names = {c.id: c for c in analysis.characters}
@@ -324,7 +374,7 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict) -> list[dict]:
                             theme["muted"])),
         dict(icon="👥", label="Characters", value=f"{len(analysis.characters)}",
              note="the most mentioned: " + ", ".join(c.name for c in ranked[:3]),
-             art=_faces(ranked[:8], colors)),
+             art=_faces(ranked[:8], colors, avatars)),
         dict(icon="💬", label="Mentions", value=f"{len(analysis.mentions):,}",
              note=f"{by_name / max(len(analysis.mentions), 1):.0%} by name, the rest by pronoun",
              art=_stack([(by_name, theme["ink2"], "by name"),
@@ -355,7 +405,7 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict) -> list[dict]:
         a, b = names[pair.source], names[pair.target]
         cards.append(dict(icon="💞", label="Closest pair", value=f"{escape(a.name)} &amp; {escape(b.name)}", small=True,
                           note=f"{pair.count} moments together · tone {pair.sentiment:+.2f}",
-                          art=_faces([a, b], colors)))
+                          art=_faces([a, b], colors, avatars)))
     else:
         cards.append(dict(icon="💞", label="Closest pair", value="—", note="no pairs found", art=""))
 

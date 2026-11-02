@@ -6,7 +6,9 @@ Upload an English novel as a `.txt` file and explore:
   keywords, along the mood and emotions of the book; the story's arc with its turning points and acts; and a 3D
   "story road" that climbs and dips with the mood, with signposts at the turning points, to travel along. Themes come from a small model running on your computer and are
   right about half the time, so each one is shown with the sentence and words it is based on
-- **Characters**: who appears and how often, counting names *and* pronouns ("she", "his")
+- **Characters**: who appears and how often, counting names *and* pronouns ("she", "his"), each main
+  character with a drawn period portrait based on what the book says about them (hair, age, job, a
+  bridal veil…), with the story filling in the blanks
 - **Story sentiment**: the mood per chapter (whole book or per character), the mood sentence by
   sentence, and the **key moments**: the darkest and brightest passages, quoted
 - **Emotions**: 38 fine emotions (grief, guilt, gratitude, curiosity, envy…) for every sentence, from a

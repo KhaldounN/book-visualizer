@@ -21,6 +21,7 @@ import streamlit.components.v1 as components  # noqa: E402
 import charts  # noqa: E402
 import design  # noqa: E402
 import explore3d  # noqa: E402
+from avatars import cast_avatars  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
@@ -145,6 +146,20 @@ if not analysis.characters:
     st.warning("No characters were found in this book.")
     st.stop()
 
+
+def cast_for(mode: str):
+    """The main characters' looks and avatars for this book, its merges and a colour mode,
+    drawn once per session (reading the clues takes a second on a long novel)."""
+    key = (st.session_state["current"], tuple(book["merges"]), mode)
+    cache = st.session_state.setdefault("avatars", {})
+    if key not in cache:
+        cache[key] = cast_avatars(analysis, charts.THEMES[mode])
+    return cache[key]
+
+
+looks, faces = cast_for(MODE)
+faces_3d = cast_for("dark")[1]  # the 3D stage is always dark
+
 # --- Sidebar: title and merging characters ----------------------------------------
 
 with st.sidebar:
@@ -172,7 +187,7 @@ with st.sidebar:
     st.divider()
     st.subheader("Character colours")
     st.caption("Each main character keeps one colour in every chart and 3D view.")
-    st.html(design.cast_legend(analysis, theme))
+    st.html(design.cast_legend(analysis, theme, faces))
     st.divider()
     st.subheader("Jump to")
     st.markdown("\n".join(f"- [{name}](#{name.lower().replace(' ', '-')})" for name in (
@@ -187,7 +202,8 @@ names = {c.id: c.name for c in analysis.characters}
 # --- Header and KPIs ---------------------------------------------------------------
 
 st.html(design.hero(analysis, book["title"], events, theme))
-st.html(design.kpi_html(design.kpis(analysis, events, theme)))
+st.html(design.kpi_html(design.kpis(analysis, events, theme, faces)))
+st.html(design.cast_strip(analysis, looks, faces, theme))
 
 with st.container():
     with st.expander("How to read these results"):
@@ -245,7 +261,7 @@ for scene, title in explore3d.SCENES.items():
         if scene in explore3d.EMOTION_SCENES and not has_emotions:
             st.info("This view needs emotions, which were not detected for this book.")
         else:
-            components.html(explore3d.scene_html(analysis, scene), height=520)
+            components.html(explore3d.scene_html(analysis, scene, faces_3d), height=520)
 
 # --- The story ---------------------------------------------------------------------------
 
@@ -255,6 +271,7 @@ def chapter_cards(events: list, details: list[dict]) -> str:
     negative, middle, positive = theme["diverging"]
     by_id = charts.character_colors(analysis, theme)
     colors = {c.name: by_id[c.id] for c in analysis.characters}
+    ids = {c.name: c.id for c in analysis.characters}
     cards = []
     for ch, (event, detail) in enumerate(zip(events, details)):
         tone = analysis.chapter_sentiment[ch]
@@ -263,7 +280,8 @@ def chapter_cards(events: list, details: list[dict]) -> str:
         mix = "".join(f'<i style="flex:{mix_shares[e]};background:{theme["emotions"][e]}"></i>'
                       for e in charts.EMOTION_ORDER if mix_shares.get(e))
         place = f"<br>at {html.escape(detail['place'])}" if detail["place"] else ""
-        people = ", ".join(f'<b style="color:{colors.get(n, theme["muted"])}">●</b> {html.escape(n)}'
+        people = ", ".join((f'<img src="{faces[ids[n]]}" alt="" class="face">' if ids.get(n) in faces else
+                            f'<b style="color:{colors.get(n, theme["muted"])}">●</b> ') + html.escape(n)
                            for n in detail["people"])
         feels = stand_out(analysis.chapter_fine[ch], book_fine) if analysis.chapter_fine else []
         feels = f'<span class="feels">{html.escape(", ".join(feels))}</span>' if feels else ""
@@ -282,6 +300,7 @@ def chapter_cards(events: list, details: list[dict]) -> str:
       .cards h4 {{ margin: 0; font-size: 19px; }}
       .cards p {{ margin: 0; font-size: 13px; color: {theme["ink2"]}; line-height: 1.4; }}
       .cards .mix {{ display: flex; gap: 1px; height: 7px; border-radius: 2px; overflow: hidden; }}
+      .cards .face {{ width: 20px; height: 20px; border-radius: 50%; vertical-align: middle; margin-right: 4px; }}
       .cards .feels {{ font-size: 12px; font-style: italic; color: {theme["ink2"]}; }}
       .cards small {{ color: {theme["muted"]}; font-size: 12px; line-height: 1.45; }}
     </style><div class="cards">{"".join(cards)}</div>"""
@@ -407,6 +426,8 @@ else:
     with left:
         who = st.selectbox("Character", charts.top_characters(analysis, 20), format_func=lambda c: c.name,
                            key="emotion_character")
+        if who.id in faces:
+            st.html(f'<img src="{faces[who.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
         feels = stand_out(analysis.character_fine[who.id], book_fine) if analysis.character_fine else []
         if feels:
             st.markdown(f"**Stands out for {who.name}:** " + ", ".join(feels))
@@ -425,7 +446,7 @@ left, right = panel("Mentions", "How often each character is mentioned, **by nam
 with left:
     top = how_many("Characters to show", len(analysis.characters), 15, "mentions_top")
 with right:
-    st.plotly_chart(charts.mentions_bars(analysis, theme, top), width="stretch")
+    st.plotly_chart(charts.mentions_bars(analysis, theme, top, faces), width="stretch")
     by_name = pd.Series([m.character_id for m in analysis.mentions if m.source == "name"]).value_counts()
     table(pd.DataFrame([
         {"Character": c.name, "Mentions": c.mentions, "By name": int(by_name.get(c.id, 0)),
@@ -458,7 +479,7 @@ else:
         top = how_many("Characters in the network", len(analysis.characters), 20, "network_top")
         min_count = st.slider("Hide links with fewer moments together than", 3, 50, 10, key="network_min")
     with right:
-        st.plotly_chart(charts.relationship_network(analysis, theme, top, min_count), width="stretch")
+        st.plotly_chart(charts.relationship_network(analysis, theme, top, min_count, faces), width="stretch")
 
     left, right = panel("How a relationship changes", "Pick a pair to follow through the book: the **tone** of "
                         "their shared moments chapter by chapter, **how often** they meet, and their **emotions** "

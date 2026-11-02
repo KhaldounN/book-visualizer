@@ -101,7 +101,7 @@ def _round(value: float | None) -> float | None:
     return None if value is None else round(value, 3)
 
 
-def scene_data(analysis: BookAnalysis) -> dict:
+def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
     characters = charts.top_characters(analysis, TOP_CHARACTERS)
     index = {c.id: i for i, c in enumerate(characters)}
     # the stage is always dark, so characters keep their dark-mode chart colour
@@ -113,6 +113,7 @@ def scene_data(analysis: BookAnalysis) -> dict:
         people.append({
             "name": c.name,
             "color": colors[c.id],
+            "avatar": (avatars or {}).get(c.id),  # a data: URI, or None for minor characters
             "mentions": c.mentions,
             "emotions": _shares(analysis.character_emotions[c.id] if analysis.character_emotions else {}),
             # the fine emotions most above the book's average, e.g. ["guilt", "gratitude"]
@@ -160,11 +161,11 @@ def scene_data(analysis: BookAnalysis) -> dict:
     }
 
 
-def scene_html(analysis: BookAnalysis, scene: str) -> str:
+def scene_html(analysis: BookAnalysis, scene: str, avatars: dict | None = None) -> str:
     """The complete page for one scene."""
     if scene not in SCENES:
         raise ValueError(f"Unknown scene: {scene}")
     # "</" inside the data could end the <script> tag early, so escape it
-    data = json.dumps(scene_data(analysis), separators=(",", ":")).replace("</", "<\\/")
+    data = json.dumps(scene_data(analysis, avatars), separators=(",", ":")).replace("</", "<\\/")
     # fill in the scene first, so text inside the data can never be mistaken for a placeholder
     return TEMPLATE.read_text(encoding="utf-8").replace("__SCENE__", scene).replace("__DATA__", data)

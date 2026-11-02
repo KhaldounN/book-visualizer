@@ -109,7 +109,7 @@ def _tone_axis(fig: go.Figure, values: list[float | None]) -> None:
 
 # --- Mentions -------------------------------------------------------------
 
-def mentions_bars(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figure:
+def mentions_bars(analysis: BookAnalysis, theme: dict, top: int = 15, avatars: dict | None = None) -> go.Figure:
     characters = top_characters(analysis, top)[::-1]  # biggest at the top
     by_name = {c.id: 0 for c in characters}
     for m in analysis.mentions:
@@ -133,6 +133,14 @@ def mentions_bars(analysis: BookAnalysis, theme: dict, top: int = 15) -> go.Figu
     fig.update_xaxes(title="Mentions")
     fig = _layout(fig, theme, height=60 + 28 * len(characters), barmode="stack", bargap=0.35)
     fig.update_layout(legend_traceorder="normal")  # "By name" first, like the bars
+    if avatars:  # each character's avatar at the end of their bar
+        longest = max(c.mentions for c in characters) or 1
+        for c in characters:
+            if c.id in avatars:
+                fig.add_layout_image(source=avatars[c.id], xref="x", yref="y", x=c.mentions + longest * 0.012,
+                                     y=c.name, sizex=longest * 0.2, sizey=0.95, xanchor="left", yanchor="middle",
+                                     sizing="contain", layer="above")
+        fig.update_xaxes(range=[0, longest * 1.18])  # room for the avatar after the longest bar
     return fig
 
 
@@ -473,7 +481,8 @@ def _network_layout(characters: dict, links: list[Relationship]) -> dict:
     return nx.kamada_kawai_layout(graph, weight="distance")
 
 
-def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_count: int) -> go.Figure:
+def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_count: int,
+                         avatars: dict | None = None) -> go.Figure:
     characters = {c.id: c for c in top_characters(analysis, top)}
     all_links = [r for r in analysis.relationships if r.source in characters and r.target in characters]
     links = [r for r in all_links if r.count >= min_count]
@@ -515,6 +524,14 @@ def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_coun
                                   ticktext=["negative", "neutral", "positive"],
                                   tickfont=dict(color=theme["muted"]), outlinewidth=0)),
     )
+    if avatars:  # characters with an avatar are drawn as their portrait, as big as their dot
+        xs = [p[0] for p in pos.values()]
+        span = (max(xs) - min(xs)) or 1
+        for i, c in characters.items():
+            if i in avatars:
+                size = span * (0.05 + 0.08 * math.sqrt(c.mentions / biggest_node))
+                fig.add_layout_image(source=avatars[i], xref="x", yref="y", x=pos[i][0], y=pos[i][1],
+                                     sizex=size, sizey=size, xanchor="center", yanchor="middle", layer="above")
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False, scaleanchor="x")
     return _layout(fig, theme, height=620)
