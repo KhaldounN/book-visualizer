@@ -201,7 +201,8 @@ SCENE_HELP = {
     "road": "**The story as a journey.** The road runs from the first chapter to the last and climbs or dips with "
             "the story's overall mood: **hills** where it is bright, **valleys** where it turns dark. Its colour is "
             "each chapter's own mood (blue brighter, red darker). **Signposts** name the turning points: gold "
-            "▲ on the high points, red ▼ in the low ones. A **gate** marks where each act begins.\n\n"
+            "▲ on the high points, red ▼ in the low ones. A **gate** marks where each act begins, and a **picture** above the road "
+            "shows each chapter's theme (⚔️ battle, 💍 proposal, 🪦 death, 💰 money…).\n\n"
             "**Try:** press **Travel** to ride the road and read what happens in each chapter, or click the road "
             "to stop at a chapter.",
     "constellation": "**Each character is a star.** Where it sits says who they are emotionally: left to right "

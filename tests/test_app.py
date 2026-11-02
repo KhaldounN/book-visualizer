@@ -214,6 +214,17 @@ def test_story_road_gets_the_story_arc():
     assert "road" in explore3d.SCENES and "road" not in explore3d.EMOTION_SCENES  # it works without emotions
 
 
+def test_every_chapter_theme_has_an_icon():
+    from analyzer.chapter_events import THEMES
+    assert set(THEMES) == set(explore3d.THEME_ICONS), "a new theme needs an icon (and an old one loses it)"
+    assert len(set(explore3d.THEME_ICONS.values())) == len(THEMES), "every theme gets its own picture"
+    data = explore3d.scene_data(small_analysis())
+    assert [e["icon"] for e in data["chapterEvents"]] == ["💃", "📜", "🐎", "💒"]  # Ball, Letter, Journey, Wedding
+    analysis = small_analysis()
+    analysis.chapter_events = None  # keyword themes from an old analysis: a book icon
+    assert {e["icon"] for e in explore3d.scene_data(analysis)["chapterEvents"]} == {explore3d.NO_ICON}
+
+
 def test_3d_page_cannot_be_broken_by_a_name():
     analysis = small_analysis()
     analysis.characters[0].name = "</script><b>Anna"

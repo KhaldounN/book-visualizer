@@ -127,6 +127,15 @@ function label(text, { size = 0.55, color = "#dbe7f3", weight = 600, panel = nul
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
   s.scale.set(size * c.width / c.height, size, 1); return s;
 }
+function icon(emoji, size) {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d");
+  g.font = '96px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+  g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(emoji, 64, 72);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  s.scale.setScalar(size); return s;
+}
 function stage({ camera = [0, 4, 16], autoRotate = true, controls = true, fog = 0.018 } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setClearColor(VOID);
@@ -274,10 +283,21 @@ function road() {
     const p = at(i), up = kind === "high", poleTop = 2.2 + (j % 3) * 1.15;  // staggered so neighbours don't overlap
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, poleTop, 6), new THREE.MeshBasicMaterial({ color: 0xc3c2b7 }));
     pole.position.copy(p).add(new THREE.Vector3(0, poleTop / 2, -1.3)); st.scene.add(pole);
-    const sign = label(`${up ? "▲" : "▼"} ${events[i].theme} · ch ${i + 1}`, { size: 0.95, color: "#05080d", panel: up ? "#f0d48a" : "#f09a9a" });
+    const sign = label(`${up ? "▲" : "▼"} ${events[i].icon} ${events[i].theme} · ch ${i + 1}`, { size: 0.95, color: "#05080d", panel: up ? "#f0d48a" : "#f09a9a" });
     sign.position.copy(p).add(new THREE.Vector3(0, poleTop + 0.35, -1.3)); st.scene.add(sign);
     const halo = glow(up ? new THREE.Color("#f0d48a") : NEG, 3); halo.position.copy(p).add(new THREE.Vector3(0, 0.3, 0)); st.scene.add(halo);
   });
+
+  // a picture of each chapter's theme floats above the road, like a landmark:
+  // bigger at the turning points, alternating heights so neighbours don't overlap
+  const turningAt = new Set(data.turning.map((p) => p.i));
+  const icons = events.map((e, i) => {
+    const big = turningAt.has(i), size = big ? 2.2 : 1.15;
+    const s = icon(e.icon, size);
+    s.userData = { base: size, y: at(i).y + (big ? 2.0 : i % 2 ? 1.0 : 1.9) };
+    s.position.copy(at(i)); s.position.y = s.userData.y; st.scene.add(s); return s;
+  });
+  let current = -1;  // the selected chapter's icon grows
 
   // the traveller: a glowing marker that moves along the road
   const traveller = new THREE.Group();
@@ -293,9 +313,10 @@ function road() {
   }
   const colorOfName = Object.fromEntries(chars.map((c) => [c.name, c.color]));
   const people = (names) => names.map((nm) => `<span style="color:${colorOfName[nm] || "#c3c2b7"}">●</span> ${escape(nm)}`).join(", ");
-  const describe = (i) => `${escape(data.chapterTitles[i])} · ${escape(events[i].theme)}`;
+  const describe = (i) => `${events[i].icon} ${escape(data.chapterTitles[i])} · ${escape(events[i].theme)}`;
   function select(i) {
     const d = details[i], shares = data.chapterEmotions[i];
+    current = i;
     card.hidden = false;
     card.innerHTML = `<h3>${describe(i)}</h3><div class="meta" style="color:var(--ink)">“${escape(events[i].event)}”</div>
       <div class="meta">mood ${fmtTone(tone[i])}${d.place ? " · at " + escape(d.place) : ""}<br>${people(d.people)}${standOut(data.chapterStandOut[i])}</div>
@@ -308,7 +329,7 @@ function road() {
   });
 
   hud.innerHTML = `<button id="go" type="button">▶ Travel</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
-    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points</span>`;
+    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · icons = chapter themes</span>`;
   const go = document.getElementById("go"), slider = document.getElementById("seek");
   let travelling = false, pos = 0, last = 0;
   const place = (t) => { traveller.position.copy(at(t)).add(new THREE.Vector3(0, 0.45, 0)); };
@@ -329,6 +350,11 @@ function road() {
   st.tick.push((t) => {
     const dt = Math.min(0.05, t - last); last = t;
     traveller.children[1].scale.setScalar(3 + Math.sin(t * 3) * 0.4);  // a gentle pulse
+    icons.forEach((s, k) => {  // the current icon grows smoothly; all of them bob gently
+      const target = s.userData.base * (k === current ? 2.2 : 1);
+      s.scale.setScalar(s.scale.x + (target - s.scale.x) * 0.15);
+      s.position.y = s.userData.y + (REDUCE ? 0 : Math.sin(t * 1.5 + k) * 0.08);
+    });
     if (!travelling) return;
     pos = Math.min(n - 1, pos + dt * (REDUCE ? 4 : 0.9));
     place(pos); look(pos);

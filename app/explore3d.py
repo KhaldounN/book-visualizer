@@ -23,7 +23,16 @@ SCENES = {
 }
 TOP_CHARACTERS = 14  # more stars than this crowd the scenes
 MIN_LINK = 10  # relationships with fewer shared moments are left out
-EMOTION_SCENES = {"crystal"}  # scenes that need emotions to say anything
+EMOTION_SCENES = {"crystal"}
+# a picture for each chapter theme (analyzer/chapter_events.THEMES), shown on the Story road
+THEME_ICONS = {
+    "Ball": "💃", "Proposal": "💍", "Engagement": "💑", "Wedding": "💒", "Letter": "📜", "Journey": "🐎",
+    "Visit": "🚪", "Argument": "💢", "Gossip": "💬", "Revelation": "🔍", "Scandal": "📰", "Betrayal": "🐍",
+    "Confrontation": "😠", "Reconciliation": "🤝", "Romance": "🌹", "Illness": "🤒", "Death": "🪦",
+    "Battle": "⚔️", "Danger": "⚠️", "Adventure": "🧭", "Celebration": "🎉", "Sadness": "😢", "Family": "🏠",
+    "Money": "💰",
+}
+NO_ICON = "📖"  # keyword-only themes (analyses made before chapter themes existed)  # scenes that need emotions to say anything
 
 
 def _shares(mix: dict[str, float]) -> list[float]:
@@ -89,7 +98,8 @@ def scene_data(analysis: BookAnalysis) -> dict:
         "bookEmotions": _shares(average_emotions([s.emotions for s in analysis.sentences])),
         "chapterNeutral": [round(mix.get("neutral", 0.0), 3) for mix in analysis.chapter_emotions]
                           or [1.0] * len(analysis.chapters),
-        "chapterEvents": [{"theme": e.theme, "event": e.event, "keywords": e.keywords, "strength": e.strength}
+        "chapterEvents": [{"theme": e.theme, "event": e.event, "keywords": e.keywords, "strength": e.strength,
+                           "icon": THEME_ICONS.get(e.theme, NO_ICON)}
                           for e in events_of(analysis)],
         "chapterDetails": charts.chapter_details(analysis),
         "characters": people,
