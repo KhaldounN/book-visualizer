@@ -24,15 +24,64 @@ SCENES = {
 TOP_CHARACTERS = 14  # more stars than this crowd the scenes
 MIN_LINK = 10  # relationships with fewer shared moments are left out
 EMOTION_SCENES = {"crystal"}
-# a picture for each chapter theme (analyzer/chapter_events.THEMES), shown on the Story road
+# Pictures on the Story road. One visual rule: themes are objects, feelings are faces.
+# A picture for each chapter theme (analyzer/chapter_events.THEMES)...
 THEME_ICONS = {
     "Ball": "💃", "Proposal": "💍", "Engagement": "💑", "Wedding": "💒", "Letter": "📜", "Journey": "🐎",
     "Visit": "🚪", "Argument": "💢", "Gossip": "💬", "Revelation": "🔍", "Scandal": "📰", "Betrayal": "🐍",
-    "Confrontation": "😠", "Reconciliation": "🤝", "Romance": "🌹", "Illness": "🤒", "Death": "🪦",
-    "Battle": "⚔️", "Danger": "⚠️", "Adventure": "🧭", "Celebration": "🎉", "Sadness": "😢", "Family": "🏠",
+    "Confrontation": "🥊", "Reconciliation": "🤝", "Romance": "🌹", "Illness": "🩺", "Death": "🪦",
+    "Battle": "⚔️", "Danger": "⚠️", "Adventure": "🧭", "Celebration": "🎉", "Sadness": "🥀", "Family": "🏠",
     "Money": "💰",
 }
-NO_ICON = "📖"  # keyword-only themes (analyses made before chapter themes existed)  # scenes that need emotions to say anything
+NO_ICON = "📖"  # keyword-only themes (analyses made before chapter themes existed)
+# ...and a face for each emotion family (analyzer/emotions.FAMILIES)
+EMOTION_ICONS = {"love": "🥰", "joy": "😄", "surprise": "😲", "shame": "😳", "sadness": "😢", "anger": "😠",
+                 "fear": "😨", "disapproval": "😒"}
+# Only the important chapters get a picture, spaced apart, so the road stays calm
+KEY_THEMES = 9  # turning points first, then the clearest themes
+KEY_FEELINGS = 8
+MIN_GAP = 3  # chapters between two pictures of the same kind
+FEELING_LIFT = 1.3  # a chapter's feeling must be at least this many times its share in the whole book
+
+
+def _spaced(candidates: list[int], taken: list[int], limit: int) -> list[int]:
+    """Up to `limit` of the candidates (best first), each MIN_GAP chapters from the others."""
+    picked: list[int] = []
+    for i in candidates:
+        if len(picked) >= limit:
+            break
+        if all(abs(i - j) >= MIN_GAP for j in taken + picked):
+            picked.append(i)
+    return picked
+
+
+def key_themes(events: list, turning: list[tuple[int, str]]) -> list[int]:
+    """The chapters whose theme gets a badge: every turning point, then the
+    clearest themes (highest strength). Keyword-only themes get none."""
+    if not any(e.theme in THEME_ICONS for e in events):
+        return []
+    turns = [i for i, _ in turning]
+    rest = sorted((i for i, e in enumerate(events) if e.theme in THEME_ICONS and i not in turns),
+                  key=lambda i: -events[i].strength)
+    return sorted(turns + _spaced(rest, turns, KEY_THEMES - len(turns)))
+
+
+def key_feelings(analysis: BookAnalysis) -> list[dict]:
+    """The chapters where one feeling clearly stands out: [{"i": chapter, "emotion": family}].
+    For each chapter, the family most above its share in the whole book."""
+    book = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
+    if not book:
+        return []
+    best = {}
+    for i, mix in enumerate(analysis.chapter_emotions):
+        shares = charts.without_neutral(mix)
+        lifts = {e: shares.get(e, 0) / book[e] for e in charts.EMOTION_ORDER if book.get(e)}
+        if lifts:
+            e = max(lifts, key=lifts.get)
+            if lifts[e] >= FEELING_LIFT:
+                best[i] = (lifts[e], e)
+    chosen = _spaced(sorted(best, key=lambda i: -best[i][0]), [], KEY_FEELINGS)
+    return [{"i": i, "emotion": best[i][1]} for i in sorted(chosen)]  # scenes that need emotions to say anything
 
 
 def _shares(mix: dict[str, float]) -> list[float]:
@@ -79,7 +128,11 @@ def scene_data(analysis: BookAnalysis) -> dict:
         if r.source in index and r.target in index and r.count >= MIN_LINK
     ]
     arc, turning, acts = story_arc(analysis.chapter_sentiment)  # the same shape as the 2D Story arc chart
+    events = events_of(analysis)
     return {
+        "keyThemes": key_themes(events, turning),
+        "keyFeelings": key_feelings(analysis),
+        "emotionIcons": EMOTION_ICONS,
         "arc": [round(v, 4) for v in arc],
         "turning": [{"i": i, "kind": kind} for i, kind in turning],
         "acts": acts,
@@ -100,7 +153,7 @@ def scene_data(analysis: BookAnalysis) -> dict:
                           or [1.0] * len(analysis.chapters),
         "chapterEvents": [{"theme": e.theme, "event": e.event, "keywords": e.keywords, "strength": e.strength,
                            "icon": THEME_ICONS.get(e.theme, NO_ICON)}
-                          for e in events_of(analysis)],
+                          for e in events],
         "chapterDetails": charts.chapter_details(analysis),
         "characters": people,
         "links": links,

@@ -221,8 +221,27 @@ def test_every_chapter_theme_has_an_icon():
     data = explore3d.scene_data(small_analysis())
     assert [e["icon"] for e in data["chapterEvents"]] == ["💃", "📜", "🐎", "💒"]  # Ball, Letter, Journey, Wedding
     analysis = small_analysis()
-    analysis.chapter_events = None  # keyword themes from an old analysis: a book icon
-    assert {e["icon"] for e in explore3d.scene_data(analysis)["chapterEvents"]} == {explore3d.NO_ICON}
+    analysis.chapter_events = None  # keyword themes from an old analysis: a book icon, and no theme badges
+    data = explore3d.scene_data(analysis)
+    assert {e["icon"] for e in data["chapterEvents"]} == {explore3d.NO_ICON} and data["keyThemes"] == []
+
+
+def test_themes_are_objects_and_feelings_are_faces():
+    from analyzer.emotions import FAMILIES
+    assert set(explore3d.EMOTION_ICONS) == set(FAMILIES)
+    assert not set(explore3d.THEME_ICONS.values()) & set(explore3d.EMOTION_ICONS.values())
+
+
+def test_only_key_chapters_get_pictures_spaced_apart():
+    data = explore3d.scene_data(small_analysis())
+    # the clearest theme first (Wedding, ch 4), then Ball (ch 1): 3 chapters apart
+    assert data["keyThemes"] == [0, 3]
+    feelings = data["keyFeelings"]
+    assert 0 < len(feelings) <= explore3d.KEY_FEELINGS
+    spots = [f["i"] for f in feelings]
+    assert all(b - a >= explore3d.MIN_GAP for a, b in zip(spots, spots[1:]))
+    # dark chapters (1, 3) stand out for anger or fear, bright ones (2, 4) for joy
+    assert all(f["emotion"] in ({"anger", "fear"} if f["i"] % 2 == 0 else {"joy"}) for f in feelings)
 
 
 def test_3d_page_cannot_be_broken_by_a_name():
