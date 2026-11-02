@@ -25,7 +25,7 @@ from avatars import cast_avatars  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
-from analyzer.progression import key_moments, rolling_sentiment, story_arc  # noqa: E402
+from analyzer.progression import key_moments, rolling_sentiment  # noqa: E402
 
 SAMPLE = ROOT / "data" / "great_expectations.txt"  # from scripts/download_samples.py
 SAMPLE_TITLE = "Great Expectations"
@@ -248,10 +248,6 @@ SCENE_HELP = {
                "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\nIt shows **each "
                "character in turn**, a new one every 5 seconds. **Try:** pick a character from the list to stop "
                "and explore, and compare their shapes.",
-    "dna": "**A relationship as a double helix.** The two strands are two characters running through the "
-           "book. A rung joins them in every chapter where they share a moment: thicker when they meet more, "
-           "coloured by the mood of those moments. Gaps are chapters they spend apart.\n\n**Try:** pick "
-           "different pairs and compare how often, and when, they meet.",
 }
 
 section("Explore in 3D", "Interactive views to explore the book. Drag any of them to rotate. They are best for "
@@ -313,22 +309,6 @@ section("The story", "What happens chapter by chapter. Each chapter's theme is p
 if not analysis.chapter_events:
     st.info("This analysis was made before chapter themes existed, so the themes are keywords. "
             "Analyze the book again to get model themes.")
-
-left, right = panel("Timeline", "**Top:** each chapter's mood as a bar (blue brighter, red darker) with the "
-                    "trend as a line, and the clearest chapter themes pinned above. **Bottom:** how the mix of "
-                    "emotions shifts through the book.\n\nHover any chapter for its theme, main sentence, "
-                    "characters and place.")
-with left:
-    labels = st.slider("Themes to label", 0, min(30, len(events)), min(12, len(events)), key="theme_labels")
-with right:
-    st.plotly_chart(charts.story_timeline(analysis, theme, events, labels), width="stretch")
-
-arc, turning, acts = story_arc(analysis.chapter_sentiment)
-left, right = panel("Story arc", f"The mood smoothed into the story's overall shape. The biggest peaks and dips "
-                    f"are **turning points**, labelled with their chapter's theme, and every dip starts a new "
-                    f"**act**: this book has {len(acts)}.")
-with right:
-    st.plotly_chart(charts.story_arc_chart(analysis, theme, events, arc, turning, acts), width="stretch")
 
 left, right = panel("Chapter by chapter", "One card per chapter: its theme, its most telling sentence, its mood, "
                     "its mix of emotions, who is in it and where it happens.\n\n**Scroll sideways** through "

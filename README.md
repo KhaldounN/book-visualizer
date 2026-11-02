@@ -2,9 +2,9 @@
 
 Upload an English novel as a `.txt` file and explore:
 
-- **Story timeline**: every chapter's theme (ball, proposal, scandal, journey…), its most telling sentence and
-  keywords, along the mood and emotions of the book; the story's arc with its turning points and acts; and a 3D
-  "story road" that climbs and dips with the mood, with signposts at the turning points, to travel along. Themes come from a small model running on your computer and are
+- **The story**: every chapter's theme (ball, proposal, scandal, journey…), its most telling sentence and
+  keywords, mood, emotions, people and place, as a strip of chapter cards; and a 3D "story road" that climbs and
+  dips with the mood, with signposts at the turning points and gates at each act, to travel along. Themes come from a small model running on your computer and are
   right about half the time, so each one is shown with the sentence and words it is based on
 - **Characters**: who appears and how often, counting names *and* pronouns ("she", "his"), each main
   character with a drawn period portrait based on what the book says about them (hair, age, job, a
@@ -19,8 +19,8 @@ Upload an English novel as a `.txt` file and explore:
 - **Relationships**: who shares scenes with whom, how the tone of those scenes changes, and their
   emotions early, midway and late in the book
 - **Places & entities**: where the story happens chapter by chapter, plus organizations and groups
-- **Explore in 3D**: four interactive scenes to rotate and click: a story road, a character constellation,
-  an emotion crystal per character and a relationship double helix (needs an internet connection to load the 3D library)
+- **Explore in 3D**: three interactive scenes to rotate and click: a story road, a character constellation
+  and an emotion crystal per character (needs an internet connection to load the 3D library)
 
 The title and author are read from the book (Project Gutenberg files include them).
 

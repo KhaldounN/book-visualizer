@@ -19,7 +19,6 @@ SCENES = {
     "road": "Story road",
     "constellation": "Character constellation",
     "crystal": "Emotion crystal",
-    "dna": "Relationship DNA",
 }
 TOP_CHARACTERS = 14  # more stars than this crowd the scenes
 MIN_LINK = 10  # relationships with fewer shared moments are left out
@@ -123,12 +122,11 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
             "toneByChapter": [_round(t) for t in analysis.sentiment_by_chapter[c.id]],
         })
     links = [
-        {"a": index[r.source], "b": index[r.target], "count": r.count, "tone": round(r.sentiment, 3),
-         "byChapter": r.chapter_counts}
+        {"a": index[r.source], "b": index[r.target], "count": r.count, "tone": round(r.sentiment, 3)}
         for r in analysis.relationships
         if r.source in index and r.target in index and r.count >= MIN_LINK
     ]
-    arc, turning, acts = story_arc(analysis.chapter_sentiment)  # the same shape as the 2D Story arc chart
+    arc, turning, acts = story_arc(analysis.chapter_sentiment)  # turning points and acts
     events = events_of(analysis)
     return {
         "keyThemes": key_themes(events, turning),

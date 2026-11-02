@@ -17,7 +17,6 @@ from analyzer.progression import (
     mentions_by_chapter,
     rolling_sentiment,
     sentiment_by_chapter,
-    story_arc,
 )
 from analyzer.merge import merge_characters
 from analyzer.relationships import find_relationships
@@ -126,8 +125,8 @@ def test_a_character_keeps_one_colour_everywhere():
 
 def test_every_visualization_has_an_explanation(app):
     titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
-    # 4 3D views + timeline, arc, cards + 3 mood + 4 emotion + 2 character + 2 relationship + 2 places
-    assert len(titles) == 4 + 3 + 3 + 4 + 2 + 2 + 2
+    # 3 3D views + chapter cards + 3 mood + 4 emotion + 2 character + 2 relationship + 2 places
+    assert len(titles) == 3 + 1 + 3 + 4 + 2 + 2 + 2
 
 
 def test_editing_the_title(app):
@@ -188,8 +187,6 @@ def test_charts_build_in_both_themes(mode):
         charts.fine_bars(theme, {"guilt": 0.2, "calmness": 0.1, "grief": 0.05}),
         charts.places_heatmap(analysis, theme),
         charts.entity_bars(analysis.entities, theme),
-        charts.story_timeline(analysis, theme, analysis.chapter_events, labels=3),
-        charts.story_arc_chart(analysis, theme, analysis.chapter_events, *story_arc(analysis.chapter_sentiment, smooth=1)),
     ):
         assert figure.data, "every chart has something to draw"
 

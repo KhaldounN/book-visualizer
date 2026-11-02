@@ -558,50 +558,7 @@ function crystal() {
   if (autoplay) hint.textContent = "a new character every 5 s · pick one to stop";
 }
 
-/* ---- Relationship DNA ---- */
-function dna() {
-  const st = stage({ camera: [0, 3, 21], autoRotate: false, fog: 0.012 });
-  const pairs = [...data.links].sort((a, b) => b.count - a.count).slice(0, 20);
-  if (!pairs.length) { hud.innerHTML = `<span class="chip">No characters appear together often enough.</span>`; return; }
-  const A = new THREE.Color("#5ee7ff"), B = new THREE.Color("#e58bd0");
-  hud.insertAdjacentHTML("beforeend", `<span class="chip" id="info"></span>`);
-  let helix = null;
-  function cylinderBetween(p, q, radius, color) {
-    const d = q.clone().sub(p);
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, d.length(), 10), new THREE.MeshBasicMaterial({ color }));
-    m.position.copy(p).add(d.clone().multiplyScalar(0.5));
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); return m;
-  }
-  function build(k) {
-    if (helix) st.scene.remove(helix);
-    const l = pairs[k], a = chars[l.a], b = chars[l.b], n = data.chapters, step = 26 / Math.max(1, n), R = 1.7;
-    helix = new THREE.Group();
-    const point = (i, phase) => new THREE.Vector3((i - (n - 1) / 2) * step, Math.cos(i * 0.42 + phase) * R, Math.sin(i * 0.42 + phase) * R);
-    const same = a.color === b.color;
-    [[0, same ? A : new THREE.Color(a.color), a.name], [Math.PI, same ? B : new THREE.Color(b.color), b.name]].forEach(([phase, color, name]) => {
-      const curve = new THREE.CatmullRomCurve3(Array.from({ length: n }, (_, i) => point(i, phase)));
-      helix.add(new THREE.Mesh(new THREE.TubeGeometry(curve, n * 6, 0.09, 8), new THREE.MeshBasicMaterial({ color })));
-      const tag = label(name, { size: 0.5, color: "#" + color.getHexString() });
-      tag.position.copy(point(0, phase)).add(new THREE.Vector3(-1.6, 0.4, 0)); helix.add(tag);
-    });
-    const maxC = Math.max(1, ...l.byChapter);
-    l.byChapter.forEach((count, i) => {
-      if (!count) return;
-      const ta = a.toneByChapter[i], tb = b.toneByChapter[i];
-      const tone = ta == null ? tb : tb == null ? ta : (ta + tb) / 2;
-      helix.add(cylinderBetween(point(i, 0), point(i, Math.PI), 0.04 + 0.2 * Math.sqrt(count / maxC), toneColor(tone)));
-    });
-    for (let i = 0; i < n; i += 10) { const s = label(`ch ${i + 1}`, { size: 0.42, color: "#6c7d92", weight: 500 }); s.position.set((i - (n - 1) / 2) * step, -3, 0); helix.add(s); }
-    st.scene.add(helix);
-    const met = l.byChapter.filter(Boolean).length, best = l.byChapter.indexOf(Math.max(...l.byChapter));
-    document.getElementById("info").textContent = `together in ${met} of ${n} chapters · most in ${data.chapterTitles[best]}`;
-  }
-  st.tick.push((t) => { if (helix && !REDUCE) helix.rotation.x = t * 0.3; });
-  picker("Pair", pairs.map((l) => `${chars[l.a].name} & ${chars[l.b].name}`), build);
-  hint.textContent = "rung thickness = moments together · colour = tone";
-}
-
-({ road, constellation, crystal, dna })[SCENE]();
+({ road, constellation, crystal })[SCENE]();
 window.sceneStarted = true;
 </script>
 </body>
