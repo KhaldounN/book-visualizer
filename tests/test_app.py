@@ -332,3 +332,59 @@ def test_character_colours_follow_the_character_not_the_selection():
     second = charts.story_sentiment(analysis, theme, [2], 1)
     color_of = lambda fig, name: next(t.line.color for t in fig.data if t.name == name)  # noqa: E731
     assert color_of(first, "Eve") == color_of(second, "Eve") == colors[2]
+
+
+def test_fun_look_adds_the_raccoon_buddy():
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    at.session_state["analyses"] = {"book": {"title": "Test Book", "analysis": small_analysis(), "merges": []}}
+    at.session_state["current"] = "book"
+    at.query_params["look"] = "fun"
+    at.run()
+    assert not at.exception
+    bodies = [h.proto.body for h in at.get("html")]
+    assert any('id="ba-buddy"' in b for b in bodies) and any("Fredoka" in b for b in bodies)
+    # the start page has the buddy too
+    start = AppTest.from_file(str(APP), default_timeout=30)
+    start.query_params["look"] = "fun"
+    start.run()
+    assert not start.exception and any('id="ba-buddy"' in h.proto.body for h in start.get("html"))
+
+
+def test_the_plain_looks_have_no_buddy(app):
+    assert not any('id="ba-buddy"' in h.proto.body for h in app.get("html"))
+    assert app.query_params["book"] == "book", "the open book is kept in the address"
+
+
+def test_book_facts_and_buddy_drawing():
+    import xml.etree.ElementTree as ET
+    import fun
+    import raccoon
+    facts = fun.book_facts(small_analysis(), "Icarus")
+    assert any("an Icarus story" in f for f in facts) and any("darkest chapter" in f for f in facts)
+    svg = raccoon.buddy_svg()
+    ET.fromstring(svg)
+    assert all(f"act-{a}" in svg for a in raccoon.BUDDY_ACTS) and 'id="ba-pupils"' in svg
+    assert "ba-pupils" in fun.buddy_script(["a fact"]), "the script draws the raccoon in"
+    assert '"Dark"' in fun.switch_script("dark") and '"Light"' in fun.switch_script("light")
+
+
+def test_a_reload_reopens_the_book_from_its_saved_analysis():
+    import pickle
+    from analyzer.pipeline import ANALYSIS_VERSION
+    key = "ab" * 32
+    saved = APP.parent.parent / "results" / f"v{ANALYSIS_VERSION}-{key}.pkl"
+    saved.parent.mkdir(exist_ok=True)
+    saved.write_bytes(pickle.dumps(small_analysis()))
+    try:
+        at = AppTest.from_file(str(APP), default_timeout=30)
+        at.query_params["book"] = key
+        at.run()
+        assert not at.exception and at.session_state["current"] == key
+    finally:
+        saved.unlink()
+
+
+def test_picking_dark_remembers_it_in_the_address(app):
+    app.segmented_control(key="look_light").set_value("dark").run()
+    assert not app.exception
+    assert app.query_params["look"] == "dark", "the reload after the switch keeps the choice"

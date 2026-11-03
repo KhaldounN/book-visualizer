@@ -197,3 +197,124 @@ def scene_svg(step: str) -> str:
 
 def scene_uri(step: str) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(scene_svg(step).encode()).decode()
+
+
+# --- The fun-theme buddy ----------------------------------------------------------------------
+# A small raccoon that sits in the corner of the page in the fun theme. It is drawn inline
+# (not as an <img>) so the page script can move its pupils to follow the mouse and switch
+# what it is doing: the root's data-act attribute shows one act's arms and props (CSS below).
+
+BUDDY_ACTS = ("wave", "snack", "nap", "music", "juggle", "inspect", "stare")
+
+BUDDY_STYLE = """
+#ba-buddy svg .act { display: none; }
+#ba-buddy svg text { fill: #f4f1ff; font-weight: 700; paint-order: stroke; stroke: #1d1d22; stroke-width: 2px; }
+""" + "".join(f'#ba-buddy[data-act="{a}"] svg .act-{a} {{ display: inline; }}\n' for a in BUDDY_ACTS) + """
+#ba-buddy svg .wave-arm { transform-box: fill-box; transform-origin: 50% 10%; animation: bwave .45s ease-in-out infinite alternate; }
+#ba-buddy svg .munch { transform-box: fill-box; transform-origin: center; animation: bmunch .35s ease-in-out infinite alternate; }
+#ba-buddy svg .crumb { animation: bcrumb 1.2s ease-in infinite; }
+#ba-buddy svg .crumb:nth-of-type(2) { animation-delay: .4s; }
+#ba-buddy svg .crumb:nth-of-type(3) { animation-delay: .8s; }
+#ba-buddy svg .zz { opacity: 0; animation: bfloat 3s ease-in infinite; }
+#ba-buddy svg .zz:nth-of-type(2) { animation-delay: 1s; }
+#ba-buddy svg .zz:nth-of-type(3) { animation-delay: 2s; }
+#ba-buddy svg .ball { animation: bjuggle 1.2s linear infinite; }
+#ba-buddy svg .ball:nth-of-type(2) { animation-delay: -.4s; }
+#ba-buddy svg .ball:nth-of-type(3) { animation-delay: -.8s; }
+#ba-buddy svg .lens { animation: blens 2.6s ease-in-out infinite; }
+#ba-buddy svg .tailwag { transform-origin: 112px 150px; animation: btail 1.6s ease-in-out infinite; }
+#ba-buddy svg .blink { transform-box: fill-box; transform-origin: center; animation: bblink 5s infinite; }
+#ba-buddy[data-act="music"] svg .head { transform-origin: 80px 96px; animation: bsway .45s ease-in-out infinite alternate; }
+#ba-buddy[data-act="stare"] svg .head { transform-origin: 80px 64px; animation: bclose 1.6s ease-in-out infinite alternate; }
+@keyframes bwave { from { transform: rotate(-20deg); } to { transform: rotate(20deg); } }
+@keyframes bmunch { from { transform: translateY(0); } to { transform: translateY(2px); } }
+@keyframes bcrumb { 0% { transform: translate(0, 0); opacity: 1; } 100% { transform: translate(4px, 40px); opacity: 0; } }
+@keyframes bfloat { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -34px); } }
+@keyframes bjuggle { 0% { transform: translate(-26px, 26px); } 25% { transform: translate(-14px, -8px); }
+  50% { transform: translate(26px, 26px); } 75% { transform: translate(6px, 4px); } 100% { transform: translate(-26px, 26px); } }
+@keyframes bsway { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+@keyframes blens { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-8px, -10px); } }
+@keyframes btail { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(10deg); } }
+@keyframes bblink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+@keyframes bclose { from { transform: scale(1); } to { transform: scale(1.14); } }
+@media (prefers-reduced-motion: reduce) { #ba-buddy svg * { animation: none !important; } }
+"""
+
+
+def _buddy_arm(x: float, y: float, rot: float, cls: str = "") -> str:
+    """An arm hanging from (x, y), turned by `rot` degrees (0 = straight down)."""
+    return (f'<g transform="translate({x} {y}) rotate({rot})"><g class="{cls}">'
+            f'<rect x="-7" y="0" width="14" height="30" rx="7" fill="{FUR_DARK}"/>'
+            f'<ellipse cx="0" cy="30" rx="7.5" ry="5.5" fill="{MASK}"/></g></g>')
+
+
+def buddy_svg() -> str:
+    """The corner raccoon: tail, body, head with pupils (id ba-pupils) and one group per act."""
+    rest = _buddy_arm(58, 112, 14) + _buddy_arm(102, 112, -14)
+    tail = ('<g class="tailwag"><path d="M112 150 C140 146 156 118 150 92 C147 82 138 82 138 92 '
+            f'C140 116 128 134 108 138 Z" fill="{FUR}"/>'
+            + "".join(f'<path d="M{x} {y} l10 -3" stroke="{MASK}" stroke-width="6" stroke-linecap="round"/>'
+                      for x, y in ((124, 140), (136, 128), (143, 114), (146, 100))) + '</g>')
+    body = (f'<ellipse cx="80" cy="132" rx="38" ry="32" fill="{FUR}"/>'
+            f'<ellipse cx="80" cy="140" rx="22" ry="20" fill="{LIGHT}" opacity=".85"/>')
+    eyes = ('<g class="blink">'
+            '<ellipse cx="66" cy="63" rx="7" ry="7.5" fill="#fff"/><ellipse cx="94" cy="63" rx="7" ry="7.5" fill="#fff"/>'
+            '<g id="ba-pupils"><circle cx="66" cy="64" r="3.8" fill="#0d0d10"/><circle cx="94" cy="64" r="3.8" fill="#0d0d10"/>'
+            '<circle cx="67.3" cy="62.6" r="1.2" fill="#fff"/><circle cx="95.3" cy="62.6" r="1.2" fill="#fff"/></g></g>')
+    head = (f'<g class="head">'
+            f'<circle cx="52" cy="32" r="11" fill="{FUR}"/><circle cx="108" cy="32" r="11" fill="{FUR}"/>'
+            f'<circle cx="52" cy="33" r="5.5" fill="{MASK}"/><circle cx="108" cy="33" r="5.5" fill="{MASK}"/>'
+            f'<circle cx="80" cy="64" r="34" fill="{FUR}"/>'
+            f'<ellipse cx="80" cy="48" rx="20" ry="7" fill="{LIGHT}"/>'
+            f'<ellipse cx="66" cy="64" rx="13" ry="10" fill="{MASK}"/><ellipse cx="94" cy="64" rx="13" ry="10" fill="{MASK}"/>'
+            f'{eyes}'
+            f'<ellipse cx="80" cy="80" rx="15" ry="10" fill="{LIGHT}"/>'
+            f'<ellipse cx="80" cy="75" rx="5.5" ry="3.8" fill="{INK}"/>'
+            f'<path d="M75 84 Q80 88 85 84" fill="none" stroke="{INK}" stroke-width="1.8" stroke-linecap="round"/>'
+            f'<path d="M44 62 A37 37 0 0 1 116 62" fill="none" stroke="{INK}" stroke-width="6" stroke-linecap="round"/>'
+            f'<rect x="38" y="54" width="12" height="22" rx="5" fill="{INK}" stroke="{ACCENT}" stroke-width="2"/>'
+            f'<rect x="110" y="54" width="12" height="22" rx="5" fill="{INK}" stroke="{ACCENT}" stroke-width="2"/>'
+            # sleepy closed eyes, only in the nap act
+            f'<g class="act act-nap"><ellipse cx="66" cy="63" rx="9" ry="9" fill="{MASK}"/>'
+            f'<ellipse cx="94" cy="63" rx="9" ry="9" fill="{MASK}"/>'
+            f'<path d="M60 65 Q66 69 72 65 M88 65 Q94 69 100 65" fill="none" stroke="#e8e8ee" stroke-width="1.8" '
+            f'stroke-linecap="round"/></g>'
+            f'</g>')
+    acts = {
+        # one paw up, waving hello
+        "wave": _buddy_arm(58, 112, 14) + f'<g transform="translate(108 104) rotate(200)">'
+                f'{_buddy_arm(0, 0, 0, "wave-arm")}</g>',
+        # munching a cookie, crumbs falling
+        "snack": _buddy_arm(62, 108, 40) + _buddy_arm(98, 108, -40)
+                 + '<g class="munch"><circle cx="80" cy="96" r="10" fill="#c98a45"/>'
+                   '<circle cx="76" cy="93" r="1.6" fill="#5b3a1a"/><circle cx="84" cy="98" r="1.6" fill="#5b3a1a"/>'
+                   '<circle cx="79" cy="100" r="1.4" fill="#5b3a1a"/></g>'
+                 + "".join(f'<circle class="crumb" cx="{x}" cy="106" r="1.8" fill="#c98a45"/>' for x in (72, 86, 80)),
+        "nap": rest + _emoji(116, 34, "z", 16, "zz") + _emoji(124, 28, "z", 13, "zz") + _emoji(130, 22, "z", 10, "zz"),
+        "music": rest + _emoji(28, 44, "🎵", 15, "zz") + _emoji(132, 40, "🎶", 15, "zz") + _emoji(22, 74, "🎵", 13, "zz"),
+        # juggling three emotions from the book
+        "juggle": _buddy_arm(56, 110, 160) + _buddy_arm(104, 110, -160)
+                  + "".join(f'<g class="ball"><g transform="translate(80 18)">{_emoji(0, 0, g, 14)}</g></g>'
+                            for g in ("❤️", "😢", "😠")),
+        # studying the page through a magnifying glass
+        "inspect": _buddy_arm(102, 112, -14) + _buddy_arm(56, 108, 70)
+                   + f'<g class="lens"><circle cx="20" cy="96" r="12" fill="#bfe3ff" fill-opacity=".35" stroke="{INK}" '
+                     f'stroke-width="3.5"/><path d="M28 105 L38 114" stroke="{INK}" stroke-width="5" stroke-linecap="round"/></g>',
+        # leaning in towards the screen
+        "stare": rest,
+    }
+    groups = "".join(f'<g class="act act-{name}">{art}</g>' for name, art in acts.items())
+    return f'<svg viewBox="0 0 160 170" role="img" aria-label="A raccoon mascot">{tail}{body}{head}{groups}</svg>'
+
+
+def peek_svg() -> str:
+    """Just the top of the raccoon's head and its paws, to peek over the edge of a chart card."""
+    return (f'<svg viewBox="0 0 90 48" aria-hidden="true">'
+            f'<circle cx="22" cy="14" r="9" fill="{FUR}"/><circle cx="68" cy="14" r="9" fill="{FUR}"/>'
+            f'<circle cx="22" cy="15" r="4.5" fill="{MASK}"/><circle cx="68" cy="15" r="4.5" fill="{MASK}"/>'
+            f'<ellipse cx="45" cy="44" rx="30" ry="30" fill="{FUR}"/>'
+            f'<ellipse cx="45" cy="22" rx="16" ry="6" fill="{LIGHT}"/>'
+            f'<ellipse cx="34" cy="36" rx="10" ry="8" fill="{MASK}"/><ellipse cx="56" cy="36" rx="10" ry="8" fill="{MASK}"/>'
+            f'<circle cx="34" cy="37" r="4.5" fill="#fff"/><circle cx="56" cy="37" r="4.5" fill="#fff"/>'
+            f'<circle cx="34" cy="39" r="2.6" fill="#0d0d10"/><circle cx="56" cy="39" r="2.6" fill="#0d0d10"/>'
+            f'<ellipse cx="14" cy="46" rx="8" ry="5" fill="{MASK}"/><ellipse cx="76" cy="46" rx="8" ry="5" fill="{MASK}"/></svg>')

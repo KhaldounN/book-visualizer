@@ -7,6 +7,7 @@ import hashlib
 import html
 import itertools
 import pickle
+import re
 import sys
 from pathlib import Path
 
@@ -21,11 +22,12 @@ import streamlit.components.v1 as components  # noqa: E402
 import charts  # noqa: E402
 import design  # noqa: E402
 import explore3d  # noqa: E402
+import fun  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
-from analyzer.progression import key_moments, rolling_sentiment, story_shape  # noqa: E402
+from analyzer.progression import WEAK_FIT, key_moments, rolling_sentiment, story_shape  # noqa: E402
 
 SAMPLE = ROOT / "data" / "great_expectations.txt"  # from scripts/download_samples.py
 SAMPLE_TITLE = "Great Expectations"
@@ -114,6 +116,22 @@ def section(title: str, intro: str) -> None:
 
 with st.sidebar:
     st.html(design.sidebar_title())
+    # The look. Light and dark are Streamlit's own themes, so switching between them reloads
+    # the page once (the open book is kept in the address); fun adds a playful skin and a buddy.
+    asked = st.query_params.get("look")
+    if "look_seen" not in st.session_state:  # the page just opened: follow the address (a bookmark, a shared link)
+        st.session_state["look_seen"] = True
+        current_look = asked if asked in fun.LOOKS else MODE
+    else:  # afterwards the page's real theme wins, so Streamlit's own settings menu works too
+        current_look = "fun" if asked == "fun" else MODE
+    look = st.segmented_control("Look", list(fun.LOOKS), format_func=fun.LOOKS.get, default=current_look,
+                                key=f"look_{current_look}") or current_look
+    if look != st.query_params.get("look"):
+        st.query_params["look"] = look
+    if look in ("light", "dark") and look != MODE:
+        components.html(fun.switch_script(look), height=0)
+    if look == "fun":
+        st.html(fun.fun_css(MODE))
     st.caption("Upload an English novel as a `.txt` file to see its characters, how they relate, "
                "and how the mood changes through the story.")
     uploaded = st.file_uploader("Book file", type=["txt"])
@@ -125,9 +143,21 @@ elif sample_clicked:
     data, filename = SAMPLE.read_bytes(), SAMPLE.name
 elif "current" in st.session_state:
     data, filename = None, None  # keep showing the last book
+elif re.fullmatch(r"[0-9a-f]{64}", st.query_params.get("book", "")) and \
+        (CACHE / f"v{ANALYSIS_VERSION}-{st.query_params['book']}.pkl").exists():
+    # the page was reloaded (e.g. to switch light/dark): reopen the book from its saved analysis
+    key = st.query_params["book"]
+    result = pickle.loads((CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").read_bytes())
+    st.session_state.setdefault("analyses", {})[key] = {"title": result.title, "analysis": result, "merges": []}
+    st.session_state["current"] = key
+    data, filename = None, None
 else:
     st.html(design.landing())
     st.html(design.about())
+    if look == "fun":
+        st.html(fun.buddy_html())
+        components.html(fun.buddy_script(["Upload a book and I'll read it for you!", "I love a good novel. 📚",
+                                          "Try the sample: Great Expectations!"], peek=False), height=0)
     st.stop()
 
 analyses = st.session_state.setdefault("analyses", {})
@@ -143,6 +173,8 @@ if data is not None:
     st.session_state["current"] = key
 
 book = analyses[st.session_state["current"]]
+if st.query_params.get("book") != st.session_state["current"]:
+    st.query_params["book"] = st.session_state["current"]  # so a reload reopens this book
 analysis = merge_characters(book["analysis"], book["merges"]) if book["merges"] else book["analysis"]
 if not analysis.characters:
     st.warning("No characters were found in this book.")
@@ -521,3 +553,11 @@ else:
 
 section("About", "Who made this, and why.")
 st.html(design.about())
+
+# --- The fun theme's raccoon buddy (last, so its hidden frame adds no gap at the top) ---------------
+
+if look == "fun":
+    fits = story_shape(analysis.sentences)[1]
+    st.html(fun.buddy_html())
+    components.html(fun.buddy_script(fun.book_facts(analysis, fits[0][0] if fits and fits[0][1] >= WEAK_FIT else None)),
+                    height=0)
