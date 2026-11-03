@@ -244,6 +244,7 @@ const LAND_LOOK = {
   snow: { icon: "❄️", ground: "#aeb9c4", pieces: [["snowpine", 6, 2.6, 13, ["#dfe8ef", "#c9d6e0", "#b5c6d3"]], ["rock", 2, 3, 13, ["#c0c8d0"]]] },
 };
 
+const ROUTE_ICONS = { straight: "🛣️", winding: "〰️", steep: "🧗" };
 const WEATHER_ICONS = { storm: "⛈️", rain: "🌧️", snow: "🌨️", fog: "🌫️", wind: "🍃", sun: "☀️" };
 
 /* ---- Story road ---- */
@@ -267,7 +268,15 @@ function road() {
   const reach = Math.max(...data.arc.map(Math.abs)) || 1;
   const toneReach = Math.max(...tone.map(Math.abs)) || 1;
   const xOf = (t) => (t / Math.max(1, n - 1) - 0.5) * LENGTH;
-  const zOf = (t) => Math.sin(t * 0.33) * 3.2 + Math.sin(t * 0.09) * 2.5;  // a gently winding road
+  // the road's sideways shape, from the story's travel words (analyzer/route.py): nearly straight,
+  // strongly winding, or zigzag switchbacks where the story climbs; gentle bends everywhere else
+  const ROUTE_SHAPE = { straight: [0.1, 0.2, 0], winding: [1.6, 1.2, 0], steep: [0.75, 3.2, 1] };  // [bend size, bend speed, zigzag]
+  const shapeOf = (i) => ROUTE_SHAPE[data.route[i]?.kind] || [1, 0.33, 0];
+  const BEND = data.route.map((_, i) => shapeOf(i)[0]), ZIG = data.route.map((_, i) => shapeOf(i)[2]);
+  const PHASE = [0];  // how far along its bends the road is at each chapter (so a change of speed never jumps)
+  for (let i = 1; i < n; i++) PHASE.push(PHASE[i - 1] + (shapeOf(i - 1)[1] + shapeOf(i)[1]) / 2);
+  const wave = (p, zig) => (1 - zig) * Math.sin(p) + zig * (2 / Math.PI) * Math.asin(Math.sin(p));  // smooth bends -> sharp zigzag
+  const zOf = (t) => lerpAt(BEND, t) * wave(lerpAt(PHASE, t), lerpAt(ZIG, t)) * 3.2 + Math.sin(t * 0.09) * 2.5;
   const lerpAt = (values, t) => { const i = Math.max(0, Math.min(n - 1, Math.floor(t))), j = Math.min(n - 1, i + 1), f = t - i; return values[i] * (1 - f) + values[j] * f; };
   const hOf = (t) => BASE + (lerpAt(data.arc, t) / reach) * RISE;
   const colorOf = (t) => toneColor(lerpAt(tone, t), toneReach);
@@ -573,8 +582,9 @@ function road() {
   // the chapter's setting and the words that gave it away ("Forest: woods, oak")
   const setting = (i) => {
     const l = LAND[i], words = l.clues.length ? `: ${l.clues.map(escape).join(", ")}` : "";
+    const r = data.route[i], way = r ? ` · ${ROUTE_ICONS[r.kind]} ${escape(data.routeLabels[r.kind])}: ${r.clues.map(escape).join(", ")}` : "";
     const w = SKY[i], sky = w ? ` · ${WEATHER_ICONS[w.kind]} ${escape(data.weatherLabels[w.kind])}: ${w.clues.map(escape).join(", ")}` : "";
-    return `${LAND_LOOK[l.kind].icon} ${escape(data.landscapeLabels[l.kind])}${l.sure ? words : " (no clues here, same as before)"}${sky}`;
+    return `${LAND_LOOK[l.kind].icon} ${escape(data.landscapeLabels[l.kind])}${l.sure ? words : " (no clues here, same as before)"}${sky}${way}`;
   };
   function select(i) {
     const d = details[i], shares = data.chapterEmotions[i];
@@ -594,7 +604,7 @@ function road() {
   });
 
   hud.innerHTML = `<button id="go" type="button">▶ Travel</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
-    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here · land = where it happens · sky = the weather</span>`;
+    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here · land = where it happens · sky = the weather · bends = straight, winding or climbing roads in the story</span>`;
   const go = document.getElementById("go"), slider = document.getElementById("seek");
   let travelling = false, pos = 0, last = 0;
   const place = (t) => { traveller.position.copy(at(t)).add(new THREE.Vector3(0, 0.45, 0)); };

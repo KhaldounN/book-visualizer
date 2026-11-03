@@ -276,6 +276,12 @@ def test_the_road_knows_each_chapters_landscape():
     assert len(data["weather"]) == len(analysis.chapters)
     icons = explore3d.TEMPLATE.read_text(encoding="utf-8").split("const WEATHER_ICONS")[1].split("\n")[0]
     assert all(f'{kind}: "' in icons for kind in data["weatherLabels"])
+    # ...and each road shape has an icon and a shape
+    assert len(data["route"]) == len(analysis.chapters)
+    page = explore3d.TEMPLATE.read_text(encoding="utf-8")
+    for kind in data["routeLabels"]:
+        assert f'{kind}: "' in page.split("const ROUTE_ICONS")[1].split("\n")[0]
+        assert f"{kind}: [" in page.split("const ROUTE_SHAPE")[1].split("\n")[0]
 
 
 def test_themes_are_objects_and_feelings_are_faces():

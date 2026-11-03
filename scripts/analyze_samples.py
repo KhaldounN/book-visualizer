@@ -1,4 +1,4 @@
-"""Analyze every book in data/ ahead of time, so the website opens them instantly.
+r"""Analyze every book in data/ ahead of time, so the website opens them instantly.
 
 Saves each analysis where the website looks for it (results/v{version}-{sha256}.pkl,
 the same as analyzing it on the site). Books already analyzed are skipped.

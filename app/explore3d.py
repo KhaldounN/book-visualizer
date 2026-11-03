@@ -12,6 +12,7 @@ import charts
 from analyzer.chapter_events import name_chapters
 from analyzer.emotions import average_emotions, stand_out
 from analyzer.landscape import LABELS as LANDSCAPE_LABELS, chapter_landscapes
+from analyzer.route import LABELS as ROUTE_LABELS, chapter_routes
 from analyzer.weather import LABELS as WEATHER_LABELS, chapter_weather
 from analyzer.models import BookAnalysis
 from analyzer.progression import story_arc
@@ -164,6 +165,9 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
         # the weather the chapter talks about (rain, storm, snow...), or None
         "weather": chapter_weather(analysis.sentences, len(analysis.chapters)),
         "weatherLabels": WEATHER_LABELS,
+        # how the road runs: straight, winding or climbing (None = the usual gentle bends)
+        "route": chapter_routes(analysis.sentences, len(analysis.chapters)),
+        "routeLabels": ROUTE_LABELS,
         "chapterEmotions": [_shares(mix) for mix in analysis.chapter_emotions]
                            or [[0.0] * len(charts.EMOTION_ORDER)] * len(analysis.chapters),
         "chapterStandOut": [stand_out(mix, book_fine) for mix in analysis.chapter_fine]
