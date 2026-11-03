@@ -25,12 +25,12 @@ import explore3d  # noqa: E402
 import looks  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
+from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
 from analyzer.progression import key_moments, rolling_sentiment, story_shape  # noqa: E402
 
-SAMPLE = ROOT / "data" / "great_expectations.txt"  # from scripts/download_samples.py
-SAMPLE_TITLE = "Great Expectations"
+SAMPLES = ROOT / "data"  # famous public-domain books, from scripts/download_samples.py
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
 ENTITY_TYPES = {
     "GPE": "Country or city", "LOC": "Place", "FAC": "Building", "ORG": "Organization",
@@ -55,6 +55,20 @@ def passage(analysis, moment, limit: int = 450) -> str:
     """The text of a key moment, shortened to about `limit` characters."""
     text = " ".join(s.text for s in analysis.sentences[moment.first:moment.last + 1])
     return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " …"
+
+
+@st.cache_data(show_spinner=False)
+def sample_book(path: str, modified: float) -> tuple[str, str]:
+    """(title, sha256 key) of a sample book (cached until the file changes)."""
+    data = Path(path).read_bytes()
+    title = re.split(r"[;:]", book_info(data, Path(path).name)[0])[0].strip()  # "A Christmas Carol in Prose; Being..."
+    return title, hashlib.sha256(data).hexdigest()
+
+
+def sample_books() -> dict[str, tuple[str, str]]:
+    """file name -> (title, key) for every sample book in data/, sorted by title."""
+    found = {p.name: sample_book(str(p), p.stat().st_mtime) for p in SAMPLES.glob("*.txt")} if SAMPLES.exists() else {}
+    return dict(sorted(found.items(), key=lambda kv: kv[1][0].removeprefix("The ")))
 
 
 def how_many(label: str, available: int, default: int, key: str) -> int:
@@ -133,12 +147,20 @@ with st.sidebar:
     st.caption("Upload an English novel as a `.txt` file to see its characters, how they relate, "
                "and how the mood changes through the story.")
     uploaded = st.file_uploader("Book file", type=["txt"])
-    sample_clicked = SAMPLE.exists() and st.button(f"Try it with *{SAMPLE_TITLE}*")
+    samples = sample_books()
+    if samples:  # ⚡ = already analyzed, opens instantly (scripts/analyze_samples.py does them all)
+        ready = {name for name, (_, key) in samples.items() if (CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").exists()}
+        st.selectbox("Or try a famous book", list(samples), index=None, placeholder="Pick a book…", key="sample",
+                     format_func=lambda name: samples[name][0] + (" ⚡" if name in ready else ""),
+                     on_change=lambda: st.session_state.update(open_sample=True))
+    sample_picked = st.session_state.pop("open_sample", False) and st.session_state.get("sample")
 
-if uploaded is not None:
+# an upload opens once, when it's new, so a famous book picked afterwards isn't overruled by it
+new_upload = uploaded is not None and st.session_state.get("last_upload") != uploaded.file_id
+if sample_picked:
+    data, filename = (SAMPLES / sample_picked).read_bytes(), sample_picked
+elif new_upload:
     data, filename = uploaded.getvalue(), uploaded.name
-elif sample_clicked:
-    data, filename = SAMPLE.read_bytes(), SAMPLE.name
 elif "current" in st.session_state:
     data, filename = None, None  # keep showing the last book
 elif re.fullmatch(r"[0-9a-f]{64}", st.query_params.get("book", "")) and \
@@ -165,6 +187,8 @@ if data is not None:
             st.error(str(error))
             st.stop()
     st.session_state["current"] = key
+    if new_upload:
+        st.session_state["last_upload"] = uploaded.file_id
 
 book = analyses[st.session_state["current"]]
 if st.query_params.get("book") != st.session_state["current"]:

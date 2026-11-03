@@ -163,8 +163,9 @@ def test_book_without_emotions_still_renders(app):
 
 
 def test_merging_characters_from_the_sidebar(app):
-    app.sidebar.selectbox[0].select("Lizzy").run()
-    app.sidebar.selectbox[1].select("Anna").run()
+    by_label = lambda label: next(b for b in app.sidebar.selectbox if b.label == label)
+    by_label("Merge").select("Lizzy").run()
+    by_label("Into").select("Anna").run()
     next(b for b in app.sidebar.button if b.label == "Merge").click().run()
     assert not app.exception
     assert app.session_state["analyses"]["book"]["merges"] == [("Lizzy", "Anna")]
@@ -367,6 +368,22 @@ def test_a_reload_reopens_the_book_from_its_saved_analysis():
         assert not at.exception and at.session_state["current"] == key
     finally:
         saved.unlink()
+
+
+def test_picking_a_famous_book_opens_it():
+    import hashlib
+    from analyzer.pipeline import ANALYSIS_VERSION
+    book = APP.parent.parent / "data" / "great_expectations.txt"
+    key = hashlib.sha256(book.read_bytes()).hexdigest() if book.exists() else ""
+    if not (APP.parent.parent / "results" / f"v{ANALYSIS_VERSION}-{key}.pkl").exists():
+        pytest.skip("needs the sample book, already analyzed (scripts/download_samples.py, analyze_samples.py)")
+    at = AppTest.from_file(str(APP), default_timeout=60)
+    at.run()
+    assert "Great Expectations ⚡" in at.selectbox(key="sample").options  # ⚡ = already analyzed
+    at.selectbox(key="sample").set_value("great_expectations.txt").run()
+    assert not at.exception and at.session_state["current"] == key
+    at.run()  # later reruns keep the book open (the picker doesn't reopen it every time)
+    assert at.session_state["current"] == key
 
 
 def test_picking_dark_remembers_it_in_the_address(app):

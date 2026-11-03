@@ -36,7 +36,8 @@ Requires Python 3.13. The first run downloads about 2 GB of AI models.
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe scripts\download_samples.py   # optional: sample books (Great Expectations for the website's sample button, Pride and Prejudice)
+.\.venv\Scripts\python.exe scripts\download_samples.py   # optional: 11 famous public-domain books for the site's "Try a famous book" picker
+.\.venv\Scripts\python.exe scriptsnalyze_samples.py    # optional: analyze them all ahead of time (~1-2 hours), so they open instantly (⚡)
 ```
 
 ## Use it

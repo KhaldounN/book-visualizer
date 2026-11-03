@@ -434,8 +434,8 @@ def landing() -> str:
       <p class="ba-lede">Give it a book and AI models running on this computer read every sentence: who appears,
       who meets whom, where the story goes, and how the mood and emotions rise and fall. The words become a
       road through the story, a constellation, a crystal and a dozen charts you can dive into.</p>
-      <p class="ba-lede"><b>Start in the sidebar:</b> upload an English novel as a <code>.txt</code> file, or try
-      the sample book.</p></div>
+      <p class="ba-lede"><b>Start in the sidebar:</b> upload an English novel as a <code>.txt</code> file, or pick
+      a famous book (Dracula, Frankenstein, Alice in Wonderland…).</p></div>
       <figure class="ba-mascot"><img src="{image_uri("raccoon.jpg")}" alt="A raccoon in headphones at a keyboard">
       <figcaption>Your reader for today. Fast, careful, slightly snack-obsessed.</figcaption></figure>
     </section>"""

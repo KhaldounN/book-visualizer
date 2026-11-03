@@ -10,7 +10,7 @@ Book Analyzer: upload an English novel (`.txt`) and get its characters, mention 
 
 ```powershell
 python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r requirements.txt   # setup
-.\.venv\Scripts\python.exe scripts\download_samples.py                               # sample novels -> data/ (Great Expectations = the site's sample button; a sample needs real `CHAPTER` headings and a cast with proper names: Alice in Wonderland found only 4 characters, Tom Sawyer's contents list was read as chapters)
+.\.venv\Scripts\python.exe scripts\download_samples.py                               # sample novels -> data/ (every .txt in data/ is offered in the sidebar's "Or try a famous book" picker, ⚡ = already analyzed; scripts/analyze_samples.py analyzes them all into results/ the same way the site does; an upload opens only when it's a new file, so it doesn't overrule a picked book; a sample needs real `CHAPTER` headings and a cast with proper names: Alice in Wonderland found only 4 characters, Tom Sawyer's contents list was read as chapters)
 .\.venv\Scripts\python.exe -m pytest                                  # all tests (~25 s)
 .\.venv\Scripts\python.exe -m pytest -m "not slow"                    # skip tests that load a real AI model
 .\.venv\Scripts\python.exe -m pytest tests/test_coref.py::test_pronoun_of_the_wrong_gender_is_dropped   # one test
