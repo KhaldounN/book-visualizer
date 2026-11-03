@@ -15,8 +15,9 @@ baseRadius = "0.7rem"
 primaryColor = "#5a667d"
 
 [theme.light]
-backgroundColor = "#f3f2ee"
-secondaryBackgroundColor = "#e9e7e0"
+# bright and crisp: white with a hint of sky blue (the owner asked for bright colours)
+backgroundColor = "#f5f8ff"
+secondaryBackgroundColor = "#e6efff"
 textColor = "#0b0b0b"
 
 [theme.dark]

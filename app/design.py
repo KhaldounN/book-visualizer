@@ -31,13 +31,20 @@ MASCOT_TIPS = (
     "When it's done, try ▶ Travel on the Story road.",
 )
 SERIF = '"Fraunces", Georgia, "Times New Roman", serif'
-ACCENT = {"light": "#b7791f", "dark": "#e0b25b"}  # old-gold, used only for small decorations
+# used only for small decorations: a vivid orange (the raccoon's headphones) in the bright
+# light mode, old gold in dark mode
+ACCENT = {"light": "#e8590c", "dark": "#e0b25b"}
+# In light mode the hero gets brighter glows: sky blue, a little sunshine and rose
+LIGHT_HERO = """.ba-hero { background:
+    radial-gradient(70% 110% at 0% 0%, rgba(57,135,229,.22), transparent 60%),
+    radial-gradient(45% 80% at 100% 0%, rgba(255,200,40,.22), transparent 60%),
+    radial-gradient(70% 120% at 100% 100%, rgba(232,73,72,.16), transparent 60%), #ffffff !important; }"""
 
 
 def page_css(theme: dict, mode: str) -> str:
     """Styling for the whole page: section headings, visualization cards, KPI cards."""
     t, gold = theme, ACCENT[mode]
-    glow = "0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06)" if mode == "light" \
+    glow = "0 1px 2px rgba(30,60,120,.06), 0 10px 28px rgba(30,60,120,.09)" if mode == "light" \
         else "0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.35)"
     return f"""<style>
     :root {{ --ba-ink: {t["ink"]}; --ba-ink2: {t["ink2"]}; --ba-muted: {t["muted"]}; --ba-line: {t["grid"]};
@@ -70,6 +77,7 @@ def page_css(theme: dict, mode: str) -> str:
         background: radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--ba-bright) 16%, transparent), transparent 60%),
                     radial-gradient(70% 120% at 100% 100%, color-mix(in srgb, var(--ba-dark) 14%, transparent), transparent 60%),
                     var(--ba-surface); }}
+    {LIGHT_HERO if mode == "light" else ""}
     .ba-kicker {{ font: 600 .72rem/1 system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase;
         color: var(--ba-gold); }}
     .ba-hero h1 {{ font-family: {SERIF}; font-size: clamp(2.2rem, 5vw, 3.8rem); line-height: 1.05; margin: .7rem 0 .3rem;

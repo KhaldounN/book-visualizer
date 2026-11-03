@@ -12,8 +12,8 @@ from analyzer.models import BookAnalysis, Relationship
 
 THEMES = {
     "light": {
-        "surface": "#fcfcfb", "ink": "#0b0b0b", "ink2": "#52514e", "muted": "#898781",
-        "grid": "#e1e0d9", "axis": "#c3c2b7",
+        "surface": "#ffffff", "ink": "#0b0b0b", "ink2": "#4a5160", "muted": "#7d8594",
+        "grid": "#e3e9f3", "axis": "#c5cedc",
         "series": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"],
         # sequential (one hue, light -> dark) for counts
         "sequential": ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"],
