@@ -334,38 +334,10 @@ def test_character_colours_follow_the_character_not_the_selection():
     assert color_of(first, "Eve") == color_of(second, "Eve") == colors[2]
 
 
-def test_fun_look_adds_the_raccoon_buddy():
-    at = AppTest.from_file(str(APP), default_timeout=30)
-    at.session_state["analyses"] = {"book": {"title": "Test Book", "analysis": small_analysis(), "merges": []}}
-    at.session_state["current"] = "book"
-    at.query_params["look"] = "fun"
-    at.run()
-    assert not at.exception
-    bodies = [h.proto.body for h in at.get("html")]
-    assert any('id="ba-buddy"' in b for b in bodies) and any("Fredoka" in b for b in bodies)
-    # the start page has the buddy too
-    start = AppTest.from_file(str(APP), default_timeout=30)
-    start.query_params["look"] = "fun"
-    start.run()
-    assert not start.exception and any('id="ba-buddy"' in h.proto.body for h in start.get("html"))
-
-
-def test_the_plain_looks_have_no_buddy(app):
-    assert not any('id="ba-buddy"' in h.proto.body for h in app.get("html"))
-    assert app.query_params["book"] == "book", "the open book is kept in the address"
-
-
-def test_book_facts_and_buddy_drawing():
-    import xml.etree.ElementTree as ET
-    import fun
-    import raccoon
-    facts = fun.book_facts(small_analysis(), "Icarus")
-    assert any("an Icarus story" in f for f in facts) and any("darkest chapter" in f for f in facts)
-    svg = raccoon.buddy_svg()
-    ET.fromstring(svg)
-    assert all(f"act-{a}" in svg for a in raccoon.BUDDY_ACTS) and 'id="ba-pupils"' in svg
-    assert "ba-pupils" in fun.buddy_script(["a fact"]), "the script draws the raccoon in"
-    assert '"Dark"' in fun.switch_script("dark") and '"Light"' in fun.switch_script("light")
+def test_the_open_book_is_kept_in_the_address(app):
+    import looks
+    assert app.query_params["book"] == "book", "a reload (to switch light/dark) reopens this book"
+    assert '"Dark"' in looks.switch_script("dark") and '"Light"' in looks.switch_script("light")
 
 
 def test_a_reload_reopens_the_book_from_its_saved_analysis():
