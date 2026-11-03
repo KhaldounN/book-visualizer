@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Book Analyzer: upload an English novel (`.txt`) and get its characters, mention counts (names + pronouns), per-sentence sentiment and emotions, key moments, character relationships, places, and how all of these change chapter by chapter. Several ideas came from the owner's 2020 project (github.com/KhaldounN/book-analyzer-beta), reimplemented. A pure-Python analysis engine (`analyzer/`) plus a Streamlit website (`app/`). The owner is learning programming: explain changes simply.
 
+## Versions (the owner's rule)
+
+- **Version 1** is frozen in the sibling folder `Desktop\Ennio course\book analyzer` (git tag `v1`, website on port 8501). **Never edit it.**
+- **Version 2** is this folder (`book analyzer v2`, website on port **8502**). All new work goes here. It was
+  copied from version 1 on 2026-11-03 (code by `git clone`, then `data/`, `results/` and `.venv/` copied), and its
+  git has no remote, so nothing can be pushed back into version 1. Its `.venv` is a copy, so `run_website.ps1`
+  uses `python -m streamlit` (the copied `.exe` launchers still point at version 1's Python).
+
 ## Commands (Windows, PowerShell, run from the repo root)
 
 ```powershell
