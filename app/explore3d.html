@@ -244,6 +244,8 @@ const LAND_LOOK = {
   snow: { icon: "❄️", ground: "#aeb9c4", pieces: [["snowpine", 6, 2.6, 13, ["#dfe8ef", "#c9d6e0", "#b5c6d3"]], ["rock", 2, 3, 13, ["#c0c8d0"]]] },
 };
 
+const WEATHER_ICONS = { storm: "⛈️", rain: "🌧️", snow: "🌨️", fog: "🌫️", wind: "🍃", sun: "☀️" };
+
 /* ---- Story road ---- */
 // The book as a journey: a road over a landscape. The road climbs where the
 // story's (smoothed) mood is bright and dips into valleys where it turns dark.
@@ -337,6 +339,97 @@ function road() {
       });
       st.scene.add(mesh);
     });
+  });
+
+  // the weather (analyzer/weather.py): over each chapter whose words talk about it, a little
+  // cloud with rain, a storm with lightning, snow, fog, blowing leaves, or the sun
+  const SKY = data.weather, CLOUD_Y = 7.5;
+  const spacing = LENGTH / Math.max(1, n - 1), halfX = Math.max(1.6, spacing * 0.6), halfZ = 6;
+  const skyMoves = [];  // functions (dt, time) that animate the weather
+  const cloud = (x, z, color) => {
+    const g = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color, roughness: 1, flatShading: true, transparent: true, opacity: 0.92 });
+    [[0, 0, 0, 1.3], [1.1, -0.15, 0.4, 0.95], [-1.1, -0.2, -0.3, 1.0], [0.4, 0.35, -0.6, 0.9], [-0.5, 0.3, 0.6, 0.85]].forEach(([dx, dy, dz, r]) => {
+      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), mat); puff.position.set(dx, dy, dz); puff.scale.y = 0.6; g.add(puff);
+    });
+    g.position.set(x, CLOUD_Y, z); g.scale.setScalar(Math.max(1, halfX / 1.6)); st.scene.add(g); return g;
+  };
+  // drops (or flakes, or leaves) scattered under the cloud: [x, y, z, floor]
+  const scatter = (count, x0, z0) => Array.from({ length: count }, () => {
+    const x = x0 + (rand() - 0.5) * 2 * halfX, z = z0 + (rand() - 0.5) * 2 * halfZ, floor = groundAt(x, z)[0];
+    return [x, floor + rand() * (CLOUD_Y - floor), z, Math.max(floor, WATER_Y)];
+  });
+  SKY.forEach((w, i) => {
+    if (!w) return;
+    const x0 = xOf(i), z0 = zOf(i), heavy = w.strength;
+    if (w.kind === "rain" || w.kind === "storm") {
+      const storm = w.kind === "storm", drops = scatter(Math.round((storm ? 260 : 150) + 300 * heavy), x0, z0);
+      const SLANT = storm ? 0.18 : 0.05, LEN = 0.45, SPEED = storm ? 17 : 12;
+      const pos = new Float32Array(drops.length * 6);
+      const rain = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(pos, 3)),
+        new THREE.LineBasicMaterial({ color: 0xa9cfff, transparent: true, opacity: 0.55 }));
+      const draw = () => drops.forEach(([x, y, z], k) => pos.set([x, y, z, x - SLANT, y - LEN, z], k * 6));
+      draw(); st.scene.add(rain); cloud(x0, z0, storm ? 0x3d434d : 0x7d8794);
+      skyMoves.push((dt) => {
+        drops.forEach((d) => { d[1] -= SPEED * dt; if (d[1] < d[3]) d[1] = CLOUD_Y - 0.3; });
+        draw(); rain.geometry.attributes.position.needsUpdate = true;
+      });
+      if (storm) {  // lightning: a jagged bolt and a flash of light every few seconds
+        const flash = new THREE.PointLight(0xcfe2ff, 0, 30); flash.position.set(x0, CLOUD_Y - 1, z0); st.scene.add(flash);
+        const bolt = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf4f8ff })); bolt.visible = false; st.scene.add(bolt);
+        let next = 1 + rand() * 4, until = 0;
+        skyMoves.push((dt, time) => {
+          if (time > next) {
+            const pts = [], bx = x0 + (rand() - 0.5) * halfX, bz = z0 + (rand() - 0.5) * 4, floor = groundAt(bx, bz)[0];
+            for (let s = 0; s <= 7; s++) pts.push(new THREE.Vector3(bx + (rand() - 0.5) * 0.8, CLOUD_Y - 0.4 - (s / 7) * (CLOUD_Y - 0.4 - floor), bz + (rand() - 0.5) * 0.8));
+            bolt.geometry.setFromPoints(pts); bolt.visible = true; flash.intensity = 60; until = time + 0.18; next = time + 2.5 + rand() * 4;
+          }
+          if (time > until) { bolt.visible = false; flash.intensity = 0; }
+        });
+      }
+    } else if (w.kind === "snow" || w.kind === "wind") {
+      const snow = w.kind === "snow", flakes = scatter(Math.round((snow ? 140 : 40) + (snow ? 220 : 60) * heavy), x0, z0);
+      const pos = new Float32Array(flakes.length * 3), cols = new Float32Array(flakes.length * 3);
+      const LEAVES = ["#d9822b", "#c9a227", "#8fae3b", "#b5532a"];
+      flakes.forEach((_, k) => { const c = new THREE.Color(snow ? "#f4f8ff" : LEAVES[k % LEAVES.length]); cols.set([c.r, c.g, c.b], k * 3); });
+      const geo = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(pos, 3)).setAttribute("color", new THREE.BufferAttribute(cols, 3));
+      st.scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ size: snow ? 0.24 : 0.34, map: glowTexture, vertexColors: true, transparent: true, depthWrite: false })));
+      if (snow) cloud(x0, z0, 0xc3ccd6);
+      skyMoves.push((dt, time) => {
+        flakes.forEach((d, k) => {
+          if (snow) {  // drifting down, swaying
+            d[1] -= 1.3 * dt; if (d[1] < d[3]) d[1] = CLOUD_Y - 0.3;
+            pos.set([d[0] + Math.sin(time * 1.2 + k) * 0.25, d[1], d[2]], k * 3);
+          } else {  // leaves blown across the road, tumbling
+            d[2] += 4 * dt; if (d[2] > z0 + halfZ) d[2] = z0 - halfZ;
+            pos.set([d[0] + Math.sin(time * 2 + k) * 0.3, d[3] + 0.6 + (k % 5) * 0.5 + Math.sin(time * 3 + k * 1.7) * 0.25, d[2]], k * 3);
+          }
+        });
+        geo.attributes.position.needsUpdate = true;
+      });
+    } else if (w.kind === "fog") {  // soft grey banks lying low over the land, drifting slowly
+      const banks = Array.from({ length: Math.round(5 + 6 * heavy) }, () => {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: 0xc9d2dc, transparent: true, opacity: 0.32, depthWrite: false }));
+        const x = x0 + (rand() - 0.5) * 2 * halfX, z = z0 + (rand() - 0.5) * 2 * halfZ;
+        s.position.set(x, Math.max(groundAt(x, z)[0], WATER_Y) + 0.9, z); s.scale.set(7, 3.2, 1); st.scene.add(s);
+        return { s, x, phase: rand() * 6 };
+      });
+      skyMoves.push((dt, time) => banks.forEach((b) => { b.s.position.x = b.x + Math.sin(time * 0.25 + b.phase) * 1.2; }));
+    } else if (w.kind === "sun") {  // a warm sun with a slowly turning ring of rays
+      const sunny = new THREE.Group(), warm = new THREE.Color("#ffd36a");
+      sunny.add(new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 14), new THREE.MeshBasicMaterial({ color: warm })), glow(warm, 4 + 2 * heavy));
+      const rays = new THREE.Group();
+      for (let r = 0; r < 10; r++) {
+        const ray = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.5, 0.02), new THREE.MeshBasicMaterial({ color: warm }));
+        const a = (r / 10) * Math.PI * 2; ray.position.set(Math.cos(a) * 0.95, Math.sin(a) * 0.95, 0); ray.rotation.z = a - Math.PI / 2; rays.add(ray);
+      }
+      sunny.add(rays); sunny.position.set(x0, CLOUD_Y + 0.5, z0); st.scene.add(sunny);
+      skyMoves.push((dt, time) => { rays.rotation.z = time * 0.3; sunny.quaternion.copy(st.camera.quaternion); });  // always faces you
+    }
+  });
+  st.tick.push((time) => {
+    const dt = Math.min(0.05, time - (skyMoves.last ?? time)); skyMoves.last = time;
+    if (!REDUCE || !skyMoves.drawn) skyMoves.forEach((move) => move(REDUCE ? 0 : dt, time));  // still pictures when motion is reduced
+    skyMoves.drawn = true;
   });
 
   // the road itself: a ribbon coloured chapter by chapter with the mood
@@ -475,7 +568,8 @@ function road() {
   // the chapter's setting and the words that gave it away ("Forest: woods, oak")
   const setting = (i) => {
     const l = LAND[i], words = l.clues.length ? `: ${l.clues.map(escape).join(", ")}` : "";
-    return `${LAND_LOOK[l.kind].icon} ${escape(data.landscapeLabels[l.kind])}${l.sure ? words : " (no clues here, same as before)"}`;
+    const w = SKY[i], sky = w ? ` · ${WEATHER_ICONS[w.kind]} ${escape(data.weatherLabels[w.kind])}: ${w.clues.map(escape).join(", ")}` : "";
+    return `${LAND_LOOK[l.kind].icon} ${escape(data.landscapeLabels[l.kind])}${l.sure ? words : " (no clues here, same as before)"}${sky}`;
   };
   function select(i) {
     const d = details[i], shares = data.chapterEmotions[i];
@@ -495,7 +589,7 @@ function road() {
   });
 
   hud.innerHTML = `<button id="go" type="button">▶ Travel</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
-    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here · land = where it happens</span>`;
+    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here · land = where it happens · sky = the weather</span>`;
   const go = document.getElementById("go"), slider = document.getElementById("seek");
   let travelling = false, pos = 0, last = 0;
   const place = (t) => { traveller.position.copy(at(t)).add(new THREE.Vector3(0, 0.45, 0)); };

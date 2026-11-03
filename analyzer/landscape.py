@@ -35,15 +35,25 @@ MIN_CLUES = 2  # a chapter needs at least this many clue words (over its neighbo
 MIN_DENSITY = 0.6  # ...and this many per 1,000 words
 
 _WORD = re.compile(r"[a-z]+(?:-[a-z]+)?")
-_LOOKUP = {}
-for _name, _words in LANDSCAPES.items():
-    for _w in _words:
-        for _form in (_w, _w + "s", _w + "es"):
-            _LOOKUP.setdefault(_form, (_name, _w))
 
 
-def chapter_clues(sentences: list[Sentence], chapters: int) -> tuple[list[Counter], list[int]]:
-    """For each chapter: Counter[(landscape, clue word)] and its number of words."""
+def word_lookup(lists: dict[str, list[str]], endings: tuple[str, ...] = ("s", "es")) -> dict[str, tuple[str, str]]:
+    """Every form of every clue word ("tree", "trees") -> (its list's name, the clue word)."""
+    lookup = {}
+    for name, words in lists.items():
+        for w in words:
+            for form in (w, *(w + e for e in endings)):
+                lookup.setdefault(form, (name, w))
+    return lookup
+
+
+_LOOKUP = word_lookup(LANDSCAPES)
+
+
+def chapter_clues(sentences: list[Sentence], chapters: int, lookup: dict | None = None) -> tuple[list[Counter], list[int]]:
+    """For each chapter: Counter[(kind, clue word)] and its number of words.
+    `lookup` comes from word_lookup (the landscapes' by default)."""
+    lookup = lookup or _LOOKUP
     clues = [Counter() for _ in range(chapters)]
     words = [0] * chapters
     for s in sentences:
@@ -52,7 +62,7 @@ def chapter_clues(sentences: list[Sentence], chapters: int) -> tuple[list[Counte
         tokens = _WORD.findall(s.text.lower())
         words[s.chapter] += len(tokens)
         for tok in tokens:
-            hit = _LOOKUP.get(tok)
+            hit = lookup.get(tok)
             if hit:
                 clues[s.chapter][hit] += 1
     return clues, words

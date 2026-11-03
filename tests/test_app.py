@@ -271,6 +271,10 @@ def test_the_road_knows_each_chapters_landscape():
     assert all(l["kind"] in data["landscapeLabels"] for l in data["landscape"])
     # every landscape the analyzer can choose has a look in the 3D scene
     assert all(f"\n  {kind}: {{ icon:" in explore3d.TEMPLATE.read_text(encoding="utf-8") for kind in data["landscapeLabels"])
+    # ...and each weather has a picture (the weather is None when a chapter says nothing about it)
+    assert len(data["weather"]) == len(analysis.chapters)
+    icons = explore3d.TEMPLATE.read_text(encoding="utf-8").split("const WEATHER_ICONS")[1].split("\n")[0]
+    assert all(f'{kind}: "' in icons for kind in data["weatherLabels"])
 
 
 def test_themes_are_objects_and_feelings_are_faces():
