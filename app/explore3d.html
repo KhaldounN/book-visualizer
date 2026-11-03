@@ -251,13 +251,18 @@ const WEATHER_ICONS = { storm: "⛈️", rain: "🌧️", snow: "🌨️", fog: 
 // story's (smoothed) mood is bright and dips into valleys where it turns dark.
 // Signposts mark the turning points, gates mark where each act begins.
 function road() {
-  const st = stage({ camera: [0, 24, 35], autoRotate: false, fog: 0.008 });
-  st.orbit.target.set(0, 2, -1); st.orbit.maxPolarAngle = Math.PI * 0.47;  // never look from under the ground
+  // every chapter gets the same stretch of road, so long books get a longer road (with room
+  // for each chapter's landscape and weather). The opening view shows the first VIEW units of
+  // it at the usual size; Travel and the chapter slider carry you along the rest.
+  const n = data.chapters, PER_CHAPTER = 2.4, VIEW = 80;
+  const LENGTH = Math.max(40, n * PER_CHAPTER), startX = Math.min(0, -LENGTH / 2 + VIEW / 2);
+  const st = stage({ camera: [startX, 24, 35], autoRotate: false, fog: 0.008 });
+  st.orbit.target.set(startX, 2, -1); st.orbit.maxPolarAngle = Math.PI * 0.47;  // never look from under the ground
   st.scene.add(new THREE.AmbientLight(0xffffff, 0.5), new THREE.HemisphereLight(0x9fd8ff, 0x1a1208, 0.6));
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.5); sun.position.set(-20, 30, 15); st.scene.add(sun);
 
-  const n = data.chapters, events = data.chapterEvents, details = data.chapterDetails, tone = data.chapterTone;
-  const LENGTH = Math.max(40, Math.min(90, n * 1.1)), BASE = 3.2, RISE = 3.6, WIDTH = 0.95;
+  const events = data.chapterEvents, details = data.chapterDetails, tone = data.chapterTone;
+  const BASE = 3.2, RISE = 3.6, WIDTH = 0.95;
   // heights relative to this book: its brightest stretch is the highest hill
   const reach = Math.max(...data.arc.map(Math.abs)) || 1;
   const toneReach = Math.max(...tone.map(Math.abs)) || 1;
@@ -290,7 +295,7 @@ function road() {
     y = y * (1 - boggy) + (WATER_Y - 0.15 + 0.35 * bumps(x * 1.7, z * 1.7)) * boggy;  // flat, with pools
     return [y, fall];
   }
-  const SX = Math.min(300, n * 6), SZ = 56;
+  const SX = Math.min(700, Math.ceil(LENGTH * 4)), SZ = 56;  // ~4 ground cells per unit of road
   const ground = new THREE.PlaneGeometry(W, D, SX, SZ); ground.rotateX(-Math.PI / 2);
   const gp = ground.attributes.position, gcolors = [];
   for (let v = 0; v < gp.count; v++) {
@@ -318,7 +323,7 @@ function road() {
   LAND.forEach((l, i) => {
     const look = LAND_LOOK[l.kind];
     look.pieces.forEach(([piece, perChapter, near, far, colors]) => {
-      for (let k = 0; k < perChapter; k++) {
+      for (let k = 0; k < Math.round(perChapter * (LENGTH / n) / 2); k++) {  // counts are set for 2 units of road per chapter
         const x = xOf(i) + (rand() - 0.5) * (LENGTH / n) * 1.4;
         const z = zOf(tOfX(x)) + (rand() < 0.5 ? -1 : 1) * (near + rand() * (far - near));
         if (Math.abs(z) > D / 2 - 0.5 || Math.abs(x) > W / 2 - 0.5) continue;
