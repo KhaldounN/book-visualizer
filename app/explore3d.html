@@ -365,7 +365,12 @@ function road() {
     [[0, 0, 0, 1.3], [1.1, -0.15, 0.4, 0.95], [-1.1, -0.2, -0.3, 1.0], [0.4, 0.35, -0.6, 0.9], [-0.5, 0.3, 0.6, 0.85]].forEach(([dx, dy, dz, r]) => {
       const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), mat); puff.position.set(dx, dy, dz); puff.scale.y = 0.6; g.add(puff);
     });
-    g.position.set(x, CLOUD_Y, z); g.scale.setScalar(Math.max(1, halfX / 1.6)); st.scene.add(g); return g;
+    g.position.set(x, CLOUD_Y, z); g.scale.setScalar(0.9 + rand() * 0.3); st.scene.add(g); return g;
+  };
+  // a wide chapter (a short book) gets a row of normal-sized clouds, not one giant cloud
+  const clouds = (x0, z0, color) => {
+    const count = Math.max(1, Math.round(halfX / 1.8));
+    for (let k = 0; k < count; k++) cloud(x0 + ((k + 0.5) / count - 0.5) * 2 * halfX * 0.8, z0 + (rand() - 0.5) * 3, color);
   };
   // drops (or flakes, or leaves) scattered under the cloud: [x, y, z, floor]
   const scatter = (count, x0, z0) => Array.from({ length: count }, () => {
@@ -382,7 +387,7 @@ function road() {
       const rain = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(pos, 3)),
         new THREE.LineBasicMaterial({ color: 0xa9cfff, transparent: true, opacity: 0.55 }));
       const draw = () => drops.forEach(([x, y, z], k) => pos.set([x, y, z, x - SLANT, y - LEN, z], k * 6));
-      draw(); st.scene.add(rain); cloud(x0, z0, storm ? 0x3d434d : 0x7d8794);
+      draw(); st.scene.add(rain); clouds(x0, z0, storm ? 0x3d434d : 0x7d8794);
       skyMoves.push((dt) => {
         drops.forEach((d) => { d[1] -= SPEED * dt; if (d[1] < d[3]) d[1] = CLOUD_Y - 0.3; });
         draw(); rain.geometry.attributes.position.needsUpdate = true;
@@ -407,7 +412,7 @@ function road() {
       flakes.forEach((_, k) => { const c = new THREE.Color(snow ? "#f4f8ff" : LEAVES[k % LEAVES.length]); cols.set([c.r, c.g, c.b], k * 3); });
       const geo = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(pos, 3)).setAttribute("color", new THREE.BufferAttribute(cols, 3));
       st.scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ size: snow ? 0.24 : 0.34, map: glowTexture, vertexColors: true, transparent: true, depthWrite: false })));
-      if (snow) cloud(x0, z0, 0xc3ccd6);
+      if (snow) clouds(x0, z0, 0xc3ccd6);
       skyMoves.push((dt, time) => {
         flakes.forEach((d, k) => {
           if (snow) {  // drifting down, swaying
