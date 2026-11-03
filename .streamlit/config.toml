@@ -5,6 +5,11 @@ maxUploadSize = 5
 [browser]
 gatherUsageStats = false
 
+[logger]
+# Streamlit's welcome message looks up this computer's public address online
+# (checkip.amazonaws.com) when it runs headless; run_website.ps1 prints the addresses instead
+hideWelcomeMessage = true
+
 # The look: a serif display font for headings, a clean sans for text,
 # and a warm paper-like page with the visualizations on slightly lighter cards
 [theme]
