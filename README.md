@@ -31,7 +31,7 @@ Plain-text novels from [Project Gutenberg](https://www.gutenberg.org) work well.
 
 ## Setup (Windows)
 
-Requires Python 3.13. The first run downloads about 2 GB of AI models.
+Requires Python 3.13. Everything runs on your computer: books are never sent anywhere, and the AI models run locally in offline mode. On a new computer, download the models (about 2 GB) once by running the first analysis with `$env:BOOK_ANALYZER_ALLOW_DOWNLOADS = "1"`. (The page itself still loads its fonts and the Three.js 3D library from public CDNs.)
 
 ```powershell
 python -m venv .venv
