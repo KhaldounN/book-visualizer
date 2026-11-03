@@ -236,10 +236,9 @@ def mascot_line(step: str) -> str:
 ABOUT = {
     "name": "Khaldoun Al-Naierat",
     "paragraphs": [
-        "Hi, I'm Khaldoun. I live in Barcelona and work where data, pricing and tech meet: today at Criteo, "
-        "and before that as a pricing consultant in IT at Ingram Micro, after starting my career in Amman, "
-        "Jordan. I studied data analysis and digital innovation at the University of Barcelona, which is "
-        "where Python and machine learning first got me hooked.",
+        "Hi, I'm Khaldoun. I live in Barcelona and work in data analytics. I studied data analysis and "
+        "digital innovation at the University of Barcelona, which is where Python and machine learning "
+        "first got me hooked.",
         "Book Analyzer is a passion project, made purely for fun while I keep learning AI and programming. "
         "It began as a small experiment in 2020 and grew into this. Every AI model runs on my own computer, "
         "so your book never leaves it. Expect the odd mistake: the raccoon is still learning too.",
