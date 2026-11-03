@@ -755,7 +755,7 @@ function crystal() {
     cols: a.cols.map((v, j) => v + (b.cols[j] - v) * f),
   });
   const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);  // slow, fast, slow
-  const DURATION = REDUCE ? 0 : 1600;  // ms for one change
+  const DURATION = REDUCE ? 0 : 3200;  // ms for one change
   let from = null, to = null, now = null, began = 0;
 
   function show(s) {
@@ -804,12 +804,12 @@ function crystal() {
       now = mix(from, to, DURATION ? ease(Math.min(1, elapsed / DURATION)) : 1);
       show(now);
     }
-    if (nameTag) nameTag.material.opacity = portrait.material.opacity = DURATION ? Math.min(1, elapsed / 600) : 1;
+    if (nameTag) nameTag.material.opacity = portrait.material.opacity = DURATION ? Math.min(1, elapsed / 1200) : 1;
     group.rotation.y = REDUCE ? 0 : t * 0.25;
     scan.position.y = REDUCE ? 0 : Math.sin(t * 0.9) * 3;
   });
   picker("Character", chars.map((c) => c.name), build);
-  // Play through the characters on its own, one every 5 seconds, until the
+  // Play through the characters on its own, one every 10 seconds, until the
   // visitor reaches for the drop-down: from then on they're in charge.
   const select = document.getElementById("pick");
   let autoplay = chars.length > 1, shown = 0, visible = true;
@@ -821,8 +821,8 @@ function crystal() {
     shown = (shown + 1) % chars.length;
     select.value = String(shown);  // the list follows along (this doesn't count as the visitor choosing)
     build(shown);
-  }, 5000);
-  if (autoplay) hint.textContent = "a new character every 5 s · pick one to stop";
+  }, 10000);
+  if (autoplay) hint.textContent = "a new character every 10 s · pick one to stop";
 }
 
 ({ road, constellation, crystal })[SCENE]();

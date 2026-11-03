@@ -354,7 +354,7 @@ SCENE_HELP = {
     "crystal": "**A hologram portrait of one character.** Eight crystal spikes grow from the core, one per "
                "emotion family, as long as that family's share. The ring around it goes once round the book: it rises "
                "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\nIt shows **each "
-               "character in turn**, a new one every 5 seconds. **Try:** pick a character from the list to stop "
+               "character in turn**, a new one every 10 seconds. **Try:** pick a character from the list to stop "
                "and explore, and compare their shapes.",
 }
 
