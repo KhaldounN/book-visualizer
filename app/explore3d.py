@@ -10,6 +10,7 @@ from pathlib import Path
 
 import charts
 from analyzer.chapter_events import name_chapters
+from analyzer.dialogue import find_lines, who_talks_to_whom, words_spoken
 from analyzer.emotions import average_emotions, stand_out
 from analyzer.landscape import LABELS as LANDSCAPE_LABELS, chapter_landscapes
 from analyzer.route import LABELS as ROUTE_LABELS, chapter_routes
@@ -18,13 +19,14 @@ from analyzer.models import BookAnalysis
 from analyzer.progression import story_arc
 
 TEMPLATE = Path(__file__).with_name("explore3d.html")
-SCENES = {
-    "road": "Story road",
-    "constellation": "Character constellation",
+SCENES = {  # in the order they appear on the page
     "crystal": "Emotion crystal",
+    "constellation": "Character constellation",
+    "road": "Story road",
 }
 TOP_CHARACTERS = 14  # more stars than this crowd the scenes
-MIN_LINK = 10  # relationships with fewer shared moments are left out
+MIN_LINK = 10  # relationships with fewer shared moments are left out...
+MIN_TALK = 5  # ...unless the two say at least this many lines to each other
 EMOTION_SCENES = {"crystal"}
 # Pictures on the Story road. One visual rule: themes are objects, feelings are faces.
 # A picture for each chapter theme (analyzer/chapter_events.THEMES)...
@@ -120,6 +122,9 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
     # the stage is always dark, so characters keep their dark-mode chart colour
     colors = charts.character_colors(analysis, charts.THEMES["dark"])
     book_fine = average_emotions([s.fine for s in analysis.sentences])
+    lines = find_lines(analysis.sentences, analysis.mentions)  # the dialogue and who says it to whom
+    talk = who_talks_to_whom(lines, len(analysis.characters))
+    spoken = words_spoken(lines, len(analysis.characters))
     people = []
     for c in characters:
         tones = [t for t in analysis.sentiment_by_chapter[c.id] if t is not None]
@@ -128,6 +133,7 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
             "color": colors[c.id],
             "avatar": (avatars or {}).get(c.id),  # a data: URI, or None for minor characters
             "mentions": c.mentions,
+            "words": spoken[c.id],  # words they say in the dialogue
             "emotions": _shares(analysis.character_emotions[c.id] if analysis.character_emotions else {}),
             # the fine emotions most above the book's average, e.g. ["guilt", "gratitude"]
             "standOut": stand_out(analysis.character_fine[c.id], book_fine) if analysis.character_fine else [],
@@ -135,11 +141,17 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
             "byChapter": analysis.mentions_by_chapter[c.id],
             "toneByChapter": [_round(t) for t in analysis.sentiment_by_chapter[c.id]],
         })
-    links = [
-        {"a": index[r.source], "b": index[r.target], "count": r.count, "tone": round(r.sentiment, 3)}
-        for r in analysis.relationships
-        if r.source in index and r.target in index and r.count >= MIN_LINK
-    ]
+    # pairs who share moments or talk to each other; "ab"/"ba" = lines a says to b / b says to a
+    together = {(r.source, r.target): r for r in analysis.relationships}
+    pairs = {pair for pair, r in together.items() if r.count >= MIN_LINK}
+    pairs |= {(min(a, b), max(a, b)) for a in index for b in index
+              if a != b and talk[a][b] + talk[b][a] >= MIN_TALK}
+    links = []
+    for a, b in sorted(pairs):
+        if a in index and b in index:
+            r = together.get((a, b))
+            links.append({"a": index[a], "b": index[b], "count": r.count if r else 0,
+                          "tone": round(r.sentiment, 3) if r else 0.0, "ab": talk[a][b], "ba": talk[b][a]})
     for person, share in zip(people, presence([p["byChapter"] for p in people])):
         person["presence"] = share
     arc, turning, acts = story_arc(analysis.chapter_sentiment)  # turning points and acts

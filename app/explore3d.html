@@ -670,6 +670,34 @@ function constellation() {
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pos[l.a], pos[l.b]]), m);
     line.userData = { l, base: m.opacity }; st.scene.add(line); return line;
   });
+  // conversations: sparks fly along the line between two characters who talk to each other,
+  // more sparks for more lines, each spark in its speaker's colour and moving away from them
+  const talks = data.links.filter((l) => l.ab + l.ba > 0);
+  const maxT = Math.max(1, ...talks.map((l) => l.ab + l.ba));
+  const sparks = talks.map((l) => {
+    const total = l.ab + l.ba, k = 2 + Math.round(12 * Math.sqrt(total / maxT));
+    const fromA = Array.from({ length: k }, (_, j) => j < Math.round(k * l.ab / total));  // A's share of the sparks
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(k * 3), 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(fromA.flatMap((a) => new THREE.Color(chars[a ? l.a : l.b].color).toArray()), 3));
+    const mat = new THREE.PointsMaterial({ size: 0.45 + 0.45 * Math.sqrt(total / maxT), vertexColors: true, map: glowTexture, depthTest: false,
+                                           transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+    const points = new THREE.Points(geo, mat); points.renderOrder = 5; st.scene.add(points);  // drawn over the halos
+    const phase = fromA.map((_, j) => j / k), speed = 0.12 + 0.18 * Math.sqrt(total / maxT);
+    const tag = label(`${total} lines`, { size: 0.3, color: "#dbe7f3", weight: 500, panel: "rgba(8,13,20,0.85)" });
+    tag.visible = false; st.scene.add(tag);  // placed when a character is selected
+    const move = (t) => {
+      const p = geo.attributes.position;
+      fromA.forEach((a, j) => {
+        const f = (phase[j] + (REDUCE ? 0 : t * speed)) % 1;  // 0..1 along the line, from the speaker
+        const at = a ? pos[l.a].clone().lerp(pos[l.b], f) : pos[l.b].clone().lerp(pos[l.a], f);
+        p.setXYZ(j, at.x, at.y + Math.sin(f * Math.PI) * 0.25, at.z);  // a little arc, like a thrown word
+      });
+      p.needsUpdate = true;
+    };
+    move(0); if (!REDUCE) st.tick.push(move);
+    return { l, points, tag };
+  });
   st.scene.add(grid(14, 14, -5.2));
   const axis = (text, p) => { const s = label(text, { size: 0.36, color: "#6c7d92", weight: 500 }); s.position.set(...p); st.scene.add(s); };
   axis("darker tone", [-6.6, -5, 0]); axis("brighter tone", [6.6, -5, 0]);
@@ -683,16 +711,27 @@ function constellation() {
       const on = line.userData.l.a === i || line.userData.l.b === i;
       line.material.opacity = on ? Math.min(1, line.userData.base + 0.45) : 0.04;
     });
-    const mine = data.links.filter((l) => l.a === i || l.b === i).sort((a, b) => b.count - a.count).slice(0, 3);
-    card.innerHTML = `<h3 style="color:${c.color}">${avatarImg(c, 40)}${escape(c.name)}</h3><div class="meta">${c.mentions.toLocaleString()} mentions · tone ${fmtTone(c.sentiment)}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}
-      <div class="meta">${mine.length ? "Closest: " + mine.map((l) => `${escape(chars[l.a === i ? l.b : l.a].name)} (${l.count})`).join(", ") : "No strong relationships"}</div>`;
+    sparks.forEach((s) => {  // this character's conversations stay bright and get their line count
+      const on = s.l.a === i || s.l.b === i;
+      s.points.material.opacity = on ? 1 : 0.12; s.tag.visible = on;
+      // the count sits out along the line, near the other character, so the tags don't pile up on this star
+      if (on) s.tag.position.copy(pos[i]).lerp(pos[s.l.a === i ? s.l.b : s.l.a], 0.68).add(new THREE.Vector3(0, 0.3, 0));
+    });
+    const other = (l) => chars[l.a === i ? l.b : l.a].name;
+    const mine = data.links.filter((l) => (l.a === i || l.b === i) && l.count).sort((a, b) => b.count - a.count).slice(0, 3);
+    const chats = data.links.filter((l) => (l.a === i || l.b === i) && l.ab + l.ba)
+      .sort((a, b) => b.ab + b.ba - a.ab - a.ba).slice(0, 3);
+    const says = (l) => (l.a === i ? l.ab : l.ba), hears = (l) => (l.a === i ? l.ba : l.ab);
+    card.innerHTML = `<h3 style="color:${c.color}">${avatarImg(c, 40)}${escape(c.name)}</h3><div class="meta">says ${c.words.toLocaleString()} words · tone ${fmtTone(c.sentiment)}${standOut(c.standOut)}</div>${emotionBars(c.emotions)}
+      <div class="meta">${mine.length ? "Often together with: " + mine.map((l) => `${escape(other(l))} (${l.count})`).join(", ") : "No strong relationships"}</div>
+      <div class="meta">${chats.length ? "💬 Talks most with: " + chats.map((l) => `${escape(other(l))} (${says(l)} lines to them, ${hears(l)} back)`).join(", ") : "💬 No conversations found"}</div>`;
   }
   const hit = hover(st, () => stars, (h) => {
     const c = chars[h.object.userData.i], e = standsOut(c.emotions), k = EMO.indexOf(e);
-    return `<b>${escape(c.name)}</b><br>${c.mentions.toLocaleString()} mentions<br>stands out: ${EMO_LABEL[e]} (${Math.round(c.emotions[k] * 100)}% vs ${Math.round(data.bookEmotions[k] * 100)}% in the book)<br>tone ${fmtTone(c.sentiment)}<br><span style="color:#6c7d92">click to select</span>`;
+    return `<b>${escape(c.name)}</b><br>says ${c.words.toLocaleString()} words<br>stands out: ${EMO_LABEL[e]} (${Math.round(c.emotions[k] * 100)}% vs ${Math.round(data.bookEmotions[k] * 100)}% in the book)<br>tone ${fmtTone(c.sentiment)}<br><span style="color:#6c7d92">click to select</span>`;
   });
   canvas.addEventListener("click", (e) => { const [h] = hit(e); if (h) select(h.object.userData.i); });
-  hint.textContent = "drag to rotate · click a star";
+  hint.textContent = "drag to rotate · click a star · sparks = conversations";
   select(0);
 }
 

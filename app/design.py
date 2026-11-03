@@ -10,6 +10,7 @@ from html import escape
 from pathlib import Path
 
 import charts
+from analyzer.dialogue import find_lines, words_spoken
 from analyzer.emotions import FAMILIES, average_emotions
 from analyzer.models import BookAnalysis
 
@@ -481,7 +482,10 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None
     book_tone = sum(mood) / len(mood)
     shares = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
     words = sum(len(s.text.split()) for s in analysis.sentences)
-    by_name = sum(m.source == "name" for m in analysis.mentions)
+    lines = find_lines(analysis.sentences, analysis.mentions)
+    spoken = words_spoken(lines, len(analysis.characters))
+    talker = max(analysis.characters, key=lambda c: spoken[c.id])
+    said = sum(line.words for line in lines)
     negative, middle, positive = theme["diverging"]
 
     cards = [
@@ -494,12 +498,13 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None
         dict(icon="👥", label="Characters", value=f"{len(analysis.characters)}",
              note="the most mentioned: " + ", ".join(c.name for c in ranked[:3]),
              art=_faces(ranked[:8], colors, avatars)),
-        dict(icon="💬", label="Mentions", value=f"{len(analysis.mentions):,}",
-             note=f"{by_name / max(len(analysis.mentions), 1):.0%} by name, the rest by pronoun",
-             art=_stack([(by_name, theme["ink2"], "by name"),
-                         (len(analysis.mentions) - by_name, theme["axis"], "by pronoun or description")])),
+        dict(icon="💬", label="Talks the most", value=escape(talker.name) if spoken[talker.id] else "—", small=True,
+             note=(f"{spoken[talker.id]:,} words, {spoken[talker.id] / max(said, 1):.0%} of all the dialogue"
+                   if spoken[talker.id] else "no dialogue with a known speaker"),
+             art=_stack([(spoken[c.id], colors[c.id], f"{c.name}: {spoken[c.id]:,} words")
+                         for c in sorted(analysis.characters, key=lambda c: -spoken[c.id])[:8] if spoken[c.id]])),
         dict(icon="👑", label="Main character", value=escape(main.name), small=True,
-             note=f"{main.mentions:,} mentions · in {sum(1 for n in analysis.mentions_by_chapter[main.id] if n)} "
+             note=f"in {sum(1 for n in analysis.mentions_by_chapter[main.id] if n)} "
                   f"of {len(analysis.chapters)} chapters",
              art=_mini_bars(analysis.mentions_by_chapter[main.id], colors[main.id])),
         dict(icon="🌗", label="Overall mood", value=f"{book_tone:+.2f}",

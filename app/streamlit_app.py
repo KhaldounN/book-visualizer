@@ -349,8 +349,10 @@ SCENE_HELP = {
                      "cold emotions (sadness, anger, fear, shame, disapproval) to warm ones (love, joy, "
                      "surprise). Size = how "
                      "often they are mentioned; colour = the emotion that stands out for them; lines = "
-                     "relationships, coloured by tone.\n\n**Try:** click a star to light up only its "
-                     "relationships and open its emotion card.",
+                     "relationships, coloured by tone. **Sparks** fly between characters who talk to each other: "
+                     "more sparks for more lines, each in the speaker's colour, flying from the one who speaks.\n\n"
+                     "**Try:** click a star to light up its relationships and conversations (with how many lines "
+                     "each pair says) and open its card.",
     "crystal": "**A hologram portrait of one character.** Eight crystal spikes grow from the core, one per "
                "emotion family, as long as that family's share. The ring around it goes once round the book: it rises "
                "and turns blue in bright chapters, and sinks and turns red in dark ones.\n\nIt shows **each "

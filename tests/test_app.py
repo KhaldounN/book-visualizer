@@ -122,7 +122,17 @@ def test_kpis_come_first(app):
     assert values["Main character"] == "Anna"
     assert values["Closest pair"].startswith("Anna &amp; ")
     assert values["Darkest chapter"].startswith("Chapter 1 ")  # chapters 1 and 3 are dark, 1 comes first
-    assert {"Overall mood", "Strongest emotion", "Brightest chapter", "Mentions"} <= set(values)
+    assert {"Overall mood", "Strongest emotion", "Brightest chapter", "Talks the most"} <= set(values)
+    assert "Mentions" not in values, "the owner asked for no mention counts up top"
+    assert values["Talks the most"] in ("Anna", "Tom")  # the two who talk in the test book
+
+
+def test_3d_scenes_come_in_the_owners_order_and_show_conversations():
+    assert list(explore3d.SCENES) == ["crystal", "constellation", "road"]
+    data = explore3d.scene_data(small_analysis())
+    anna_tom = [l for l in data["links"] if {l["a"], l["b"]} == {0, 1}]
+    assert anna_tom and anna_tom[0]["ab"] + anna_tom[0]["ba"] > 0, "Anna and Tom's talk reaches the constellation"
+    assert all("words" in c for c in data["characters"])
 
 
 @pytest.mark.parametrize("mode", ["light", "dark"])
