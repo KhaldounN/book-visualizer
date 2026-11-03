@@ -35,6 +35,7 @@ SERIF = '"Fraunces", Georgia, "Times New Roman", serif'
 # used only for small decorations: a vivid orange (the raccoon's headphones) in the bright
 # light mode, old gold in dark mode
 ACCENT = {"light": "#e8590c", "dark": "#e0b25b"}
+PAGE = {"light": "#f5f8ff", "dark": "#0f0f0e"}  # the page background (.streamlit/config.toml)
 # In light mode the hero gets brighter glows: sky blue, a little sunshine and rose
 LIGHT_HERO = """.ba-hero { background:
     radial-gradient(70% 110% at 0% 0%, rgba(57,135,229,.22), transparent 60%),
@@ -50,17 +51,45 @@ def page_css(theme: dict, mode: str) -> str:
     return f"""<style>
     :root {{ --ba-ink: {t["ink"]}; --ba-ink2: {t["ink2"]}; --ba-muted: {t["muted"]}; --ba-line: {t["grid"]};
              --ba-surface: {t["surface"]}; --ba-gold: {gold}; --ba-glow: {glow};
-             --ba-dark: {t["diverging"][0]}; --ba-bright: {t["diverging"][2]}; }}
+             --ba-dark: {t["diverging"][0]}; --ba-bright: {t["diverging"][2]}; --ba-page: {PAGE[mode]}; }}
 
-    /* Section headings: a numbered gold kicker above a big serif title */
-    .stMainBlockContainer {{ counter-reset: section; }}
+    /* The top bar: brand on the left, the open book and a privacy note on the right */
+    .ba-top {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+        padding: .2rem 0 .9rem; }}
+    .ba-top .ba-mark {{ display: flex; align-items: center; gap: .75rem; }}
+    .ba-top .ba-mark img {{ width: 44px; height: 44px; border-radius: 12px; object-fit: cover;
+        box-shadow: 0 0 0 2px var(--ba-gold); }}
+    .ba-top .ba-mark b {{ display: block; font-family: {SERIF}; font-size: 1.35rem; line-height: 1.1; color: var(--ba-ink); }}
+    .ba-top .ba-mark span {{ font-size: .78rem; color: var(--ba-muted); letter-spacing: .02em; }}
+    .ba-top .ba-meta {{ display: flex; gap: .5rem; flex-wrap: wrap; }}
+    .ba-pill {{ display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--ba-ink2);
+        padding: .35rem .75rem; border: 1px solid var(--ba-line); border-radius: 999px; background: var(--ba-surface);
+        max-width: 22rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .ba-pill.book {{ color: var(--ba-ink); font-weight: 600; }}
+
+    /* The tabs are the site's navigation: a bar that stays at the top while you scroll
+       (Streamlit 1.66 tabs: [role=tablist] holding [data-testid=stTab] items) */
+    .stMainBlockContainer .stTabs [role="tablist"] {{ position: sticky; top: 3.75rem; z-index: 90;
+        background: var(--ba-page); gap: .2rem; border-bottom: 1px solid var(--ba-line); height: auto;
+        padding-top: .3rem; }}
+    .stMainBlockContainer [data-testid="stTab"] {{ padding: .75rem 1.05rem .8rem; border-bottom: 3px solid transparent;
+        margin-bottom: -1px; transition: border-color .2s ease; }}
+    .stMainBlockContainer [data-testid="stTab"] p {{ font-size: .95rem; font-weight: 600; color: var(--ba-ink2); }}
+    .stMainBlockContainer [data-testid="stTab"][aria-selected="true"] {{ border-bottom-color: var(--ba-gold); }}
+    .stMainBlockContainer [data-testid="stTab"][aria-selected="true"] p,
+    .stMainBlockContainer [data-testid="stTab"]:hover p {{ color: var(--ba-ink); }}
+    [data-testid="stHeader"] {{ background: var(--ba-page); }}
+
+    /* The footer, under every tab */
+    .ba-foot {{ margin-top: 3.5rem; padding: 1.4rem 0 .6rem; border-top: 1px solid var(--ba-line);
+        display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .8rem; color: var(--ba-muted); }}
+    .ba-foot a {{ color: var(--ba-ink2); text-decoration: none; border-bottom: 1px solid var(--ba-line); }}
+    .ba-foot a:hover {{ color: var(--ba-ink); border-color: var(--ba-gold); }}
+
+    /* Section headings: a big serif title over a short three-colour rule */
     .stMainBlockContainer [data-testid="stHeading"] h2 {{
-        font-family: {SERIF}; font-size: 2.3rem; font-weight: 600; letter-spacing: -.01em;
-        padding-top: 2.6rem; }}
-    .stMainBlockContainer [data-testid="stHeading"] h2::before {{
-        counter-increment: section; content: "Chapter " counter(section, upper-roman);
-        display: block; font: 600 .72rem/1 system-ui, sans-serif; letter-spacing: .22em;
-        text-transform: uppercase; color: var(--ba-gold); margin-bottom: .55rem; }}
+        font-family: {SERIF}; font-size: 2.1rem; font-weight: 600; letter-spacing: -.01em;
+        padding-top: 1.8rem; }}
     .stMainBlockContainer [data-testid="stHeading"] h2::after {{
         content: ""; display: block; width: 64px; height: 3px; margin-top: .7rem; border-radius: 2px;
         background: linear-gradient(90deg, var(--ba-dark), var(--ba-gold), var(--ba-bright)); }}
@@ -262,6 +291,24 @@ def about() -> str:
     </section>"""
 
 
+def top_bar(title: str | None = None) -> str:
+    """The bar above the tabs on every page: the brand, then the open book and a privacy note."""
+    book = f'<span class="ba-pill book" title="{escape(title)}">📖 {escape(title)}</span>' if title else ""
+    return f"""<header class="ba-top">
+      <div class="ba-mark"><img src="{image_uri("raccoon-face.png")}" alt="">
+        <div><b>Book Analyzer</b><span>Novels, read by machine learning</span></div></div>
+      <div class="ba-meta">{book}<span class="ba-pill">🔒 Every AI model runs on this computer</span></div>
+    </header>"""
+
+
+def footer() -> str:
+    """The line at the bottom of every page."""
+    links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)}</a>'
+                       for label, url in ABOUT["links"])
+    return (f'<footer class="ba-foot"><span>Book Analyzer · a passion project by {escape(ABOUT["name"])}</span>'
+            f'<span>{links}</span></footer>')
+
+
 def sidebar_title() -> str:
     return (f'<div class="ba-brand"><img src="{image_uri("raccoon-face.png")}" alt="">'
             f'<div><b>Book Analyzer</b><span>with a raccoon at the keyboard</span></div></div>')
@@ -419,7 +466,7 @@ def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
       <p class="ba-lede">Below, the whole book is turned into images: every stripe in this barcode is one of its
       {len(analysis.chapters)} chapters, <b style="color:var(--ba-bright)">blue</b> where the mood is bright,
       <b style="color:var(--ba-dark)">red</b> where it turns dark (compared with the rest of the book), taller where emotions run high.
-      Hover a stripe to see the chapter, then scroll down to dive deeper.</p>
+      Hover a stripe to see the chapter, then use the tabs above to dive deeper.</p>
       <div class="ba-ribbon">{stripes}</div>
       <div class="ba-axis"><span>Beginning</span><span>Middle</span><span>End</span></div>
       {_emotion_legend(theme, shares) if shares else ""}
@@ -461,7 +508,7 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
         cards.append(
             f'<article>{face(avatars, c, 88)}<b style="color:{colors[c.id]}">{escape(c.name)}</b>'
             f'<span class="look">{escape(look_in_words(look))}</span>'
-            f'<span class="meta">{c.mentions:,} mentions{" · " + escape(", ".join(feels)) if feels else ""}</span>'
+            f'<span class="meta">{escape(", ".join(feels)) if feels else ""}</span>'  # no mention counts up top
             f'<small>{escape(source)}</small></article>')
     return (f'<section class="ba-castgrid"><div class="ba-kicker">The cast</div>'
             f'<div class="grid">{"".join(cards)}</div>'

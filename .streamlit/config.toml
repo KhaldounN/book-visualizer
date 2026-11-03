@@ -2,6 +2,10 @@
 # A long novel is about 1-2 MB of text; refuse anything much bigger
 maxUploadSize = 5
 
+[client]
+# no "Deploy" button: the site is meant to look like a finished website (the menu stays for the theme)
+toolbarMode = "minimal"
+
 [browser]
 gatherUsageStats = false
 
