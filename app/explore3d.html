@@ -205,6 +205,45 @@ function picker(labelText, options, onChange, start = 0) {
   onChange(start);
 }
 
+/* ---- Landscapes for the Story road ---- */
+// Low-poly pieces, each built standing on the ground at (0, 0, 0). A part with `tint`
+// takes each copy's own colour; the others keep theirs (trunks, roofs, snow caps).
+const part = (geo, y, color, tint = false) => { geo.translate(0, y, 0); return { geo, color, tint }; };
+const PIECES = {
+  pine: () => [part(new THREE.CylinderGeometry(0.06, 0.09, 0.5, 5), 0.25, 0x5a3f2a), part(new THREE.ConeGeometry(0.45, 1.3, 7), 1.1, 0, true)],
+  snowpine: () => [part(new THREE.CylinderGeometry(0.06, 0.09, 0.5, 5), 0.25, 0x5a3f2a), part(new THREE.ConeGeometry(0.45, 1.3, 7), 1.1, 0, true)],
+  roundtree: () => [part(new THREE.CylinderGeometry(0.07, 0.1, 0.7, 5), 0.35, 0x5a3f2a), part(new THREE.IcosahedronGeometry(0.48, 0), 0.95, 0, true)],
+  bush: () => [part(new THREE.IcosahedronGeometry(0.3, 0), 0.18, 0, true)],
+  house: () => {
+    const roof = new THREE.ConeGeometry(0.68, 0.5, 4); roof.rotateY(Math.PI / 4);
+    return [part(new THREE.BoxGeometry(0.9, 0.7, 0.9), 0.35, 0, true), part(roof, 0.95, 0x8a3b2e)];
+  },
+  tower: () => [part(new THREE.BoxGeometry(0.6, 1.5, 0.6), 0.75, 0, true), part(new THREE.BoxGeometry(0.66, 0.08, 0.66), 1.54, 0x2a2f38)],
+  peak: () => [part(new THREE.ConeGeometry(2.2, 4.4, 6), 2.2, 0, true), part(new THREE.ConeGeometry(0.88, 1.76, 6), 3.52, 0xe9eef3)],
+  rock: () => [part(new THREE.DodecahedronGeometry(0.35, 0), 0.15, 0, true)],
+  cactus: () => {
+    const arm = new THREE.CylinderGeometry(0.07, 0.07, 0.45, 6); arm.translate(0.2, 0.75, 0);
+    return [part(new THREE.CylinderGeometry(0.11, 0.12, 1.2, 6), 0.6, 0, true), part(arm, 0, 0, true)];
+  },
+  reed: () => [-0.12, 0, 0.12].map((dx, k) => { const g = new THREE.CylinderGeometry(0.02, 0.03, 0.9 + k * 0.2, 4); g.translate(dx, 0, (k - 1) * 0.07); return part(g, 0.45, 0, true); }),
+  boat: () => {
+    const sail = new THREE.ConeGeometry(0.3, 0.8, 3); sail.scale(1, 1, 0.15);
+    return [part(new THREE.BoxGeometry(1.0, 0.22, 0.4), 0.1, 0, true), part(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 4), 0.6, 0x3a2c22), part(sail, 0.65, 0xeae4d6)];
+  },
+};
+// each landscape: an icon, the ground colour, and its pieces: [piece, per chapter, nearest and
+// farthest distance from the road, colours]
+const LAND_LOOK = {
+  forest: { icon: "🌲", ground: "#1d3a22", pieces: [["pine", 14, 2.6, 13, ["#2f6b3a", "#3d7f45", "#24552e"]], ["roundtree", 4, 2.8, 13, ["#3f7a3c", "#4f8a40"]]] },
+  countryside: { icon: "🌾", ground: "#33532a", pieces: [["roundtree", 3, 2.8, 14, ["#4f8a40", "#5d9a48", "#6aa04e"]], ["bush", 5, 2.4, 14, ["#5a8f45", "#79a650"]], ["house", 1, 4, 12, ["#d8c9a8", "#e3d6b8"]]] },
+  town: { icon: "🏘️", ground: "#34383f", pieces: [["house", 5, 2.6, 10, ["#b9a58a", "#9a8f86", "#c7b9a4", "#7f8a96"]], ["tower", 1, 6, 14, ["#8d96a3", "#a39b8f", "#6f7783"]]] },
+  mountains: { icon: "⛰️", ground: "#4b463f", pieces: [["peak", 3, 7, 15, ["#6e6a63", "#5d5a55", "#7a7268"]], ["rock", 3, 2.6, 6, ["#7a756c", "#8a847a"]], ["pine", 2, 2.8, 7, ["#2f5a3a"]]] },
+  desert: { icon: "🏜️", ground: "#8a7246", pieces: [["cactus", 2, 3, 13, ["#5f8a46", "#6e9a4f"]], ["rock", 3, 3, 14, ["#a0835a", "#8c6e48"]]] },
+  water: { icon: "🌊", ground: "#0f2b40", pieces: [["boat", 1, 6, 14, ["#c9b28c", "#a2876a"]]] },
+  marsh: { icon: "🪷", ground: "#2c3826", pieces: [["reed", 14, 2.4, 13, ["#7d8a4a", "#8f9455", "#6b7340"]], ["bush", 2, 3, 12, ["#4c5c35"]]] },
+  snow: { icon: "❄️", ground: "#aeb9c4", pieces: [["snowpine", 6, 2.6, 13, ["#dfe8ef", "#c9d6e0", "#b5c6d3"]], ["rock", 2, 3, 13, ["#c0c8d0"]]] },
+};
+
 /* ---- Story road ---- */
 // The book as a journey: a road over a landscape. The road climbs where the
 // story's (smoothed) mood is bright and dips into valleys where it turns dark.
@@ -227,26 +266,78 @@ function road() {
   const colorOf = (t) => toneColor(lerpAt(tone, t), toneReach);
   const at = (t) => new THREE.Vector3(xOf(t), hOf(t), zOf(t));
 
-  // the landscape: a ridge that carries the road, tinted by the mood around it
-  const W = LENGTH + 24, D = 34, SX = Math.min(260, n * 5), SZ = 48;
+  // the setting of each chapter (read from its descriptive words in analyzer/landscape.py):
+  // the land beside the road takes that landscape's colour and shape, with scenery on it
+  const LAND = data.landscape, KINDS = Object.keys(LAND_LOOK);
+  // how much of each landscape is at a point along the road (0..1, blending between chapters)
+  const share = Object.fromEntries(KINDS.map((k) => [k, LAND.map((l) => (l.kind === k ? 1 : 0))]));
+  const landAt = (k, t) => lerpAt(share[k], t);
+  const tOfX = (x) => Math.max(0, Math.min(n - 1, (x / LENGTH + 0.5) * (n - 1)));
+  const bumps = (x, z) => 0.5 + 0.5 * Math.sin(x * 0.45 + Math.sin(z * 0.3) * 2) * Math.cos(z * 0.5 + x * 0.13);
+  const WATER_Y = -1.0, W = LENGTH + 24, D = 36;
+  function groundAt(x, z) {  // [height, how far from the road it is (1 = on the road, 0 = far)]
+    const t = tOfX(x);
+    const off = (x < -LENGTH / 2 ? -LENGTH / 2 - x : x > LENGTH / 2 ? x - LENGTH / 2 : 0);  // beyond the ends
+    const fall = Math.exp(-((Math.hypot(z - zOf(t), off * 1.4) / 7.5) ** 2)), away = 1 - fall;
+    let y = (hOf(t) - 0.12) * fall + 0.25 * Math.sin(x * 0.7) * Math.cos(z * 0.6) * away - 0.4;
+    const edge = 1 - Math.min(1, Math.abs(z) / (D / 2)) ** 3;  // ...sinking again at the map's edge, so it ends without a wall
+    y += landAt("mountains", t) * away * away * edge * (1 + 3 * bumps(x, z));  // high ground rising away from the road
+    y += landAt("desert", t) * away * 0.5 * Math.sin(x * 0.35 + z * 0.2) ** 2;  // dunes
+    const wet = landAt("water", t) * Math.min(1, away * 1.6), boggy = landAt("marsh", t) * away;
+    y = y * (1 - wet) + (WATER_Y - 0.6) * wet;  // the land sinks under the water
+    y = y * (1 - boggy) + (WATER_Y - 0.15 + 0.35 * bumps(x * 1.7, z * 1.7)) * boggy;  // flat, with pools
+    return [y, fall];
+  }
+  const SX = Math.min(300, n * 6), SZ = 56;
   const ground = new THREE.PlaneGeometry(W, D, SX, SZ); ground.rotateX(-Math.PI / 2);
   const gp = ground.attributes.position, gcolors = [];
   for (let v = 0; v < gp.count; v++) {
-    const x = gp.getX(v), z = gp.getZ(v);
-    const t = Math.max(0, Math.min(n - 1, (x / LENGTH + 0.5) * (n - 1)));
-    const off = (x < -LENGTH / 2 ? -LENGTH / 2 - x : x > LENGTH / 2 ? x - LENGTH / 2 : 0);  // beyond the ends
-    const d = Math.hypot(z - zOf(t), off * 1.4);
-    const fall = Math.exp(-((d / 7.5) ** 2));
-    const ripple = 0.25 * Math.sin(x * 0.7) * Math.cos(z * 0.6) * (1 - fall);
-    gp.setY(v, (hOf(t) - 0.12) * fall + ripple - 0.4);
+    const x = gp.getX(v), z = gp.getZ(v), t = tOfX(x), [y, fall] = groundAt(x, z);
+    gp.setY(v, y);
+    const land = new THREE.Color(0, 0, 0);
+    KINDS.forEach((k) => { const w = landAt(k, t); if (w) land.add(new THREE.Color(LAND_LOOK[k].ground).multiplyScalar(w)); });
+    if (landAt("mountains", t) && y > 2.6) land.lerp(new THREE.Color(0xdfe6ee), Math.min(1, (y - 2.6) / 1.5));  // snowy tops
     const near = fall ** 2;  // only the land right next to the road takes the mood colour
-    const c = new THREE.Color(0x0d141d).lerp(colorOf(t).multiplyScalar(0.55), near * 0.8);
+    const c = land.lerp(colorOf(t).multiplyScalar(0.55), near * 0.8);
     gcolors.push(c.r, c.g, c.b);
   }
   ground.setAttribute("color", new THREE.Float32BufferAttribute(gcolors, 3)); ground.computeVertexNormals();
   st.scene.add(new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true })));
-  const wire = new THREE.Mesh(ground, new THREE.MeshBasicMaterial({ color: HOLO, wireframe: true, transparent: true, opacity: 0.035 }));
+  const wire = new THREE.Mesh(ground, new THREE.MeshBasicMaterial({ color: HOLO, wireframe: true, transparent: true, opacity: 0.025 }));
   st.scene.add(wire);
+  // one sheet of water under everything: it shows wherever the land sinks (sea, rivers, marsh pools)
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ color: 0x1d5f8a, roughness: 0.25, metalness: 0.2, transparent: true, opacity: 0.85 }));
+  water.rotation.x = -Math.PI / 2; water.position.y = WATER_Y; st.scene.add(water);
+  st.tick.push((time) => { water.material.color.setHSL(0.56, 0.65, 0.31 + Math.sin(time * 0.8) * 0.02); });
+
+  // scenery: low-poly pieces scattered beside the road, a few per chapter, the same every time
+  const rand = (() => { let a = 12345; return () => { a = (a + 0x6d2b79f5) | 0; let r = Math.imul(a ^ (a >>> 15), 1 | a); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; })();
+  const spots = {};  // piece -> [[x, y, z, size, colour]]
+  LAND.forEach((l, i) => {
+    const look = LAND_LOOK[l.kind];
+    look.pieces.forEach(([piece, perChapter, near, far, colors]) => {
+      for (let k = 0; k < perChapter; k++) {
+        const x = xOf(i) + (rand() - 0.5) * (LENGTH / n) * 1.4;
+        const z = zOf(tOfX(x)) + (rand() < 0.5 ? -1 : 1) * (near + rand() * (far - near));
+        if (Math.abs(z) > D / 2 - 0.5 || Math.abs(x) > W / 2 - 0.5) continue;
+        const [y] = groundAt(x, z);
+        if (y < WATER_Y + 0.05 && piece !== "boat" && piece !== "reed") continue;  // nothing stands under water
+        (spots[piece] ||= []).push([x, piece === "boat" ? WATER_Y : y, z, 0.7 + rand() * 0.6, colors[Math.floor(rand() * colors.length)]]);
+      }
+    });
+  });
+  Object.entries(spots).forEach(([piece, list]) => {
+    PIECES[piece]().forEach(({ geo, color, tint }) => {
+      const mesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, flatShading: true }), list.length);
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion();
+      list.forEach(([x, y, z, size, c], k) => {
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), (x * 7.3 + z * 3.1) % 6.28);
+        mesh.setMatrixAt(k, m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(size, size, size)));
+        mesh.setColorAt(k, new THREE.Color(tint ? c : color));
+      });
+      st.scene.add(mesh);
+    });
+  });
 
   // the road itself: a ribbon coloured chapter by chapter with the mood
   const SAMPLES = n * 10, verts = [], cols = [], index = [], centre = [];
@@ -381,11 +472,16 @@ function road() {
   const byName = Object.fromEntries(chars.map((c) => [c.name, c]));
   const people = (names) => names.map((nm) => byName[nm] && byName[nm].avatar ? `${avatarImg(byName[nm], 22)}${escape(nm)}` : `<span style="color:${colorOfName[nm] || "#c3c2b7"}">●</span> ${escape(nm)}`).join(", ");
   const describe = (i) => `${events[i].icon} ${escape(data.chapterTitles[i])} · ${escape(events[i].theme)}`;
+  // the chapter's setting and the words that gave it away ("Forest: woods, oak")
+  const setting = (i) => {
+    const l = LAND[i], words = l.clues.length ? `: ${l.clues.map(escape).join(", ")}` : "";
+    return `${LAND_LOOK[l.kind].icon} ${escape(data.landscapeLabels[l.kind])}${l.sure ? words : " (no clues here, same as before)"}`;
+  };
   function select(i) {
     const d = details[i], shares = data.chapterEmotions[i];
     card.hidden = false;
     card.innerHTML = `<h3>${describe(i)}</h3><div class="meta" style="color:var(--ink)">“${escape(events[i].event)}”</div>
-      <div class="meta">mood ${fmtTone(tone[i])}${d.place ? " · at " + escape(d.place) : ""}<br>${people(d.people)}${standOut(data.chapterStandOut[i])}</div>
+      <div class="meta">mood ${fmtTone(tone[i])}${d.place ? " · at " + escape(d.place) : ""}<br>${setting(i)}<br>${people(d.people)}${standOut(data.chapterStandOut[i])}</div>
       ${shares.some((s) => s > 0) ? emotionBars(shares) : ""}`;
     slider.value = String(i + 1);
   }
@@ -395,11 +491,11 @@ function road() {
       return `<b style="color:${c.color}">${avatarImg(c, 22)}${escape(c.name)}</b><br>${Math.round(c.presence[ch] * 100)}% of the character mentions around ${escape(data.chapterTitles[ch])}`;
     }
     const i = h.object.userData.ch;
-    return `<b>${describe(i)}</b><br>mood ${fmtTone(tone[i])}<br>${escape(events[i].event)}`;
+    return `<b>${describe(i)}</b><br>mood ${fmtTone(tone[i])} · ${setting(i)}<br>${escape(events[i].event)}`;
   });
 
   hud.innerHTML = `<button id="go" type="button">▶ Travel</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
-    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here</span>`;
+    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here · land = where it happens</span>`;
   const go = document.getElementById("go"), slider = document.getElementById("seek");
   let travelling = false, pos = 0, last = 0;
   const place = (t) => { traveller.position.copy(at(t)).add(new THREE.Vector3(0, 0.45, 0)); };

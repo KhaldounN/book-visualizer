@@ -11,6 +11,7 @@ from pathlib import Path
 import charts
 from analyzer.chapter_events import name_chapters
 from analyzer.emotions import average_emotions, stand_out
+from analyzer.landscape import LABELS as LANDSCAPE_LABELS, chapter_landscapes
 from analyzer.models import BookAnalysis
 from analyzer.progression import story_arc
 
@@ -156,6 +157,9 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
         "chapters": len(analysis.chapters),
         "chapterTitles": [c.title for c in analysis.chapters],
         "chapterTone": [round(t, 3) for t in analysis.chapter_sentiment],
+        # the setting of each chapter (forest, town, sea...), read from its descriptive words
+        "landscape": chapter_landscapes(analysis.sentences, len(analysis.chapters)),
+        "landscapeLabels": LANDSCAPE_LABELS,
         "chapterEmotions": [_shares(mix) for mix in analysis.chapter_emotions]
                            or [[0.0] * len(charts.EMOTION_ORDER)] * len(analysis.chapters),
         "chapterStandOut": [stand_out(mix, book_fine) for mix in analysis.chapter_fine]

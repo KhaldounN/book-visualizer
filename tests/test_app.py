@@ -264,6 +264,15 @@ def test_every_chapter_theme_has_an_icon():
     assert {e["icon"] for e in data["chapterEvents"]} == {explore3d.NO_ICON} and data["keyThemes"] == []
 
 
+def test_the_road_knows_each_chapters_landscape():
+    analysis = small_analysis()
+    data = explore3d.scene_data(analysis)
+    assert len(data["landscape"]) == len(analysis.chapters)
+    assert all(l["kind"] in data["landscapeLabels"] for l in data["landscape"])
+    # every landscape the analyzer can choose has a look in the 3D scene
+    assert all(f"\n  {kind}: {{ icon:" in explore3d.TEMPLATE.read_text(encoding="utf-8") for kind in data["landscapeLabels"])
+
+
 def test_themes_are_objects_and_feelings_are_faces():
     from analyzer.emotions import FAMILIES
     assert set(explore3d.EMOTION_ICONS) == set(FAMILIES)
