@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from spacy.lang.en.stop_words import STOP_WORDS
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))  # so "analyzer" can be imported when Streamlit runs this file
@@ -24,11 +25,13 @@ import design  # noqa: E402
 import explore3d  # noqa: E402
 import looks  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
+from analyzer import dialogue  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
-from analyzer.progression import key_moments, rolling_sentiment, story_shape  # noqa: E402
+from analyzer.pace import chapter_pace, measure, pace_scores  # noqa: E402
+from analyzer.progression import WEAK_FIT, curve_match, key_moments, rolling_sentiment, story_shape  # noqa: E402
 
 SAMPLES = ROOT / "data"  # famous public-domain books, from scripts/download_samples.py
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
@@ -51,6 +54,10 @@ def table(df: pd.DataFrame) -> None:
         st.dataframe(df, hide_index=True, width="stretch")
 
 
+def shorten(text: str, limit: int = 450) -> str:
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " …"
+
+
 def passage(analysis, moment, limit: int = 450) -> str:
     """The text of a key moment, shortened to about `limit` characters."""
     text = " ".join(s.text for s in analysis.sentences[moment.first:moment.last + 1])
@@ -69,6 +76,40 @@ def sample_books() -> dict[str, tuple[str, str]]:
     """file name -> (title, key) for every sample book in data/, sorted by title."""
     found = {p.name: sample_book(str(p), p.stat().st_mtime) for p in SAMPLES.glob("*.txt")} if SAMPLES.exists() else {}
     return dict(sorted(found.items(), key=lambda kv: kv[1][0].removeprefix("The ")))
+
+
+def book_pace(analysis, lines: list):
+    """The whole book's pace, with its share of spoken words."""
+    pace = measure(analysis.sentences)
+    pace.dialogue = min(sum(line.words for line in lines) / max(pace.words, 1), 1.0)
+    return pace
+
+
+def summary(analysis) -> dict:
+    """The few numbers used to compare books: mood curve, story shape and pace."""
+    curve, fits = story_shape(analysis.sentences)
+    pace = book_pace(analysis, dialogue.find_lines(analysis.sentences, analysis.mentions))
+    return {"curve": curve, "shape": fits[0][0] if fits and fits[0][1] >= WEAK_FIT else None,
+            "hours": pace.minutes / 60, "grade": pace.grade, "sentence_length": pace.sentence_length,
+            "dialogue": pace.dialogue, "richness": pace.richness}
+
+
+@st.cache_data(show_spinner="Comparing with the famous books…")
+def library_entry(key: str, title: str, modified: float) -> dict:
+    """summary() of one analysed famous book (cached until its saved analysis changes)."""
+    analysis = pickle.loads((CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").read_bytes())
+    return {"key": key, "title": title, **summary(analysis)}
+
+
+def library() -> list[dict]:
+    """summary() of every famous book in data/ that has been analysed. Only these: books
+    people upload stay private, even if the site is ever shared."""
+    found = []
+    for title, key in sample_books().values():
+        saved = CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl"
+        if saved.exists():
+            found.append(library_entry(key, title, saved.stat().st_mtime))
+    return found
 
 
 def how_many(label: str, available: int, default: int, key: str) -> int:
@@ -209,6 +250,19 @@ def cast_for(mode: str):
     return cache[key]
 
 
+def extras():
+    """Dialogue and pace for this book and its merges, worked out once per session."""
+    key = (st.session_state["current"], tuple(book["merges"]))
+    cache = st.session_state.setdefault("extras", {})
+    if key not in cache:
+        lines = dialogue.find_lines(analysis.sentences, analysis.mentions)
+        shares = dialogue.chapter_dialogue_share(lines, analysis.sentences, len(analysis.chapters))
+        paces = chapter_pace(analysis.sentences, len(analysis.chapters), shares)
+        cache[key] = {"lines": lines, "paces": paces, "scores": pace_scores(paces),
+                      "pace": book_pace(analysis, lines)}
+    return cache[key]
+
+
 looks, faces = cast_for(MODE)
 faces_3d = cast_for("dark")[1]  # the 3D stage is always dark
 
@@ -243,7 +297,8 @@ with st.sidebar:
     st.divider()
     st.subheader("Jump to")
     st.markdown("\n".join(f"- [{name}](#{name.lower().replace(' ', '-')})" for name in (
-        "Explore in 3D", "The story", "Mood", "Emotions", "Characters", "Relationships", "Places", "About")))
+        "Explore in 3D", "The story", "Mood", "Emotions", "Characters", "Relationships", "Dialogue", "Pace",
+        "Places", "About")))
 
 has_emotions = any(analysis.chapter_emotions)
 events = explore3d.events_of(analysis)
@@ -309,7 +364,15 @@ for scene, title in explore3d.SCENES.items():
     left, right = panel(title, SCENE_HELP[scene])
     if scene == "road":
         with left:
-            st.html(design.story_shape_card(book["title"], *story_shape(analysis.sentences)))
+            shape_curve, shape_fits = story_shape(analysis.sentences)
+            st.html(design.story_shape_card(book["title"], shape_curve, shape_fits))
+            others = [b for b in library() if b["key"] != st.session_state["current"] and b["curve"]]
+            if shape_curve and others:
+                matches = sorted(((b["title"], curve_match(shape_curve, b["curve"])) for b in others),
+                                 key=lambda m: -m[1])
+                best = shape_fits[0][0] if shape_fits and shape_fits[0][1] >= WEAK_FIT else None
+                st.html(design.shape_neighbours(best, [b["title"] for b in others if best and b["shape"] == best],
+                                                matches[:2]))
     with right:
         if scene in explore3d.EMOTION_SCENES and not has_emotions:
             st.info("This view needs emotions, which were not detected for this book.")
@@ -536,6 +599,108 @@ else:
              "Average tone": round(r.sentiment, 3)}
             for r in analysis.relationships
         ]))
+
+# --- Dialogue -------------------------------------------------------------------------------------
+
+section("Dialogue", "Who talks, and to whom. Dialogue is the text between quotation marks; the speaker comes "
+        "from words like *said Elizabeth* or *he replied* next to it, and from people taking turns.")
+extra = extras()
+lines = extra["lines"]
+spoken = dialogue.words_spoken(lines, len(analysis.characters))
+if not any(spoken):
+    st.info("No dialogue with a known speaker was found in this book.")
+else:
+    known = sum(line.words for line in lines if line.speaker is not None) / max(sum(line.words for line in lines), 1)
+    left, right = panel("Who talks the most", f"**{extra['pace'].dialogue:.0%}** of the book's words are spoken, "
+                        f"in {len(lines):,} quotes. The speaker could be told for **{known:.0%}** of the spoken "
+                        "words; the rest (often a narrator's own *I said*) is left out.\n\nA speaker is found from "
+                        "a speech word beside a name (*\"Yes,\" said Jane*) or a pronoun (*said she*, linked by "
+                        "the pronoun model), a name just before the quote, or two people taking turns. A hand check "
+                        "on *Pride and Prejudice*: a name was right 10 times in 10, a pronoun 6 in 10, taking turns 7 "
+                        "in 10; about **4 in 5** overall.")
+    with left:
+        top = how_many("Characters to show", sum(1 for w in spoken if w), 12, "talk_top")
+    with right:
+        st.plotly_chart(charts.talk_bars(analysis, theme, spoken, top), width="stretch")
+        table(pd.DataFrame([
+            {"Character": c.name, "Words spoken": spoken[c.id],
+             "Quotes": sum(1 for line in lines if line.speaker == c.id)}
+            for c in sorted(analysis.characters, key=lambda c: -spoken[c.id]) if spoken[c.id]
+        ]))
+
+    talk = dialogue.who_talks_to_whom(lines, len(analysis.characters))
+    if any(map(any, talk)):
+        left, right = panel("Who talks to whom", "Each row is a speaker and each column the person they speak "
+                            "to: the darker the square, the more lines. The listener is the other person in the "
+                            "back-and-forth, so it is clearest in two-person conversations.\n\nCompare the row "
+                            "and the column of a pair: who does most of the talking?")
+        with left:
+            top = st.slider("Characters", 3, 12, 8, key="talk_matrix_top")
+        with right:
+            st.plotly_chart(charts.talk_matrix(analysis, theme, talk, top), width="stretch")
+
+    talkers = sorted((c for c in analysis.characters if spoken[c.id] >= 50), key=lambda c: -spoken[c.id])[:20]
+    if talkers:
+        left, right = panel("A character's voice", "What one character sounds like: the words they use **more "
+                            "than everyone else** in the dialogue (a word must come up several times, so one odd "
+                            "word doesn't count), and their brightest and darkest lines: only lines where the "
+                            "book names them as the speaker, the surest kind.")
+        with left:
+            voice = st.selectbox("Character", talkers, format_func=lambda c: c.name, key="voice_character")
+            if voice.id in faces:
+                st.html(f'<img src="{faces[voice.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
+        with right:
+            words = dialogue.signature_words(lines, voice.id, stop_words=STOP_WORDS)
+            st.markdown(f"**{voice.name}'s words:** " + (", ".join(f"*{w}*" for w in words) if words else
+                                                         "nothing stands out (too few lines)."))
+            for column, kind, found in zip(st.columns(2), ("Brightest", "Darkest"),
+                                           dialogue.strongest_lines(lines, analysis.sentences, voice.id)):
+                with column:
+                    st.markdown(f"**{kind} lines**")
+                    for line, tone in found:
+                        st.markdown(f"> {shorten(line.text, 300)}\n\n"
+                                    f"{analysis.chapters[line.chapter].title} · tone {tone:+.2f}")
+                    if not found:
+                        st.caption("None found.")
+
+# --- Pace -----------------------------------------------------------------------------------------
+
+section("Pace", "How the book reads: how long it takes, how hard it is, and which chapters race or linger.")
+others = [b for b in library() if b["key"] != st.session_state["current"]]
+left, right = panel("How it reads", "Simple counts over the whole book, each compared with the famous books in "
+                    "the sidebar's list.\n\n- **Reading time** at 230 words a minute.\n- **Reading level** is the "
+                    "Flesch-Kincaid grade: the US school year a reader needs, from sentence length and syllables "
+                    "per word.\n- **Vocabulary** is how many different words there are in every stretch of 100.\n\n"
+                    "Below the cards, each dot is a famous book: hover it for its name.")
+current = {"title": book["title"], "hours": extra["pace"].minutes / 60, "grade": extra["pace"].grade,
+           "sentence_length": extra["pace"].sentence_length, "dialogue": extra["pace"].dialogue,
+           "richness": extra["pace"].richness}
+with right:
+    st.html(design.kpi_html(design.pace_cards(extra["pace"], others)))
+    if others:
+        st.plotly_chart(charts.library_strip(theme, others, current), width="stretch")
+
+paces, scores = extra["paces"], extra["scores"]
+has_action = all(p.action is not None for p in paces)
+fast, slow = max(range(len(scores)), key=scores.__getitem__), min(range(len(scores)), key=scores.__getitem__)
+left, right = panel("Pace chapter by chapter", "Fast chapters have **short sentences** and **lots of dialogue**"
+                    + (", with **more verbs** (things happening) than adjectives (things described)"
+                       if has_action else "") + "; slow ones linger in long sentences. **Pace** combines these, "
+                    "compared with the book's own usual pace.\n\n"
+                    f"Fastest: **{analysis.chapters[fast].title.rstrip('.')}** · "
+                    f"slowest: **{analysis.chapters[slow].title.rstrip('.')}**")
+with left:
+    if not has_action:
+        st.caption("Action vs. description needs word types, which this analysis doesn't have yet. "
+                   "Run `scripts\\add_word_types.py` (about a minute) to add them.")
+with right:
+    st.plotly_chart(charts.pace_chapters(analysis, theme, paces, scores), width="stretch")
+    table(pd.DataFrame([
+        {"Chapter": c.title, "Pace": round(scores[i], 2), "Words": p.words, "Minutes": round(p.minutes, 1),
+         "Words per sentence": round(p.sentence_length, 1), "Reading grade": round(p.grade, 1),
+         "Dialogue": f"{p.dialogue:.0%}", "Action": f"{p.action:.0%}" if p.action is not None else "–"}
+        for i, (c, p) in enumerate(zip(analysis.chapters, paces))
+    ]))
 
 # --- Places ---------------------------------------------------------------------------------------
 

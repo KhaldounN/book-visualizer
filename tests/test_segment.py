@@ -48,3 +48,9 @@ def test_book_without_chapters_is_split_into_equal_parts(nlp):
     assert len(chapters) == FALLBACK_PARTS
     assert sentences[0].chapter == 0
     assert sentences[-1].chapter == FALLBACK_PARTS - 1
+
+
+def test_each_sentence_counts_its_word_types(nlp):
+    sentences, _ = split_sentences(BOOK, nlp)
+    assert all(s.tags is not None for s in sentences)
+    assert sum(s.tags["VERB"] for s in sentences) > 0 and sum(s.tags["ADJ"] for s in sentences) > 0

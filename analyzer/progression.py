@@ -197,3 +197,14 @@ def story_shape(sentences: list[Sentence], samples: int = SHAPE_SAMPLES
         template = _standardize(shape_curve(name, samples))
         fits.append((name, sum(a * b for a, b in zip(book, template)) / samples))
     return curve, sorted(fits, key=lambda f: -f[1])
+
+
+def curve_match(a: list[float], b: list[float]) -> float:
+    """How alike two mood curves are in shape (correlation: 1 = the same shape, 0 = unrelated,
+    below 0 = opposite), whatever their overall level or strength."""
+    if len(a) != len(b) or not a:
+        return 0.0
+    sa, sb = _standardize(a), _standardize(b)
+    if sa is None or sb is None:
+        return 0.0
+    return sum(x * y for x, y in zip(sa, sb)) / len(a)

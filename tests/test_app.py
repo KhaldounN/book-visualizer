@@ -33,6 +33,7 @@ def small_analysis() -> BookAnalysis:
     names = ["Anna", "Tom", "Eve", "Lizzy", "Max", "Ben"]
     chapters = [Chapter(i, f"Chapter {i + 1}", 0) for i in range(4)]
     sentences, mentions = [], []
+    offset = 0
     for i in range(80):
         chapter = i // 20
         tone = 0.5 if chapter % 2 else -0.4
@@ -40,8 +41,17 @@ def small_analysis() -> BookAnalysis:
         fine = {"amusement": 0.6} if tone > 0 else {"frustration": 0.3, "nervousness": 0.2}
         if i % 3 == 0:  # the sentences that mention Anna and Tom's neighbour-free lines
             fine["guilt"] = 0.5
-        sentences.append(Sentence(i, f"s{i}", 0, 0, chapter, sentiment=tone,
-                                  emotions={e: mood.get(e, 0.0) for e in charts.EMOTION_LABELS}, fine=fine))
+        # every sentence is its own paragraph: Anna and Tom take turns talking, naming the speaker
+        # every other time (the speaker's name is the mention below with real offsets)
+        speaker = names[i % 2]
+        text = f'"Line {i} goes here, my dear friend, really!" said {speaker}.' if i % 4 < 2 else f'"Reply {i}."'
+        sentences.append(Sentence(i, text, offset, offset + len(text), chapter, sentiment=tone,
+                                  emotions={e: mood.get(e, 0.0) for e in charts.EMOTION_LABELS}, fine=fine,
+                                  tags={"VERB": 2 + i % 3, "ADJ": 1, "ADV": 0, "NOUN": 3}))
+        if i % 4 < 2:
+            start = offset + text.index(speaker)
+            mentions.append(Mention(i % 2, i, start, start + len(speaker), speaker, "name"))
+        offset += len(text) + 2
         for c in {0, i % 3, (i + 1) % len(names)}:
             mentions.append(Mention(c, i, 0, 0, "x", "name" if i % 2 else "coref"))
     characters = [Character(i, n, [n], sum(m.character_id == i for m in mentions)) for i, n in enumerate(names)]
@@ -76,13 +86,27 @@ def test_the_dashboard_shows_every_section_in_order(app):
     assert not app.exception
     assert not app.tabs, "one scrolling page, no tabs"
     assert [h.value for h in app.header] == ["Explore in 3D", "The story", "Mood", "Emotions", "Characters",
-                                             "Relationships", "Places", "About"]
+                                             "Relationships", "Dialogue", "Pace", "Places", "About"]
     assert any("passion project" in h.proto.body for h in app.get("html")), "the About card is shown"
     assert any("The shape of the story" in h.proto.body for h in app.get("html")), "the story shape badge is shown"
     weak = design.story_shape_card("A Book", [0, 1, 0], [("Icarus", 0.1), ("Tragedy", 0.05)])
     assert "follows its own path" in weak and "is loosely" not in weak, "no shape is claimed for a weak fit"
     assert "is clearly an <b>Icarus</b> story" in design.story_shape_card("A Book", [0, 1, 0], [("Icarus", 0.8), ("Tragedy", 0)])
     assert not app.info, "every section has data to show (no 'nothing found' messages)"
+
+
+def test_dialogue_and_pace_sections_show_the_test_books_talk(app):
+    tables = [m.value for m in app.markdown]
+    assert any("of the book's words are spoken" in t for t in tables)
+    assert any("Fastest: **Chapter" in t for t in tables)
+    assert app.selectbox(key="voice_character").value.name in ("Anna", "Tom")
+    cards = design.pace_cards(charts_pace(), [{"hours": 0.01, "grade": 5, "dialogue": 0.1, "richness": 0.5}] * 3)
+    assert "longer than 3 of 3 famous books" in cards[0]["note"] and "Grade" in cards[1]["value"]
+
+
+def charts_pace():
+    from analyzer.pace import measure
+    return measure(small_analysis().sentences, 0.5)
 
 
 def kpi_values(analysis, mode="light"):
@@ -130,8 +154,9 @@ def test_a_character_keeps_one_colour_everywhere():
 
 def test_every_visualization_has_an_explanation(app):
     titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
-    # 3 3D views + chapter cards + 3 mood + 4 emotion + 2 character + 2 relationship + 2 places
-    assert len(titles) == 3 + 1 + 3 + 4 + 2 + 2 + 2
+    # 3 3D views + chapter cards + 3 mood + 4 emotion + 2 character + 2 relationship + 3 dialogue + 2 pace
+    # + 2 places
+    assert len(titles) == 3 + 1 + 3 + 4 + 2 + 2 + 3 + 2 + 2
 
 
 def test_editing_the_title(app):
@@ -175,8 +200,14 @@ def test_merging_characters_from_the_sidebar(app):
 
 @pytest.mark.parametrize("mode", ["light", "dark"])
 def test_charts_build_in_both_themes(mode):
+    from analyzer.dialogue import find_lines, who_talks_to_whom, words_spoken
+    from analyzer.pace import chapter_pace, pace_scores
+
     theme, analysis = charts.THEMES[mode], small_analysis()
     pair = analysis.relationships[0]
+    lines = find_lines(analysis.sentences, analysis.mentions)
+    paces = chapter_pace(analysis.sentences, len(analysis.chapters), [0.5] * len(analysis.chapters))
+    book = {"title": "A", "hours": 2.0, "grade": 7.0, "sentence_length": 18.0, "dialogue": 0.4, "richness": 0.7}
     for figure in (
         charts.mentions_bars(analysis, theme),
         charts.story_sentiment(analysis, theme, [0, 1], smooth=3),
@@ -193,6 +224,10 @@ def test_charts_build_in_both_themes(mode):
         charts.fine_bars(theme, {"guilt": 0.2, "calmness": 0.1, "grief": 0.05}),
         charts.places_heatmap(analysis, theme),
         charts.entity_bars(analysis.entities, theme),
+        charts.talk_bars(analysis, theme, words_spoken(lines, len(analysis.characters))),
+        charts.talk_matrix(analysis, theme, who_talks_to_whom(lines, len(analysis.characters))),
+        charts.pace_chapters(analysis, theme, paces, pace_scores(paces)),
+        charts.library_strip(theme, [book, {**book, "title": "B", "grade": 9.0}], {**book, "title": "C"}),
     ):
         assert figure.data, "every chart has something to draw"
 

@@ -11,6 +11,17 @@ from .models import Chapter, Entity, Sentence
 
 # Used when a book has no "Chapter ..." headings
 FALLBACK_PARTS = 50
+# Word types counted per sentence (spaCy's universal part-of-speech tags), for analyzer/pace.py
+WORD_TYPES = ("VERB", "ADJ", "ADV", "NOUN")
+
+
+def word_types(tokens) -> dict[str, int]:
+    """How many verbs, adjectives, adverbs and nouns a run of spaCy tokens holds."""
+    counts = dict.fromkeys(WORD_TYPES, 0)
+    for token in tokens:
+        if token.pos_ in counts:
+            counts[token.pos_] += 1
+    return counts
 
 ProgressCallback = Callable[[int, int], None]  # (done, total)
 
@@ -62,6 +73,7 @@ def split_sentences(
                         Entity(e.text, e.label_, offset + e.start_char, offset + e.end_char)
                         for e in sent.ents
                     ],
+                    tags=word_types(sent),
                 )
             )
         if progress and done % 50 == 0:

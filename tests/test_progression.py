@@ -84,3 +84,11 @@ def test_story_shape_has_no_answer_for_short_or_flat_books():
     assert story_shape(book(0.1, 0.2)) == ([], [])
     curve, fits = story_shape(book(*[0.2] * 200))
     assert fits == [] and len(curve) == 50
+
+
+def test_curve_match_compares_shapes_only():
+    from analyzer.progression import curve_match
+    rising = [0, 1, 2, 3]
+    assert abs(curve_match(rising, [10, 20, 30, 40]) - 1) < 1e-9
+    assert abs(curve_match(rising, [3, 2, 1, 0]) + 1) < 1e-9
+    assert curve_match(rising, [1, 1, 1, 1]) == 0.0 and curve_match(rising, [1, 2]) == 0.0

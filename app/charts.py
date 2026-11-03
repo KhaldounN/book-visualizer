@@ -483,3 +483,106 @@ def pair_moments(analysis: BookAnalysis, theme: dict, r: Relationship) -> go.Fig
     fig.update_xaxes(title="Chapter", range=[0.5, len(analysis.chapters) + 0.5])
     fig.update_yaxes(title="Moments together")
     return _layout(fig, theme, height=220, showlegend=False, bargap=0.1)
+
+
+# --- Dialogue -------------------------------------------------------------
+
+def talk_bars(analysis: BookAnalysis, theme: dict, words: list[int], top: int = 12) -> go.Figure:
+    """How many words each character says, most talkative at the top."""
+    ranked = sorted((c for c in analysis.characters if words[c.id]), key=lambda c: -words[c.id])[:top][::-1]
+    colors = character_colors(analysis, theme)
+    fig = go.Figure(go.Bar(
+        y=[c.name for c in ranked], x=[words[c.id] for c in ranked], orientation="h",
+        marker=dict(color=[colors[c.id] for c in ranked], line=dict(color=theme["surface"], width=2)),
+        hovertemplate="%{y} says %{x:,} words<extra></extra>",
+    ))
+    fig.update_yaxes(tickvals=[c.name for c in ranked], ticktext=[name_tag(c.name, colors[c.id]) for c in ranked])
+    fig.update_xaxes(title="Words spoken")
+    return _layout(fig, theme, height=60 + 28 * len(ranked), bargap=0.35)
+
+
+def talk_matrix(analysis: BookAnalysis, theme: dict, counts: list[list[int]], top: int = 8) -> go.Figure:
+    """Speakers (rows) x listeners (columns): how many lines one says to the other."""
+    busiest = sorted(range(len(counts)), key=lambda i: -(sum(counts[i]) + sum(row[i] for row in counts)))[:top]
+    busiest = [i for i in busiest if sum(counts[i]) + sum(row[i] for row in counts)]
+    names = [analysis.characters[i].name for i in busiest]
+    z = [[counts[s][t] if s != t else None for t in busiest] for s in busiest]
+    steps = theme["sequential"]
+    scale = [[0, theme["surface"]]] + [[0.001 + 0.999 * i / (len(steps) - 1), step] for i, step in enumerate(steps)]
+    fig = go.Figure(go.Heatmap(
+        z=z, x=names, y=names, colorscale=scale, zmin=0, xgap=2, ygap=2,
+        hovertemplate="%{y} → %{x}: %{z} lines<extra></extra>",
+        colorbar=dict(title=dict(text="Lines", font=dict(color=theme["ink2"])),
+                      tickfont=dict(color=theme["muted"]), outlinewidth=0, thickness=12),
+    ))
+    fig.update_yaxes(autorange="reversed", showgrid=False, title="Speaker")
+    fig.update_xaxes(showgrid=False, title="Speaking to", side="top", tickangle=-30)
+    return _layout(fig, theme, height=120 + 34 * len(names))
+
+
+# --- Pace -----------------------------------------------------------------
+
+PACE_ROWS = (  # (field, row title, hover format)
+    ("pace", "Pace (faster ↑ · slower ↓, vs. the book's usual)", "%{y:+.2f}"),
+    ("sentence_length", "Words per sentence", "%{y:.1f} words"),
+    ("dialogue", "Share of words in dialogue", "%{y:.0%}"),
+    ("action", "Action: verbs per verb + adjective", "%{y:.0%}"),
+)
+
+
+def pace_chapters(analysis: BookAnalysis, theme: dict, paces: list, scores: list[float]) -> go.Figure:
+    """Small multiples, one measure per row, chapters along the bottom (one shared x axis,
+    each row its own y axis: never two scales on one axis)."""
+    from plotly.subplots import make_subplots
+
+    rows = [r for r in PACE_ROWS if r[0] != "action" or all(p.action is not None for p in paces)]
+    fig = make_subplots(rows=len(rows), cols=1, shared_xaxes=True, vertical_spacing=0.07,
+                        subplot_titles=[title for _, title, _ in rows])
+    x = list(range(1, len(paces) + 1))
+    titles = [c.title for c in analysis.chapters]
+    for r, (field, _, fmt) in enumerate(rows, start=1):
+        values = scores if field == "pace" else [getattr(p, field) for p in paces]
+        color = ([theme["ink2"] if v >= 0 else theme["muted"] for v in values] if field == "pace"
+                 else theme["ink2"])
+        fig.add_bar(x=x, y=values, row=r, col=1, marker=dict(color=color, line=dict(width=0)),
+                    customdata=titles, hovertemplate=f"%{{customdata}}: {fmt}<extra></extra>", showlegend=False)
+        if field in ("dialogue", "action"):
+            fig.update_yaxes(tickformat=".0%", row=r, col=1)
+    fig.update_annotations(font=dict(size=12, color=theme["ink2"]), x=0, xanchor="left")
+    fig.update_xaxes(title="Chapter", row=len(rows), col=1)
+    fig = _layout(fig, theme, height=110 + 135 * len(rows), bargap=0.2)
+    fig.update_layout(margin=dict(l=10, r=10, t=40, b=10))
+    return fig
+
+
+LIBRARY_ROWS = (  # (key, label, hover format)
+    ("hours", "Reading time (hours)", ".1f"),
+    ("grade", "Reading level (school grade)", ".1f"),
+    ("sentence_length", "Words per sentence", ".1f"),
+    ("dialogue", "Dialogue", ".0%"),
+    ("richness", "Vocabulary (different words per 100)", ".0%"),
+)
+
+
+def library_strip(theme: dict, books: list[dict], current: dict) -> go.Figure:
+    """One row per measure: a dot for each famous book, this book in strong ink and
+    labelled, so you can see where it sits. Each row has its own scale (hover for values)."""
+    from plotly.subplots import make_subplots
+
+    fig = make_subplots(rows=len(LIBRARY_ROWS), cols=1, vertical_spacing=0.16,
+                        subplot_titles=[label for _, label, _ in LIBRARY_ROWS])
+    for r, (key, _, fmt) in enumerate(LIBRARY_ROWS, start=1):
+        fig.add_scatter(x=[b[key] for b in books], y=[0] * len(books), row=r, col=1, mode="markers",
+                        marker=dict(size=11, color=theme["muted"], opacity=0.55,
+                                    line=dict(color=theme["surface"], width=2)),
+                        customdata=[b["title"] for b in books],
+                        hovertemplate=f"%{{customdata}}: %{{x:{fmt}}}<extra></extra>", showlegend=False)
+        fig.add_scatter(x=[current[key]], y=[0], row=r, col=1, mode="markers+text", text=["this book"],
+                        textposition="top center", textfont=dict(color=theme["ink"], size=11),
+                        marker=dict(size=15, color=theme["ink"], line=dict(color=theme["surface"], width=2)),
+                        customdata=[current["title"]],
+                        hovertemplate=f"%{{customdata}}: %{{x:{fmt}}}<extra></extra>", showlegend=False)
+        fig.update_yaxes(visible=False, range=[-0.6, 1.1], row=r, col=1)
+        fig.update_xaxes(tickformat=fmt, showgrid=False, row=r, col=1)
+    fig.update_annotations(font=dict(size=12, color=theme["ink2"]), x=0, xanchor="left")
+    return _layout(fig, theme, height=105 * len(LIBRARY_ROWS) + 30)

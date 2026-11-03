@@ -6,7 +6,7 @@ Upload an English novel as a `.txt` file and explore:
   keywords, mood, emotions, people and place, as a strip of chapter cards; and a 3D "story road" that climbs and
   dips with the mood, with signposts at the turning points and gates at each act, to travel along with the cast: each
   character's face steps onto the road when they enter the story and walks off when they leave it. The land beside the road shows **where** each chapter happens (forest, town, mountains, sea, marshes, desert, snow), read from the words that describe the surroundings. The sky shows the **weather** a chapter talks about: rain, a storm with lightning, snow, fog, wind or sunshine. The road itself runs straight, winds, or zigzags up in switchbacks where the story's travel words say so. A badge names the story's **shape**: which of the six classic emotional shapes
-  (Rags to riches, Tragedy, Man in a hole, Icarus, Cinderella, Oedipus; Reagan et al., 2016) its mood curve fits best. Themes come from a small model running on your computer and are
+  (Rags to riches, Tragedy, Man in a hole, Icarus, Cinderella, Oedipus; Reagan et al., 2016) its mood curve fits best, and which famous books' mood moves most like it. Themes come from a small model running on your computer and are
   right about half the time, so each one is shown with the sentence and words it is based on
 - **Characters**: who appears and how often, counting names *and* pronouns ("she", "his"), each main
   character with a drawn period portrait based on what the book says about them (hair, age, job, a
@@ -20,6 +20,10 @@ Upload an English novel as a `.txt` file and explore:
 - **Timeline**: where each character appears across the chapters
 - **Relationships**: who shares scenes with whom, how the tone of those scenes changes, and their
   emotions early, midway and late in the book
+- **Dialogue**: who talks the most, who talks to whom, and each character's "voice": the words they use more
+  than anyone else, and their brightest and darkest lines
+- **Pace**: reading time, reading level (Flesch-Kincaid grade), vocabulary richness and share of dialogue,
+  each compared with the famous books; and which chapters race (short sentences, dialogue, verbs) or linger
 - **Places & entities**: where the story happens chapter by chapter, plus organizations and groups
 - **Light or dark**: a switch in the sidebar (the open book stays open).
 - **Explore in 3D**: three interactive scenes to rotate and click: a story road, a character constellation
@@ -37,7 +41,7 @@ Requires Python 3.13. Everything runs on your computer: books are never sent any
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe scripts\download_samples.py   # optional: 11 famous public-domain books for the site's "Try a famous book" picker
-.\.venv\Scripts\python.exe scriptsnalyze_samples.py    # optional: analyze them all ahead of time (~1-2 hours), so they open instantly (⚡)
+.\.venv\Scripts\python.exe scripts\analyze_samples.py    # optional: analyze them all ahead of time (~1-2 hours), so they open instantly (⚡)
 ```
 
 ## Use it
@@ -75,6 +79,8 @@ book opens instantly the next time. The uploaded text itself is never saved.
 | Detect the emotions of each sentence | [`lrei/roberta-base-emolit`](https://huggingface.co/lrei/roberta-base-emolit) (EmoLit, trained on Project Gutenberg sentences) |
 | Pick each chapter's theme | [`sentence-transformers/all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) embeddings + our key sentences and keywords (`analyzer/chapter_events.py`) |
 | Tell places from organizations ("at Pemberley") | our own rules (`analyzer/characters.py`) |
+| Find dialogue and its speakers ("said Jane", turn-taking) | our own rules (`analyzer/dialogue.py`) |
+| Pace and reading level | simple counts and spaCy's word types (`analyzer/pace.py`) |
 | Charts | [Plotly](https://plotly.com/python/) in [Streamlit](https://streamlit.io) |
 
 ## Limits worth knowing
@@ -85,6 +91,9 @@ book opens instantly the next time. The uploaded text itself is never saved.
   sentence by sentence.
 - **Pronoun links are right about 3 times out of 4**, so treat mention counts as estimates and look at
   trends. "I" and "you" in dialogue are not counted.
+- **Dialogue speakers are right about 4 times in 5** (a hand check on *Pride and Prejudice*: 10 in 10
+  when a name stands next to "said", 6 in 10 for "said she", 7 in 10 from turn-taking). A first-person
+  narrator's "I said" is not counted.
 - **Nicknames and married names** (Lizzy, Eliza = Elizabeth) need knowledge of the story; merge them in
   the website's sidebar.
 - English `.txt` files only for now; PDF and EPUB are planned.

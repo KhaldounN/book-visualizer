@@ -553,3 +553,48 @@ def kpi_html(cards: list[dict]) -> str:
                    f'<div class="value{" small" if c.get("small") else ""}">{c["value"]}</div>{note}'
                    f'<div class="art">{c["art"]}</div></div>')
     return f'<div class="ba-kpis">{"".join(out)}</div>'
+
+
+def shape_neighbours(best: str, same_shape: list[str], closest: list[tuple[str, float]]) -> str:
+    """Under the story-shape card: the famous books whose mood moves most like this one,
+    and the ones that share its shape."""
+    if not closest:
+        return ""
+    near = ", ".join(f"<i>{escape(t)}</i> ({max(r, 0):.0%})" for t, r in closest)
+    same = (f"<p>Other <b>{escape(best)}</b> stories among the famous books: "
+            + ", ".join(f"<i>{escape(t)}</i>" for t in same_shape) + ".</p>") if same_shape else ""
+    return f"""<div class="ba-shape">
+      <div class="ba-kicker">Compared with the famous books</div>
+      <p>Its mood moves most like {near}.</p>{same}
+      <p class="key">The % is how closely the two mood curves match.</p>
+    </div>"""
+
+
+def _rank(value: float, others: list[float], more: str, less: str) -> str:
+    """'more than 7 of 10 famous books' (or the opposite, whichever is the majority)."""
+    if not others:
+        return ""
+    above = sum(value > o for o in others)
+    if above >= len(others) / 2:
+        return f"{more} than {above} of {len(others)} famous books"
+    return f"{less} than {sum(value < o for o in others)} of {len(others)} famous books"
+
+
+def pace_cards(pace, others: list[dict]) -> list[dict]:
+    """KPI cards for the whole book's pace, each compared with the famous books."""
+    from analyzer.pace import grade_label
+
+    hours = pace.minutes / 60
+    when = f"{hours:.1f} hours" if hours >= 1 else f"{pace.minutes:.0f} minutes"
+    col = {k: [o[k] for o in others] for k in ("hours", "grade", "dialogue", "richness")}
+    return [
+        dict(icon="⏱️", label="Reading time", value=when, art="",
+             note=f"{pace.words:,} words at {230} a minute; " + _rank(hours, col["hours"], "longer", "shorter")),
+        dict(icon="🎓", label="Reading level", value=f"Grade {max(pace.grade, 1):.0f}", art="",
+             note=f"{grade_label(pace.grade)}; {pace.sentence_length:.0f} words per sentence; "
+                  + _rank(pace.grade, col["grade"], "harder", "easier")),
+        dict(icon="💬", label="Dialogue", value=f"{pace.dialogue:.0%}", art="",
+             note="of the words are spoken; " + _rank(pace.dialogue, col["dialogue"], "chattier", "quieter")),
+        dict(icon="🔤", label="Vocabulary", value=f"{pace.richness:.0%}", art="",
+             note="different words in every 100; " + _rank(pace.richness, col["richness"], "richer", "plainer")),
+    ]

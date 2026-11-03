@@ -28,6 +28,9 @@ class Sentence:
     sentiment: float = 0.0  # -1 (very negative) to +1 (very positive)
     emotions: dict[str, float] = field(default_factory=dict)  # emotion family (and "neutral") -> score
     fine: dict[str, float] = field(default_factory=dict)  # fine emotion (e.g. "guilt") -> score, only those present
+    # word type -> count (WORD_TYPES in segment.py), for pace. A plain None default so
+    # sentences saved before this field existed still load (unpickling uses the class default)
+    tags: dict[str, int] | None = None
 
 
 @dataclass
