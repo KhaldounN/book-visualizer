@@ -255,7 +255,7 @@ function road() {
   // every chapter gets the same stretch of road, so long books get a longer road (with room
   // for each chapter's landscape and weather). The opening view shows the first VIEW units of
   // it at the usual size; Travel and the chapter slider carry you along the rest.
-  const n = data.chapters, PER_CHAPTER = 2.4, VIEW = 80;
+  const n = data.chapters, PER_CHAPTER = 4, VIEW = 80;  // 4 units: room between signposts, badges and clouds
   const LENGTH = Math.max(40, n * PER_CHAPTER), startX = Math.min(0, -LENGTH / 2 + VIEW / 2);
   const st = stage({ camera: [startX, 24, 35], autoRotate: false, fog: 0.008 });
   st.orbit.target.set(startX, 2, -1); st.orbit.maxPolarAngle = Math.PI * 0.47;  // never look from under the ground
@@ -304,7 +304,7 @@ function road() {
     y = y * (1 - boggy) + (WATER_Y - 0.15 + 0.35 * bumps(x * 1.7, z * 1.7)) * boggy;  // flat, with pools
     return [y, fall];
   }
-  const SX = Math.min(700, Math.ceil(LENGTH * 4)), SZ = 56;  // ~4 ground cells per unit of road
+  const SX = Math.min(1000, Math.ceil(LENGTH * 4)), SZ = 56;  // ~4 ground cells per unit of road
   const ground = new THREE.PlaneGeometry(W, D, SX, SZ); ground.rotateX(-Math.PI / 2);
   const gp = ground.attributes.position, gcolors = [];
   for (let v = 0; v < gp.count; v++) {
@@ -615,7 +615,7 @@ function road() {
   const place = (t) => { traveller.position.copy(at(t)).add(new THREE.Vector3(0, 0.45, 0)); };
   const stop = () => { travelling = false; go.textContent = "▶ Travel"; st.orbit.enabled = true; };
   const look = (t) => {  // a view from behind and above the traveller, looking down the road
-    const p = at(t), ahead = at(Math.min(n - 1, t + 4));
+    const p = at(t), ahead = at(Math.min(n - 1, t + 9.6 / (LENGTH / Math.max(1, n - 1))));  // ~10 units ahead
     const back = p.clone().sub(ahead).setY(0).normalize();
     st.camera.position.copy(p).add(back.multiplyScalar(9)).add(new THREE.Vector3(0, 5.5, 0));
     st.orbit.target.copy(ahead).add(new THREE.Vector3(0, 0.5, 0)); st.camera.lookAt(st.orbit.target);
