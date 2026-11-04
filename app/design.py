@@ -223,6 +223,8 @@ def page_css(theme: dict, mode: str) -> str:
         box-shadow: var(--ba-glow); transition: transform .2s ease; }}
     .ba-castgrid article:hover {{ }}
     .ba-castgrid article b {{ font-family: {SERIF}; font-weight: 500; font-size: 1.2rem; margin-top: .3rem; }}
+    .ba-castgrid .role {{ font: 600 .62rem/1.3 {SANS}; letter-spacing: .12em; text-transform: uppercase;
+        color: var(--ba-gold); }}
     .ba-castgrid .look {{ font-size: .82rem; color: var(--ba-ink); }}
     .ba-castgrid .meta {{ font-size: .75rem; color: var(--ba-ink2); }}
     .ba-castgrid small {{ font-size: .7rem; color: var(--ba-muted); font-style: italic; line-height: 1.35; }}
@@ -699,8 +701,10 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
     """The main characters as portrait cards: avatar, name, their look in words and
     what it is based on (the book's own words, or the story when it says nothing)."""
     from analyzer.emotions import stand_out
+    from analyzer.roles import story_roles
     from avatars import look_in_words
     colors = charts.character_colors(analysis, theme)
+    roles = story_roles(analysis, n)
     book_fine = average_emotions([s.fine for s in analysis.sentences])
     cards = []
     for c in charts.top_characters(analysis, n):
@@ -711,6 +715,7 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
         source = ("From the book: " + ", ".join(look.evidence)) if look.evidence else "Imagined from the story"
         cards.append(
             f'<article>{face(avatars, c, 88)}<b style="color:{colors[c.id]}">{escape(c.name)}</b>'
+            + "".join(f'<span class="role">{escape(r)}</span>' for r in roles.get(c.id, [])) +
             f'<span class="look">{escape(look_in_words(look))}</span>'
             f'<span class="meta">{escape(", ".join(feels)) if feels else ""}</span>'  # no mention counts up top
             f'<small>{escape(source)}</small></article>')
