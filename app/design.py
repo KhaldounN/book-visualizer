@@ -843,9 +843,9 @@ def pace_cards(pace, others: list[dict]) -> list[dict]:
     when = f"{hours:.1f} hours" if hours >= 1 else f"{pace.minutes:.0f} minutes"
     col = {k: [o[k] for o in others] for k in ("hours", "grade", "dialogue", "richness")}
     return [
-        dict(icon="⏱️", label="Reading time", value=when, art="",
+        dict(icon="⏱️", label="Reading time", value=when, art="", small=True,
              note=f"{pace.words:,} words at {230} a minute; " + _rank(hours, col["hours"], "longer", "shorter")),
-        dict(icon="🎓", label="Reading level", value=f"Grade {max(pace.grade, 1):.0f}", art="",
+        dict(icon="🎓", label="Reading level", value=f"Grade {max(pace.grade, 1):.0f}", art="", small=True,
              note=f"{grade_label(pace.grade)}; {pace.sentence_length:.0f} words per sentence; "
                   + _rank(pace.grade, col["grade"], "harder", "easier")),
         dict(icon="💬", label="Dialogue", value=f"{pace.dialogue:.0%}", art="",

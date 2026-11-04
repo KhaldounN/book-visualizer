@@ -88,7 +88,17 @@ def _header_field(header: str, name: str) -> str | None:
     """A "Name: value" line from the Gutenberg header. Long values continue
     on the next lines, indented: "Title: The Adventures\\n    of Tom Sawyer"."""
     match = re.search(rf"^{name}:[ \t]*(.+(?:\n[ \t]+\S.*)*)", header, re.MULTILINE)
-    return " ".join(match.group(1).split()) if match else None
+    if not match:
+        return None
+    lines = [" ".join(line.split()) for line in match.group(1).split("\n")]
+    # a continuation that starts with a capital after a finished line is a subtitle
+    # ("Black Beauty" / "The autobiography of a horse"); "The Adventures" / "of Tom Sawyer" is one title
+    kept = lines[:1]
+    for line in lines[1:]:
+        if line[:1].isupper() and kept[-1].split()[-1].lower() not in ("of", "the", "and", "a", "an", "in", "to", "or"):
+            break
+        kept.append(line)
+    return " ".join(kept)
 
 
 def _title_from_filename(filename: str | None) -> str:

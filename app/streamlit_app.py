@@ -114,6 +114,11 @@ def sample_book(path: str, modified: float) -> tuple[str, str]:
     data = Path(path).read_bytes()
     title = re.split(r"[;:]", book_info(data, Path(path).name)[0])[0].strip()  # "A Christmas Carol in Prose; Being..."
     title = title.removesuffix(", Complete")  # "The Adventures of Tom Sawyer, Complete"
+    title = re.sub(r"\s*\[.*?\]", "", title)  # "Peter Pan [Peter and Wendy]": an editor's note
+    # library-style title case: "The call of the wild" -> "The Call of the Wild"
+    small = {"a", "an", "and", "as", "at", "but", "by", "for", "in", "into", "of", "on", "or", "the", "to", "under", "with"}
+    title = " ".join(w if (i and w in small) or not w[:1].islower() else w[:1].upper() + w[1:]
+                     for i, w in enumerate(title.split()))
     return title, hashlib.sha256(data).hexdigest()
 
 
@@ -403,7 +408,12 @@ with tab["overview"]:
                 "right about 4 times in 5, and it is weakest at fear.\n"
                 "- If a character appears twice under different names, merge them in the sidebar."
             )
-        st.caption("Analysis time: " + ", ".join(f"{k} {v:.0f}s" for k, v in analysis.timings.items()))
+        if analysis.timings:  # "Read in 8 minutes on this computer: linking pronouns 2 min, scoring sentiment 3 min, ..."
+            total = sum(analysis.timings.values())
+            slow = [f"{k.lower()} {v / 60:.0f} min" for k, v in sorted(analysis.timings.items(), key=lambda kv: -kv[1])
+                    if v >= 30]
+            st.caption(f"Read in {max(total / 60, 1):.0f} minutes on this computer" + (": " + ", ".join(slow) if slow else "")
+                       + ". The result is saved, so this book now opens instantly.")
 
 # --- Explore in 3D ---------------------------------------------------------------------
 with tab["3d"]:

@@ -82,3 +82,11 @@ def test_title_falls_back_to_the_file_name(filename, title):
 def test_decode_falls_back_for_non_utf8_files():
     assert decode("café".encode("cp1252")) == "café"
     assert decode("﻿Hello".encode("utf-8")) == "Hello"
+
+
+def test_a_subtitle_on_its_own_line_is_left_out_of_the_title():
+    start = "\n\n*** START OF THE PROJECT GUTENBERG EBOOK ***\n"
+    header = "Title: Black Beauty\n       The autobiography of a horse\n\nAuthor: Anna Sewell" + start
+    assert book_info(header.encode())[0] == "Black Beauty"
+    joined = "Title: The Adventures\n       of Tom Sawyer" + start
+    assert book_info(joined.encode())[0] == "The Adventures of Tom Sawyer"
