@@ -720,6 +720,31 @@ with tab["people"]:
                 for c in sorted(analysis.characters, key=lambda c: -spoken[c.id]) if spoken[c.id]
             ]))
 
+        by_chapter, unknown = dialogue.words_by_chapter(lines, len(analysis.characters), len(analysis.chapters))
+        left, right = panel("Who speaks in each chapter", "Each bar is a chapter, split by **who speaks** there: "
+                            "the main characters in their own colours and everyone else in gray. Lines whose speaker "
+                            "could not be told are left out unless you switch them on (pale gray).\n\nTall bars are "
+                            "talkative chapters; a colour "
+                            "that swells and fades shows a character taking the stage and leaving it. Switch to "
+                            "**Share** to see who holds the floor in each chapter, however long it is.")
+        with left:
+            share = st.radio("Show", ["Words", "Share"], horizontal=True, key="talk_chapter_mode") == "Share"
+            with_unknown = st.toggle("Include unknown speakers", key="talk_chapter_unknown")
+            peaks = [(c, max(range(len(analysis.chapters)), key=lambda ch: by_chapter[c.id][ch]))
+                     for c in charts.top_characters(analysis, 5) if any(by_chapter[c.id])]
+            if peaks:
+                st.markdown("**Chattiest chapter**\n\n" + "\n".join(
+                    f"- {c.name}: {analysis.chapters[ch].title.rstrip('.')} ({by_chapter[c.id][ch]:,} words)"
+                    for c, ch in peaks))
+        with right:
+            st.plotly_chart(charts.talk_by_chapter(analysis, theme, by_chapter, unknown if with_unknown else None, share),
+                            width="stretch")
+            speakers = [c for c in charts.top_characters(analysis, 12) if any(by_chapter[c.id])]
+            table(pd.DataFrame([
+                {"Chapter": chapter.title, **{c.name: by_chapter[c.id][i] for c in speakers}, "Unknown": unknown[i]}
+                for i, chapter in enumerate(analysis.chapters)
+            ]))
+
         talk = dialogue.who_talks_to_whom(lines, len(analysis.characters))
         if any(map(any, talk)):
             left, right = panel("Who talks to whom", "Each row is a speaker and each column the person they speak "

@@ -2,7 +2,7 @@ import re
 
 from analyzer.dialogue import (
     chapter_dialogue_share, find_lines, paragraphs, signature_words, strongest_lines, who_talks_to_whom,
-    words_spoken,
+    words_by_chapter, words_spoken,
 )
 from analyzer.models import Mention, Sentence
 
@@ -116,3 +116,12 @@ def test_strongest_lines_and_signature_words():
     lines = find_lines(sentences, mentions)
     assert signature_words(lines, 2, min_count=3, stop_words=frozenset({"do", "come"})) == ["pray"]
     assert signature_words(lines, 0) == []  # Elizabeth says nothing
+
+
+def test_words_are_counted_per_chapter_and_speaker():
+    sentences, mentions, _ = book(['"Is it far from here?" asked Jane.'], ['"No," said Darcy.'],
+                                  ["They walked.", "It rained.", "The road was long."], ['"Tired, very tired?"'],
+                                  chapters=[0, 1, 1, 1])
+    counts, unknown = words_by_chapter(find_lines(sentences, mentions), 3, 2)
+    assert counts == [[0, 0], [0, 1], [5, 0]]  # Jane speaks in chapter 1, Darcy in chapter 2
+    assert unknown == [0, 3]  # after a long narration, nobody is known to say "Tired, very tired?"

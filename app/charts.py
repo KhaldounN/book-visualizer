@@ -553,6 +553,37 @@ def talk_bars(analysis: BookAnalysis, theme: dict, words: list[int], top: int = 
     return _layout(fig, theme, height=60 + 28 * len(ranked), bargap=0.35)
 
 
+def talk_by_chapter(analysis: BookAnalysis, theme: dict, counts: list[list[int]], unknown: list[int] | None = None,
+                    share: bool = False) -> go.Figure:
+    """One stacked bar per chapter: the words each main character speaks there, in their own colour
+    (the coloured characters who speak at all), then everyone else (gray) and unknown speakers (pale).
+    With share=True every bar is 100%: who holds the floor in each chapter."""
+    colors = character_colors(analysis, theme)
+    main = [c for c in top_characters(analysis, len(theme["series"])) if any(counts[c.id])]
+    others = [sum(counts[c.id][ch] for c in analysis.characters if c.id not in {m.id for m in main})
+              for ch in range(len(analysis.chapters))]
+    groups = [(c.name, [counts[c.id][ch] for ch in range(len(analysis.chapters))], colors[c.id]) for c in main]
+    groups.append(("Everyone else", others, theme["muted"]))
+    if unknown:  # left out unless asked for: in most books it would dwarf the characters
+        groups.append(("Speaker unknown", unknown, theme["axis"]))
+    totals = [sum(g[1][ch] for g in groups) for ch in range(len(analysis.chapters))]
+    x = list(range(1, len(analysis.chapters) + 1))
+    titles = [c.title for c in analysis.chapters]
+    fig = go.Figure()
+    for name, values, color in groups:
+        if not any(values):
+            continue
+        y = [v / t if t else 0 for v, t in zip(values, totals)] if share else values
+        fig.add_bar(x=x, y=y, name=name, marker=dict(color=color, line=dict(color=theme["surface"], width=0.5)),
+                    customdata=[[t, v] for t, v in zip(titles, values)],
+                    hovertemplate=f"%{{customdata[0]}}<br>{name}: %{{customdata[1]:,}} words"
+                                  + (" (%{y:.0%})" if share else "") + "<extra></extra>")
+    fig.update_xaxes(title="Chapter")
+    fig.update_yaxes(title="Share of the chapter's dialogue" if share else "Words spoken",
+                     tickformat=".0%" if share else ",")
+    return _layout(fig, theme, height=440, barmode="stack", bargap=0.15, legend_traceorder="normal")
+
+
 def talk_matrix(analysis: BookAnalysis, theme: dict, counts: list[list[int]], top: int = 8) -> go.Figure:
     """Speakers (rows) x listeners (columns): how many lines one says to the other."""
     busiest = sorted(range(len(counts)), key=lambda i: -(sum(counts[i]) + sum(row[i] for row in counts)))[:top]

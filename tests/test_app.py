@@ -177,9 +177,9 @@ def test_a_character_keeps_one_colour_everywhere():
 
 def test_every_visualization_has_an_explanation(app):
     titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
-    # 3 3D views + chapter cards + 3 mood + 4 emotion + 3 character (with the journey) + 2 relationship + 3 dialogue + 2 pace
+    # 3 3D views + chapter cards + 3 mood + 4 emotion + 3 character (with the journey) + 2 relationship + 4 dialogue + 2 pace
     # + 2 places
-    assert len(titles) == 3 + 1 + 3 + 4 + 3 + 2 + 3 + 2 + 2
+    assert len(titles) == 3 + 1 + 3 + 4 + 3 + 2 + 4 + 2 + 2
 
 
 def test_editing_the_title(app):
@@ -223,7 +223,7 @@ def test_merging_characters_from_the_sidebar(app):
 
 @pytest.mark.parametrize("mode", ["light", "dark"])
 def test_charts_build_in_both_themes(mode):
-    from analyzer.dialogue import find_lines, who_talks_to_whom, words_spoken
+    from analyzer.dialogue import find_lines, who_talks_to_whom, words_by_chapter, words_spoken
     from analyzer.pace import chapter_pace, pace_scores
 
     theme, analysis = charts.THEMES[mode], small_analysis()
@@ -233,6 +233,10 @@ def test_charts_build_in_both_themes(mode):
     book = {"title": "A", "hours": 2.0, "grade": 7.0, "sentence_length": 18.0, "dialogue": 0.4, "richness": 0.7}
     for figure in (
         charts.mentions_bars(analysis, theme),
+        charts.talk_by_chapter(analysis, theme, *words_by_chapter(lines, len(analysis.characters),
+                                                                  len(analysis.chapters))),
+        charts.talk_by_chapter(analysis, theme, *words_by_chapter(lines, len(analysis.characters),
+                                                                  len(analysis.chapters)), share=True),
         charts.story_sentiment(analysis, theme, [0, 1], smooth=3),
         charts.timeline_heatmap(analysis, theme),
         charts.relationship_network(analysis, theme, top=6, min_count=3),

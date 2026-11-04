@@ -210,6 +210,18 @@ def words_spoken(lines: list[Line], num_characters: int) -> list[int]:
     return totals
 
 
+def words_by_chapter(lines: list[Line], num_characters: int, num_chapters: int) -> tuple[list[list[int]], list[int]]:
+    """([character][chapter] -> words they say there, [chapter] -> words whose speaker is unknown)."""
+    counts = [[0] * num_chapters for _ in range(num_characters)]
+    unknown = [0] * num_chapters
+    for line in lines:
+        if line.speaker is None:
+            unknown[line.chapter] += line.words
+        else:
+            counts[line.speaker][line.chapter] += line.words
+    return counts, unknown
+
+
 def who_talks_to_whom(lines: list[Line], num_characters: int) -> list[list[int]]:
     """[speaker][listener] -> how many quotes the speaker addresses to the listener."""
     counts = [[0] * num_characters for _ in range(num_characters)]
