@@ -14,22 +14,22 @@ gatherUsageStats = false
 # (checkip.amazonaws.com) when it runs headless; run_website.ps1 prints the addresses instead
 hideWelcomeMessage = true
 
-# The look: a serif display font for headings, a clean sans for text,
-# and a warm paper-like page with the visualizations on slightly lighter cards
+# The look of a scholarly edition: an editorial serif (Newsreader) for headings, a clean
+# sans (Inter) for text, warm paper with white "plates" for the figures, and one deep
+# oxblood accent. Every brighter colour on the page belongs to a character, an emotion or the mood.
 [theme]
 font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
-headingFont = "Fraunces:https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap, serif"
-baseRadius = "0.7rem"
-# a neutral slate: every brighter colour on the page belongs to a character or an emotion
-primaryColor = "#5a667d"
+headingFont = "Newsreader:https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap, serif"
+baseRadius = "0.25rem"
+primaryColor = "#8a2b1f"
 
 [theme.light]
-# bright and crisp: white with a hint of sky blue (the owner asked for bright colours)
-backgroundColor = "#f5f8ff"
-secondaryBackgroundColor = "#e6efff"
-textColor = "#0b0b0b"
+backgroundColor = "#fbfaf6"
+secondaryBackgroundColor = "#f2eee5"
+textColor = "#1b1a17"
 
 [theme.dark]
-backgroundColor = "#0f0f0e"
-secondaryBackgroundColor = "#1f1f1d"
-textColor = "#f0efec"
+primaryColor = "#e0957a"
+backgroundColor = "#121110"
+secondaryBackgroundColor = "#1c1b19"
+textColor = "#ece8df"

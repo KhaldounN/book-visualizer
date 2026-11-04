@@ -8,7 +8,7 @@ address, see streamlit_app.py).
 
 import json
 
-LOOKS = {"light": "☀️ Light", "dark": "🌙 Dark"}
+LOOKS = {"light": "Light", "dark": "Dark"}
 
 
 def switch_script(base: str) -> str:

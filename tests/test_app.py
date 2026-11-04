@@ -302,14 +302,15 @@ def test_the_raccoon_has_a_line_for_every_analysis_step():
         assert "@keyframes" in svg and "prefers-reduced-motion" in svg
     assert len({raccoon.scene_svg(s) for s in STEPS}) == len(STEPS), "every step looks different"
     assert "data:image/png;base64," in design.sidebar_title()
-    assert "raccoon" in design.landing()
+    assert "raccoon" in design.about(), "the raccoon lives on the About page"
 
 
-def test_start_page_shows_the_mascot():
+def test_start_page_explains_the_method():
     at = AppTest.from_file(str(APP), default_timeout=30).run()
     assert not at.exception
-    assert any("Turn a novel into pictures" in h.proto.body and "data:image/jpeg" in h.proto.body
-               for h in at.get("html"))
+    bodies = [h.proto.body for h in at.get("html")]
+    assert any("Turn a novel into pictures" in b and b.count('class="ba-kicker">I') == 3 for b in bodies)
+    assert any("data:image/jpeg" in b for b in bodies), "the About tab still shows the raccoon"
 
 
 def test_every_chapter_theme_has_an_icon():

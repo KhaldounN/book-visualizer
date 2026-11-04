@@ -12,8 +12,8 @@ from analyzer.models import BookAnalysis, Relationship
 
 THEMES = {
     "light": {
-        "surface": "#ffffff", "ink": "#0b0b0b", "ink2": "#4a5160", "muted": "#7d8594",
-        "grid": "#e3e9f3", "axis": "#c5cedc",
+        "surface": "#ffffff", "ink": "#1b1a17", "ink2": "#4d4a43", "muted": "#807a6e",
+        "grid": "#ece8df", "axis": "#d3ccbf",
         "series": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"],
         # sequential (one hue, light -> dark) for counts
         "sequential": ["#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#184f95", "#0d366b"],
@@ -24,7 +24,7 @@ THEMES = {
                      "neutral": "#898781"},
     },
     "dark": {
-        "surface": "#1a1a19", "ink": "#f0efec", "ink2": "#c3c2b7", "muted": "#898781",
+        "surface": "#1a1a19", "ink": "#ece8df", "ink2": "#c3c2b7", "muted": "#898781",
         "grid": "#2c2c2a", "axis": "#383835",
         "series": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
         "sequential": ["#104281", "#1c5cab", "#2a78d6", "#5598e7", "#86b6ef", "#cde2fb"],
@@ -51,7 +51,7 @@ EMOTION_LABELS = {
 
 def short_label(emotion: str) -> str:
     return EMOTION_LABELS[emotion].split(" (")[0]
-FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
+FONT = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif'  # the page's own text font
 TONE_RANGE = 0.3  # sentiment beyond +-0.3 gets the full colour (averages rarely go further)
 
 

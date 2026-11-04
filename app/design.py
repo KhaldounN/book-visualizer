@@ -31,127 +31,133 @@ MASCOT_TIPS = (
     "The raccoon reads about a thousand sentences a minute. Don't tell its teacher.",
     "When it's done, try ▶ Travel on the Story road.",
 )
-SERIF = '"Fraunces", Georgia, "Times New Roman", serif'
-# used only for small decorations: a vivid orange (the raccoon's headphones) in the bright
-# light mode, old gold in dark mode
-ACCENT = {"light": "#e8590c", "dark": "#e0b25b"}
-PAGE = {"light": "#f5f8ff", "dark": "#0f0f0e"}  # the page background (.streamlit/config.toml)
-# In light mode the hero gets brighter glows: sky blue, a little sunshine and rose
-LIGHT_HERO = """.ba-hero { background:
-    radial-gradient(70% 110% at 0% 0%, rgba(57,135,229,.22), transparent 60%),
-    radial-gradient(45% 80% at 100% 0%, rgba(255,200,40,.22), transparent 60%),
-    radial-gradient(70% 120% at 100% 100%, rgba(232,73,72,.16), transparent 60%), #ffffff !important; }"""
+SERIF = '"Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif'
+SANS = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
+# One accent, used only for rules and small labels (never for data): a deep oxblood on the
+# light paper, a soft copper in dark mode
+ACCENT = {"light": "#8a2b1f", "dark": "#e0957a"}
+PAGE = {"light": "#fbfaf6", "dark": "#121110"}  # the page background (.streamlit/config.toml)
 
 
 def page_css(theme: dict, mode: str) -> str:
-    """Styling for the whole page: section headings, visualization cards, KPI cards."""
+    """Styling for the whole page, in the manner of a scholarly edition: a masthead, numbered
+    parts and figures, hairline rules, small capitals and serif type."""
     t, gold = theme, ACCENT[mode]
-    glow = "0 1px 2px rgba(30,60,120,.06), 0 10px 28px rgba(30,60,120,.09)" if mode == "light" \
-        else "0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.35)"
     return f"""<style>
     :root {{ --ba-ink: {t["ink"]}; --ba-ink2: {t["ink2"]}; --ba-muted: {t["muted"]}; --ba-line: {t["grid"]};
-             --ba-surface: {t["surface"]}; --ba-gold: {gold}; --ba-glow: {glow};
-             --ba-dark: {t["diverging"][0]}; --ba-bright: {t["diverging"][2]}; --ba-page: {PAGE[mode]}; }}
+             --ba-rule: {t["axis"]}; --ba-surface: {t["surface"]}; --ba-gold: {gold}; --ba-glow: none;
+             --ba-radius: 4px; --ba-dark: {t["diverging"][0]}; --ba-bright: {t["diverging"][2]};
+             --ba-page: {PAGE[mode]}; }}
 
-    /* The top bar: brand on the left, the open book and a privacy note on the right */
-    .ba-top {{ display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-        padding: .2rem 0 .9rem; }}
-    .ba-top .ba-mark {{ display: flex; align-items: center; gap: .75rem; }}
-    .ba-top .ba-mark img {{ width: 44px; height: 44px; border-radius: 12px; object-fit: cover;
-        box-shadow: 0 0 0 2px var(--ba-gold); }}
-    .ba-top .ba-mark b {{ display: block; font-family: {SERIF}; font-size: 1.35rem; line-height: 1.1; color: var(--ba-ink); }}
-    .ba-top .ba-mark span {{ font-size: .78rem; color: var(--ba-muted); letter-spacing: .02em; }}
-    .ba-top .ba-meta {{ display: flex; gap: .5rem; flex-wrap: wrap; }}
-    .ba-pill {{ display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--ba-ink2);
-        padding: .35rem .75rem; border: 1px solid var(--ba-line); border-radius: 999px; background: var(--ba-surface);
-        max-width: 22rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-    .ba-pill.book {{ color: var(--ba-ink); font-weight: 600; }}
+    /* The masthead: the name of the site over a double rule, like the head of a journal */
+    .ba-top {{ display: flex; align-items: flex-end; justify-content: space-between; gap: .6rem 1.5rem; flex-wrap: wrap;
+        padding: .4rem 0 1rem; margin-bottom: 4px; border-bottom: 1px solid var(--ba-ink);
+        box-shadow: 0 3px 0 var(--ba-page), 0 4px 0 var(--ba-ink); }}  /* a thin double rule */
+    .ba-top .ba-mark b {{ display: block; font: 500 2rem/1 {SERIF}; letter-spacing: -.01em; color: var(--ba-ink); }}
+    .ba-top .ba-mark span {{ display: block; margin-top: .45rem; font: italic 400 .98rem/1.2 {SERIF}; color: var(--ba-ink2); }}
+    .ba-top .ba-meta {{ display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; text-align: right; }}
+    .ba-top .ba-meta .book {{ font: italic 500 1.05rem/1.2 {SERIF}; color: var(--ba-ink); max-width: 26rem;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .ba-sc {{ font: 600 .66rem/1.2 {SANS}; letter-spacing: .16em; text-transform: uppercase; color: var(--ba-muted); }}
 
-    /* The tabs are the site's navigation: a bar that stays at the top while you scroll
-       (Streamlit 1.66 tabs: [role=tablist] holding [data-testid=stTab] items) */
+    /* The tabs are the site's navigation: small capitals, sticky at the top while you scroll
+       (Streamlit tabs: [role=tablist] holding [data-testid=stTab] items) */
     .stMainBlockContainer .stTabs [role="tablist"] {{ position: sticky; top: 3.75rem; z-index: 90;
-        background: var(--ba-page); gap: .2rem; border-bottom: 1px solid var(--ba-line); height: auto;
-        padding-top: .3rem; }}
-    .stMainBlockContainer [data-testid="stTab"] {{ padding: .75rem 1.05rem .8rem; border-bottom: 3px solid transparent;
+        background: var(--ba-page); gap: .4rem; border-bottom: 1px solid var(--ba-rule); height: auto; padding-top: .2rem; }}
+    .stMainBlockContainer [data-testid="stTab"] {{ padding: .85rem .9rem .8rem; border-bottom: 2px solid transparent;
         margin-bottom: -1px; transition: border-color .2s ease; }}
-    .stMainBlockContainer [data-testid="stTab"] p {{ font-size: .95rem; font-weight: 600; color: var(--ba-ink2); }}
+    .stMainBlockContainer [data-testid="stTab"] p {{ font: 600 .74rem/1 {SANS}; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--ba-muted); }}
     .stMainBlockContainer [data-testid="stTab"][aria-selected="true"] {{ border-bottom-color: var(--ba-gold); }}
     .stMainBlockContainer [data-testid="stTab"][aria-selected="true"] p,
     .stMainBlockContainer [data-testid="stTab"]:hover p {{ color: var(--ba-ink); }}
+    .stMainBlockContainer [data-baseweb="tab-highlight"], .stMainBlockContainer [data-baseweb="tab-border"] {{ display: none; }}
     [data-testid="stHeader"] {{ background: var(--ba-page); }}
 
-    /* The footer, under every tab */
-    .ba-foot {{ margin-top: 3.5rem; padding: 1.4rem 0 .6rem; border-top: 1px solid var(--ba-line);
+    /* The colophon at the bottom of every page */
+    .ba-foot {{ margin-top: 4rem; padding: 1.3rem 0 .6rem; border-top: 1px solid var(--ba-rule);
+        box-shadow: inset 0 3px 0 var(--ba-page), inset 0 4px 0 var(--ba-rule);
         display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .8rem; color: var(--ba-muted); }}
-    .ba-foot a {{ color: var(--ba-ink2); text-decoration: none; border-bottom: 1px solid var(--ba-line); }}
+    .ba-foot b {{ font: 500 1rem/1 {SERIF}; color: var(--ba-ink); margin-right: .5rem; }}
+    .ba-foot a {{ color: var(--ba-ink2); text-decoration: none; border-bottom: 1px solid var(--ba-rule); }}
     .ba-foot a:hover {{ color: var(--ba-ink); border-color: var(--ba-gold); }}
 
-    /* Section headings: a big serif title over a short three-colour rule */
-    .stMainBlockContainer [data-testid="stHeading"] h2 {{
-        font-family: {SERIF}; font-size: 2.1rem; font-weight: 600; letter-spacing: -.01em;
-        padding-top: 1.8rem; }}
-    .stMainBlockContainer [data-testid="stHeading"] h2::after {{
-        content: ""; display: block; width: 64px; height: 3px; margin-top: .7rem; border-radius: 2px;
-        background: linear-gradient(90deg, var(--ba-dark), var(--ba-gold), var(--ba-bright)); }}
-    .stMainBlockContainer h4 {{ font-family: {SERIF}; font-weight: 600; font-size: 1.35rem; }}
-
-    /* Each visualization sits on its own card */
-    [class*="st-key-panel-"] {{
-        background: var(--ba-surface); border: 1px solid var(--ba-line) !important; border-radius: 16px;
-        box-shadow: var(--ba-glow); padding: 1.4rem 1.5rem; transition: border-color .25s ease; }}
-    [class*="st-key-panel-"]:hover {{ border-color: color-mix(in srgb, var(--ba-gold) 55%, var(--ba-line)) !important; }}
-
-    /* Hero */
-    .ba-hero {{ position: relative; overflow: hidden; border-radius: 22px; padding: 2.2rem 2.2rem 1.6rem;
-        border: 1px solid var(--ba-line); box-shadow: var(--ba-glow);
-        background: radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--ba-bright) 16%, transparent), transparent 60%),
-                    radial-gradient(70% 120% at 100% 100%, color-mix(in srgb, var(--ba-dark) 14%, transparent), transparent 60%),
-                    var(--ba-surface); }}
-    {LIGHT_HERO if mode == "light" else ""}
-    .ba-kicker {{ font: 600 .72rem/1 system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase;
+    /* Parts and figures are numbered, as in a printed study: each tab starts again at Part I, Figure 1 */
+    .stMainBlockContainer [role="tabpanel"] {{ counter-reset: part fig; }}
+    .stMainBlockContainer [data-testid="stHeading"] h2 {{ counter-increment: part;
+        font-family: {SERIF}; font-size: 2.35rem; font-weight: 500; letter-spacing: -.015em; line-height: 1.15;
+        padding: 2.4rem 0 .6rem; border-bottom: 1px solid var(--ba-rule); }}
+    .stMainBlockContainer [data-testid="stHeading"] h2::before {{ content: "Part " counter(part, upper-roman);
+        display: block; margin-bottom: .55rem; font: 600 .7rem/1 {SANS}; letter-spacing: .18em; text-transform: uppercase;
         color: var(--ba-gold); }}
-    .ba-hero h1 {{ font-family: {SERIF}; font-size: clamp(2.2rem, 5vw, 3.8rem); line-height: 1.05; margin: .7rem 0 .3rem;
-        font-weight: 700; letter-spacing: -.02em; color: var(--ba-ink); padding: 0; }}
-    .ba-author {{ font-family: {SERIF}; font-style: italic; font-size: 1.15rem; color: var(--ba-ink2); }}
-    .ba-lede {{ max-width: 46rem; color: var(--ba-ink2); margin: 1rem 0 1.4rem; line-height: 1.55; }}
-    .ba-ribbon {{ display: flex; align-items: flex-end; gap: 2px; height: 74px; }}
-    .ba-ribbon i {{ flex: 1; min-width: 2px; border-radius: 2px 2px 0 0; transition: transform .15s ease; transform-origin: bottom; }}
-    .ba-ribbon i:hover {{ transform: scaleY(1.12); filter: brightness(1.15); }}
-    .ba-axis {{ display: flex; justify-content: space-between; font-size: .75rem; color: var(--ba-muted);
-        border-top: 1px solid var(--ba-line); padding-top: .4rem; margin-top: 2px; }}
-    .ba-legend {{ display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; margin-top: 1rem; font-size: .8rem; color: var(--ba-ink2); }}
-    .ba-legend span {{ display: inline-flex; align-items: center; gap: .4rem; }}
-    .ba-legend i {{ width: 10px; height: 10px; border-radius: 3px; display: inline-block; }}
+    .stMainBlockContainer h4 {{ font-family: {SERIF}; font-weight: 500; font-size: 1.45rem; line-height: 1.25;
+        letter-spacing: -.005em; }}
+    .stMainBlockContainer blockquote {{ border-left: 2px solid var(--ba-gold); padding: .1rem 0 .1rem 1rem; margin: .4rem 0 .8rem; }}
+    .stMainBlockContainer blockquote p {{ font: italic 400 1.08rem/1.55 {SERIF}; color: var(--ba-ink2); }}
 
-    /* KPI cards */
-    .ba-kpis {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 1.2rem 0 .4rem; }}
-    .ba-kpi {{ position: relative; background: var(--ba-surface); border: 1px solid var(--ba-line); border-radius: 16px;
-        padding: 1rem 1.1rem 1.05rem; box-shadow: var(--ba-glow); display: flex; flex-direction: column; gap: .35rem;
-        min-height: 150px; transition: transform .2s ease, border-color .2s ease; }}
-    .ba-kpi:hover {{ transform: translateY(-3px); border-color: color-mix(in srgb, var(--ba-gold) 55%, var(--ba-line)); }}
+    /* Each visualization is a figure on its own white plate, with a numbered label */
+    [class*="st-key-panel-"] {{ counter-increment: fig;
+        background: var(--ba-surface); border: 1px solid var(--ba-line) !important; border-radius: var(--ba-radius);
+        padding: 1.5rem 1.7rem 1.6rem; }}
+    [class*="st-key-panel-"] h4:not(article h4)::before {{  /* the figure title, not a chapter card's heading */ content: "Figure " counter(fig); display: block; margin-bottom: .55rem;
+        font: 600 .68rem/1 {SANS}; letter-spacing: .16em; text-transform: uppercase; color: var(--ba-gold); }}
+    [class*="st-key-panel-"] [data-testid="stMarkdownContainer"] p {{ line-height: 1.6; }}
+
+    /* The title page of the book */
+    .ba-hero {{ position: relative; padding: 2.6rem 0 1.6rem; }}
+    .ba-kicker {{ font: 600 .7rem/1.3 {SANS}; letter-spacing: .18em; text-transform: uppercase; color: var(--ba-gold); }}
+    .ba-hero h1 {{ font-family: {SERIF}; font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 1.02; margin: .8rem 0 .5rem;
+        font-weight: 500; letter-spacing: -.025em; color: var(--ba-ink); padding: 0; }}
+    .ba-author {{ font: italic 400 1.35rem/1.3 {SERIF}; color: var(--ba-ink2); }}
+    .ba-lede {{ max-width: 44rem; color: var(--ba-ink2); margin: 1.2rem 0 1.6rem; font: 400 1.12rem/1.6 {SERIF}; }}
+    .ba-lede b {{ font-weight: 600; }}
+    .ba-figure {{ margin: 0; padding: 1.2rem 1.3rem 1rem; background: var(--ba-surface); border: 1px solid var(--ba-line);
+        border-radius: var(--ba-radius); }}
+    .ba-figure figcaption {{ margin-top: .8rem; font-size: .8rem; line-height: 1.5; color: var(--ba-muted); }}
+    .ba-figure figcaption b {{ font: 600 .68rem/1 {SANS}; letter-spacing: .16em; text-transform: uppercase;
+        color: var(--ba-gold); margin-right: .4rem; }}
+    .ba-ribbon {{ display: flex; align-items: flex-end; gap: 2px; height: 74px; }}
+    .ba-ribbon i {{ flex: 1; min-width: 2px; border-radius: 1px 1px 0 0; transition: transform .15s ease; transform-origin: bottom; }}
+    .ba-ribbon i:hover {{ transform: scaleY(1.12); filter: brightness(1.15); }}
+    .ba-axis {{ display: flex; justify-content: space-between; font-size: .72rem; color: var(--ba-muted);
+        border-top: 1px solid var(--ba-rule); padding-top: .4rem; margin-top: 2px; letter-spacing: .04em; }}
+    .ba-legend {{ display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; margin-top: .9rem; font-size: .78rem; color: var(--ba-ink2); }}
+    .ba-legend span {{ display: inline-flex; align-items: center; gap: .4rem; }}
+    .ba-legend i {{ width: 9px; height: 9px; border-radius: 1px; display: inline-block; }}
+
+    /* The headline numbers: a ledger of cells divided by hairlines */
+    .ba-kpis {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 1.8rem 0 .4rem;
+        background: var(--ba-line); border: 1px solid var(--ba-line); border-radius: var(--ba-radius); overflow: hidden; }}
+    .ba-kpi {{ position: relative; background: var(--ba-surface); padding: 1.1rem 1.25rem 1.15rem;
+        display: flex; flex-direction: column; gap: .4rem; min-height: 150px; overflow: hidden; }}
     .ba-kpi.wide {{ grid-column: span 2; }}
-    .ba-kpi .label {{ display: flex; align-items: center; gap: .45rem; font: 600 .7rem/1 system-ui, sans-serif;
-        letter-spacing: .14em; text-transform: uppercase; color: var(--ba-muted); }}
-    .ba-kpi .label b {{ font-size: 1rem; letter-spacing: 0; }}
-    .ba-kpi .value {{ font-family: {SERIF}; font-size: 2.1rem; font-weight: 600; line-height: 1.1; color: var(--ba-ink);
-        overflow-wrap: anywhere; }}
-    .ba-kpi .value.small {{ font-size: 1.5rem; }}
-    .ba-kpi .note {{ font-size: .82rem; color: var(--ba-ink2); line-height: 1.4; }}
+    .ba-kpi .label {{ font: 600 .68rem/1.2 {SANS}; letter-spacing: .16em; text-transform: uppercase; color: var(--ba-muted); }}
+    .ba-kpi .value {{ font-family: {SERIF}; font-size: 2.3rem; font-weight: 500; line-height: 1.08; color: var(--ba-ink);
+        letter-spacing: -.01em; font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }}
+    .ba-kpi .value.small {{ font-size: 1.55rem; }}
+    .ba-kpi .note {{ font-size: .8rem; color: var(--ba-ink2); line-height: 1.45; }}
     .ba-kpi .art {{ margin-top: auto; padding-top: .4rem; }}
     .ba-kpi svg {{ display: block; width: 100%; height: 38px; overflow: visible; }}
-    .ba-bar {{ display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }}
-    .ba-gauge {{ position: relative; height: 10px; border-radius: 5px;
+    .ba-bar {{ display: flex; height: 8px; border-radius: 1px; overflow: hidden; gap: 2px; }}
+    .ba-gauge {{ position: relative; height: 8px; border-radius: 1px;
         background: linear-gradient(90deg, var(--ba-dark), {t["diverging"][1]}, var(--ba-bright)); }}
-    .ba-gauge b {{ position: absolute; top: -5px; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px;
+    .ba-gauge b {{ position: absolute; top: -5px; width: 3px; height: 18px; margin-left: -1.5px; border-radius: 1px;
         background: var(--ba-ink); box-shadow: 0 0 0 2px var(--ba-surface); }}
     .ba-faces {{ display: flex; }}
     .ba-faces span {{ width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff;
-        font: 600 .8rem/1 system-ui, sans-serif; border: 2px solid var(--ba-surface); margin-right: -8px; }}
-    .ba-chip {{ display: inline-block; font-size: .72rem; font-weight: 600; letter-spacing: .04em; padding: .2rem .55rem;
-        border-radius: 99px; color: #fff; }}
-    .ba-kpi blockquote {{ margin: .25rem 0 0; padding: 0 0 0 .8rem; border-left: 3px solid var(--tone);
-        font-family: {SERIF}; font-style: italic; font-size: .98rem; line-height: 1.45; color: var(--ba-ink2); }}
-    .ba-kpi.toned {{ background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 12%, var(--ba-surface)), var(--ba-surface) 60%); }}
+        font: 600 .8rem/1 {SANS}; border: 2px solid var(--ba-surface); margin-right: -8px; }}
+    .ba-chip {{ display: inline-block; vertical-align: middle; font: 600 .62rem/1 {SANS}; letter-spacing: .12em;
+        text-transform: uppercase; padding: .3rem .5rem; border-radius: 2px; color: #fff; }}
+    .ba-kpi blockquote {{ margin: .25rem 0 0; padding: 0 0 0 .9rem; border-left: 2px solid var(--tone);
+        font-family: {SERIF}; font-style: italic; font-size: 1.05rem; line-height: 1.5; color: var(--ba-ink2); }}
+
+    /* The start page: what the site does, in three steps */
+    .ba-method {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 2rem 0 .5rem;
+        border-top: 1px solid var(--ba-rule); }}
+    .ba-method div {{ padding: 1.1rem 1.4rem 0 0; }}
+    .ba-method div + div {{ padding-left: 1.4rem; border-left: 1px solid var(--ba-line); }}
+    .ba-method b {{ display: block; font: 500 1.25rem/1.25 {SERIF}; color: var(--ba-ink); margin: .45rem 0 .35rem; }}
+    .ba-method p {{ margin: 0; font-size: .88rem; line-height: 1.55; color: var(--ba-ink2); }}
 
     .ba-cast {{ list-style: none; padding: 0; margin: 0; display: grid; gap: .3rem; font-size: .88rem; }}
     .ba-cast li {{ display: flex; align-items: center; gap: .5rem; margin: 0; }}
@@ -159,14 +165,16 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-avatar {{ border-radius: 50%; flex: none; vertical-align: middle; }}
     .ba-dot {{ display: inline-block; border-radius: 50%; flex: none; vertical-align: middle; }}
     .ba-faces img {{ margin-right: -6px; }}
-    .ba-castgrid {{ margin: 1.4rem 0 .4rem; }}
+    .ba-castgrid {{ margin: 2.6rem 0 .4rem; }}
+    .ba-castgrid h3 {{ font: 500 2rem/1.15 {SERIF}; letter-spacing: -.015em; color: var(--ba-ink); margin: .5rem 0 0;
+        padding: 0 0 .6rem; border-bottom: 1px solid var(--ba-rule); }}
     .ba-castgrid .grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
         margin-top: .7rem; }}
     .ba-castgrid article {{ display: flex; flex-direction: column; align-items: center; text-align: center; gap: .3rem;
-        padding: 1rem .7rem .9rem; border: 1px solid var(--ba-line); border-radius: 16px; background: var(--ba-surface);
+        padding: 1rem .7rem .9rem; border: 1px solid var(--ba-line); border-radius: var(--ba-radius); background: var(--ba-surface);
         box-shadow: var(--ba-glow); transition: transform .2s ease; }}
-    .ba-castgrid article:hover {{ transform: translateY(-3px); }}
-    .ba-castgrid article b {{ font-family: {SERIF}; font-size: 1.1rem; margin-top: .3rem; }}
+    .ba-castgrid article:hover {{ }}
+    .ba-castgrid article b {{ font-family: {SERIF}; font-weight: 500; font-size: 1.2rem; margin-top: .3rem; }}
     .ba-castgrid .look {{ font-size: .82rem; color: var(--ba-ink); }}
     .ba-castgrid .meta {{ font-size: .75rem; color: var(--ba-ink2); }}
     .ba-castgrid small {{ font-size: .7rem; color: var(--ba-muted); font-style: italic; line-height: 1.35; }}
@@ -180,7 +188,7 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-brand span {{ font-size: .78rem; color: var(--ba-muted); }}
     .ba-split {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 2rem; align-items: center; }}
     .ba-mascot {{ margin: 0; text-align: center; }}
-    .ba-shape {{ margin-top: 1rem; padding: 1rem 1.1rem; border-radius: 14px; border: 1px solid var(--ba-line);
+    .ba-shape {{ margin-top: 1rem; padding: 1rem 1.1rem; border-radius: var(--ba-radius); border: 1px solid var(--ba-line);
         background: var(--ba-surface); }}
     .ba-shape h3 {{ font-family: {SERIF}; font-size: 1.25rem; line-height: 1.3; color: var(--ba-ink); margin: .4rem 0 .6rem;
         padding: 0; font-weight: 500; }}
@@ -204,7 +212,7 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-minis figcaption {{ font-size: .68rem; color: var(--ba-muted); line-height: 1.25; margin-top: .2rem; }}
     .ba-minis .on figcaption {{ color: var(--ba-ink); font-weight: 600; }}
     .ba-about {{ display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 2rem; align-items: center;
-        margin-top: 1.5rem; padding: 1.6rem 1.8rem; border-radius: 22px; border: 1px solid var(--ba-line);
+        margin-top: 1.5rem; padding: 1.6rem 1.8rem; border-radius: var(--ba-radius); border: 1px solid var(--ba-line);
         background: var(--ba-surface); box-shadow: var(--ba-glow); }}
     .ba-about figure {{ margin: 0; text-align: center; }}
     .ba-about img {{ width: 100%; aspect-ratio: 1; object-fit: cover; object-position: 60% 30%; border-radius: 50%;
@@ -214,15 +222,15 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-about p {{ color: var(--ba-ink2); line-height: 1.6; max-width: 46rem; margin: 0 0 .7rem; }}
     .ba-about .ba-links a {{ color: var(--ba-ink); font-weight: 600; text-decoration: none;
         border-bottom: 1px solid var(--ba-gold); }}
-    .ba-mascot img {{ width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 60% 30%; border-radius: 18px;
+    .ba-mascot img {{ width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 60% 30%; border-radius: var(--ba-radius);
         box-shadow: var(--ba-glow); border: 1px solid var(--ba-line); }}
     .ba-mascot figcaption {{ font-size: .8rem; font-style: italic; color: var(--ba-muted); margin-top: .5rem; }}
     .ba-working {{ display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 1.6rem; align-items: center;
-        padding: 1.4rem 1.6rem; border-radius: 20px; border: 1px solid var(--ba-line); background: var(--ba-surface);
+        padding: 1.4rem 1.6rem; border-radius: var(--ba-radius); border: 1px solid var(--ba-line); background: var(--ba-surface);
         box-shadow: var(--ba-glow); margin-bottom: .8rem; }}
-    .ba-working img {{ width: 170px; aspect-ratio: 1; object-fit: cover; object-position: 55% 62%; border-radius: 16px;
+    .ba-working img {{ width: 170px; aspect-ratio: 1; object-fit: cover; object-position: 55% 62%; border-radius: var(--ba-radius);
         animation: ba-typing .5s ease-in-out infinite alternate; }}
-    .ba-working img.ba-scene {{ width: 300px; aspect-ratio: 32 / 22; border-radius: 16px; animation: none;
+    .ba-working img.ba-scene {{ width: 300px; aspect-ratio: 32 / 22; border-radius: var(--ba-radius); animation: none;
         object-fit: contain; }}
     .ba-doing {{ font-size: 1.05rem; font-style: italic; color: var(--ba-ink); margin: 0 0 .6rem; }}
     .ba-working h2 {{ font-family: {SERIF}; font-size: 1.9rem; margin: .4rem 0 .6rem; padding: 0; color: var(--ba-ink); }}
@@ -292,21 +300,20 @@ def about() -> str:
 
 
 def top_bar(title: str | None = None) -> str:
-    """The bar above the tabs on every page: the brand, then the open book and a privacy note."""
-    book = f'<span class="ba-pill book" title="{escape(title)}">📖 {escape(title)}</span>' if title else ""
+    """The masthead above the tabs on every page: the site's name and motto, then the open book."""
+    book = (f'<span class="book" title="{escape(title)}">{escape(title)}</span>') if title else ""
     return f"""<header class="ba-top">
-      <div class="ba-mark"><img src="{image_uri("raccoon-face.png")}" alt="">
-        <div><b>Book Analyzer</b><span>Novels, read by machine learning</span></div></div>
-      <div class="ba-meta">{book}<span class="ba-pill">🔒 Every AI model runs on this computer</span></div>
+      <div class="ba-mark"><b>Book Analyzer</b><span>A computational reading of the novel</span></div>
+      <div class="ba-meta">{book}<span class="ba-sc">Local models · Your book stays on this computer</span></div>
     </header>"""
 
 
 def footer() -> str:
-    """The line at the bottom of every page."""
+    """The colophon at the bottom of every page."""
     links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)}</a>'
                        for label, url in ABOUT["links"])
-    return (f'<footer class="ba-foot"><span>Book Analyzer · a passion project by {escape(ABOUT["name"])}</span>'
-            f'<span>{links}</span></footer>')
+    return (f'<footer class="ba-foot"><span><b>Book Analyzer</b>A passion project by {escape(ABOUT["name"])}. '
+            f'Every model runs locally; results are estimates.</span><span>{links}</span></footer>')
 
 
 def sidebar_title() -> str:
@@ -460,31 +467,45 @@ def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
     )
     shares = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
     author = f'<div class="ba-author">by {escape(analysis.author)}</div>' if analysis.author else ""
+    words = sum(len(s.text.split()) for s in analysis.sentences)
     return f"""<section class="ba-hero">
-      <div class="ba-kicker">📖 Book Analyzer · the novel as pictures</div>
+      <div class="ba-kicker">A computational reading · {len(analysis.chapters)} chapters · {words:,} words</div>
       <h1>{escape(title)}</h1>{author}
-      <p class="ba-lede">Below, the whole book is turned into images: every stripe in this barcode is one of its
-      {len(analysis.chapters)} chapters, <b style="color:var(--ba-bright)">blue</b> where the mood is bright,
-      <b style="color:var(--ba-dark)">red</b> where it turns dark (compared with the rest of the book), taller where emotions run high.
-      Hover a stripe to see the chapter, then use the tabs above to dive deeper.</p>
-      <div class="ba-ribbon">{stripes}</div>
-      <div class="ba-axis"><span>Beginning</span><span>Middle</span><span>End</span></div>
-      {_emotion_legend(theme, shares) if shares else ""}
+      <p class="ba-lede">Every sentence of the novel has been read by language models running on this computer,
+      scored for its mood and emotions, and searched for characters and places. The tabs above open each part of
+      the reading; this page gives the whole book at a glance.</p>
+      <figure class="ba-figure">
+        <div class="ba-ribbon">{stripes}</div>
+        <div class="ba-axis"><span>Beginning</span><span>Middle</span><span>End</span></div>
+        {_emotion_legend(theme, shares) if shares else ""}
+        <figcaption><b>The mood of each chapter</b>One stripe per chapter, from first to last:
+        <span style="color:var(--ba-bright);font-weight:600">blue</span> where the mood
+        is bright, <span style="color:var(--ba-dark);font-weight:600">red</span> where it
+        turns dark (compared with the rest of the book), taller where emotions run high. Hover a stripe for its chapter.
+        </figcaption>
+      </figure>
     </section>"""
 
 
 def landing() -> str:
-    """The page before any book is chosen."""
-    return f"""<section class="ba-hero ba-split"><div>
-      <div class="ba-kicker">📖 Book Analyzer</div>
+    """The page before any book is chosen: what the site does, and how."""
+    steps = (
+        ("I · Read", "Every sentence", "The novel is split into chapters and sentences; names, places and pronouns "
+                                       "are found and linked to the characters they refer to."),
+        ("II · Measure", "Tone and feeling", "Language models score the mood of each sentence and 38 fine emotions, "
+                                             "from grief and guilt to gratitude and curiosity."),
+        ("III · Map", "The shape of the story", "Who meets whom, where the story happens, how each character's "
+                                                "journey rises and falls, and which classic shape the plot follows."),
+    )
+    method = "".join(f'<div><span class="ba-kicker">{a}</span><b>{b}</b><p>{c}</p></div>' for a, b, c in steps)
+    return f"""<section class="ba-hero">
+      <div class="ba-kicker">A computational reading</div>
       <h1>Turn a novel into pictures.</h1>
-      <p class="ba-lede">Give it a book and AI models running on this computer read every sentence: who appears,
-      who meets whom, where the story goes, and how the mood and emotions rise and fall. The words become a
-      road through the story, a constellation, a crystal and a dozen charts you can dive into.</p>
-      <p class="ba-lede"><b>Start in the sidebar:</b> upload an English novel as a <code>.txt</code> file, or pick
-      a famous book (Dracula, Frankenstein, Alice in Wonderland…).</p></div>
-      <figure class="ba-mascot"><img src="{image_uri("raccoon.jpg")}" alt="A raccoon in headphones at a keyboard">
-      <figcaption>Your reader for today. Fast, careful, slightly snack-obsessed.</figcaption></figure>
+      <div class="ba-author">Characters, relationships, places and moods, drawn from the text itself</div>
+      <p class="ba-lede">Upload an English novel as a <code>.txt</code> file in the sidebar, or choose one of the
+      famous books already read (<i>Dracula</i>, <i>Frankenstein</i>, <i>Pride and Prejudice</i>…). Every model
+      runs on this computer: the book is never sent anywhere.</p>
+      <div class="ba-method">{method}</div>
     </section>"""
 
 
@@ -510,7 +531,7 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
             f'<span class="look">{escape(look_in_words(look))}</span>'
             f'<span class="meta">{escape(", ".join(feels)) if feels else ""}</span>'  # no mention counts up top
             f'<small>{escape(source)}</small></article>')
-    return (f'<section class="ba-castgrid"><div class="ba-kicker">The cast</div>'
+    return (f'<section class="ba-castgrid"><div class="ba-kicker">Dramatis personae</div><h3>The cast</h3>'
             f'<div class="grid">{"".join(cards)}</div>'
             f'<p class="note">Portraits are drawn by this website from what the book says about each character; '
             f'where it says nothing, the story fills in the blanks (title, job, the book\'s world and mood).</p>'
@@ -600,7 +621,7 @@ def kpi_html(cards: list[dict]) -> str:
         classes = "ba-kpi" + (" wide" if c.get("wide") else "") + (" toned" if c.get("tone") else "")
         style = f' style="--tone:{c["tone"]}"' if c.get("tone") else ""
         note = f'<div class="note">{escape(c["note"])}</div>' if c["note"] else ""
-        out.append(f'<div class="{classes}"{style}><div class="label"><b>{c["icon"]}</b>{escape(c["label"])}</div>'
+        out.append(f'<div class="{classes}"{style}><div class="label">{escape(c["label"])}</div>'
                    f'<div class="value{" small" if c.get("small") else ""}">{c["value"]}</div>{note}'
                    f'<div class="art">{c["art"]}</div></div>')
     return f'<div class="ba-kpis">{"".join(out)}</div>'
