@@ -125,6 +125,9 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-legend span {{ display: inline-flex; align-items: center; gap: .4rem; }}
     .ba-legend i {{ width: 9px; height: 9px; border-radius: 1px; display: inline-block; }}
 
+    .ba-who {{ display: flex; flex-wrap: wrap; gap: .3rem .9rem; margin: -.2rem 0 .5rem; font-size: .8rem;
+        color: var(--ba-ink2); }}
+    .ba-who span {{ display: inline-flex; align-items: center; gap: .35rem; }}
     .ba-brief {{ margin: 1.8rem 0 0; max-width: 50rem; }}
     .ba-brief p {{ margin: .6rem 0 0; font: 400 1.18rem/1.65 {SERIF}; color: var(--ba-ink); }}
     .ba-brief b {{ font-weight: 600; }}
@@ -819,6 +822,18 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
         out.append(f"Beyond plain narration, the strongest feeling is <b>{escape(charts.short_label(top).lower())}</b> "
                    f"({shares[top]:.0%} of the emotional sentences).")
     return out
+
+
+def who_is_there(analysis: BookAnalysis, first: int, last: int, avatars: dict, theme: dict, n: int = 4) -> str:
+    """The characters named in a passage (sentences first..last), most present first, as small faces."""
+    from collections import Counter
+    present = Counter(m.character_id for m in analysis.mentions if first <= m.sentence_index <= last)
+    if not present:
+        return '<div class="ba-who">No named character</div>'
+    colors = charts.character_colors(analysis, theme)
+    people = [analysis.characters[i] for i, _ in present.most_common(n)]
+    return ('<div class="ba-who">' + "".join(f'<span>{face(avatars, c, 22, colors[c.id])}{escape(c.name)}</span>'
+                                              for c in people) + "</div>")
 
 
 def _tone_word(tone: float) -> str:

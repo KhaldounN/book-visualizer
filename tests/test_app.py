@@ -495,3 +495,10 @@ def test_a_relationship_is_told_in_words():
     story = design.pair_story(analysis, analysis.relationships[0], explore3d.events_of(analysis))
     a = analysis.characters[analysis.relationships[0].source].name
     assert story.startswith(f"**{a} and ") or "too few chapters" in story
+
+
+def test_a_passage_shows_who_is_there():
+    analysis = small_analysis()
+    m = analysis.mentions[0]
+    html = design.who_is_there(analysis, m.sentence_index, m.sentence_index, {}, charts.THEMES["light"])
+    assert analysis.characters[m.character_id].name in html

@@ -609,6 +609,7 @@ with tab["mood"]:
             with column:
                 for n, m in enumerate(found, start=1):
                     st.markdown(f"**{kind} {n}** · {analysis.chapters[m.chapter].title} · tone {m.score:+.2f}")
+                    st.html(design.who_is_there(analysis, m.first, m.last, faces, theme))
                     st.markdown(f"> {passage(analysis, m)}")
 
 # --- Emotions -----------------------------------------------------------------------------------
