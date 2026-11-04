@@ -92,3 +92,27 @@ def test_curve_match_compares_shapes_only():
     assert abs(curve_match(rising, [10, 20, 30, 40]) - 1) < 1e-9
     assert abs(curve_match(rising, [3, 2, 1, 0]) + 1) < 1e-9
     assert curve_match(rising, [1, 1, 1, 1]) == 0.0 and curve_match(rising, [1, 2]) == 0.0
+
+
+def test_a_characters_journey_follows_them_stage_by_stage():
+    from analyzer.models import Mention
+    from analyzer.progression import character_journey, journey_turns
+
+    # 40 sentences in 4 chapters; the book darkens then brightens
+    tones = [0.2] * 10 + [-0.6] * 10 + [0.0] * 10 + [0.7] * 10
+    sentences = book(*tones, chapters=[i // 10 for i in range(40)])
+    for s in sentences:
+        s.emotions = {"joy": 0.8, "neutral": 0.2} if s.sentiment > 0 else {"sadness": 0.7, "neutral": 0.3}
+    # character 0 is in every sentence except the third chapter; character 1 only twice
+    mentions = [Mention(0, i, 0, 0, "x") for i in range(40) if not 20 <= i < 30]
+    mentions += [Mention(1, 3, 0, 0, "y"), Mention(1, 35, 0, 0, "y")]
+    journey = character_journey(mentions, sentences, 0, stages=4, min_sentences=5)
+    assert [(s["first_chapter"], s["last_chapter"]) for s in journey] == [(0, 0), (1, 1), (2, 2), (3, 3)]
+    assert [s["count"] for s in journey] == [10, 10, 0, 10]
+    assert journey[1]["mood"] == pytest.approx(-0.6) and journey[2]["mood"] is None, "absent: left empty, not guessed"
+    assert journey[2]["book_mood"] == pytest.approx(0.0), "the whole book's line goes on without them"
+    assert journey[1]["emotions"]["sadness"] == pytest.approx(0.7) and journey[2]["emotions"] == {}
+    assert sentences[journey[3]["brightest"]].sentiment == 0.7
+    assert journey_turns(journey) == {"start": 0, "end": 3, "low": 1, "high": 3}
+    # too few sentences about character 1 anywhere: no journey to tell
+    assert journey_turns(character_journey(mentions, sentences, 1, stages=4)) is None

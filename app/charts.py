@@ -360,6 +360,58 @@ def emotion_journey(analysis: BookAnalysis, theme: dict, smooth: int) -> go.Figu
     return fig
 
 
+def stage_label(analysis: BookAnalysis, stage: dict) -> str:
+    """'Ch. 3–7' (or 'Ch. 5' when the stage sits inside one chapter)."""
+    first, last = stage["first_chapter"] + 1, stage["last_chapter"] + 1
+    return f"Ch. {first}" if first == last else f"Ch. {first}–{last}"
+
+
+def character_journey(analysis: BookAnalysis, theme: dict, journey: list[dict], name: str, color: str,
+                      turns: dict | None) -> go.Figure:
+    """One character through the book, stage by stage: their mood next to the
+    whole book's (top) and their emotion mix (bottom, 100% stacked bars).
+    Stages with too few sentences about them are left empty, not guessed."""
+    from plotly.subplots import make_subplots
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.1, row_heights=[0.55, 0.45],
+                        subplot_titles=["Mood", "Emotions"])
+    x = list(range(1, len(journey) + 1))
+    labels = [stage_label(analysis, s) for s in journey]
+    counts = [s["count"] for s in journey]
+    fig.add_scatter(x=x, y=[s["book_mood"] for s in journey], name="Whole book", mode="lines",
+                    line=dict(color=theme["axis"], width=2, dash="dot"), customdata=labels,
+                    hovertemplate="Whole book: %{y:+.2f}<extra></extra>", row=1, col=1)
+    moods = [s["mood"] for s in journey]
+    fig.add_scatter(x=x, y=moods, name=name, mode="lines+markers", connectgaps=False,  # absent: a gap
+                    line=dict(color=color, width=3), marker=dict(size=7, color=color),
+                    customdata=list(zip(labels, counts)),
+                    hovertemplate=f"{name}: %{{y:+.2f}} (%{{customdata[1]}} sentences)<extra></extra>", row=1, col=1)
+    if turns:
+        for key, symbol, shift in (("low", "triangle-down", -14), ("high", "triangle-up", 14)):
+            i = turns[key]
+            fig.add_scatter(x=[i + 1], y=[moods[i]], mode="markers", showlegend=False, hoverinfo="skip",
+                            marker=dict(symbol=symbol, size=14, color=theme["ink"],
+                                        line=dict(color=theme["surface"], width=2)), row=1, col=1)
+    fig.add_hline(y=0, line=dict(color=theme["axis"], width=1), row=1, col=1)
+    present = [abs(v) for v in moods + [s["book_mood"] for s in journey] if v is not None]
+    limit = max([0.1] + present) * 1.2
+    fig.update_yaxes(range=[-limit, limit], tickformat="+.2f", title="Tone", row=1, col=1)
+
+    shares = [without_neutral(s["emotions"]) for s in journey]
+    for e in EMOTION_ORDER:
+        fig.add_bar(x=x, y=[sh.get(e, 0) if sh else None for sh in shares], name=short_label(e),
+                    marker=dict(color=theme["emotions"][e], line=dict(color=theme["surface"], width=1)),
+                    customdata=labels, legendgroup="emotions",
+                    hovertemplate=f"{EMOTION_LABELS[e]} %{{y:.0%}}<extra></extra>", row=2, col=1)
+    fig.update_yaxes(tickformat=".0%", range=[0, 1], title="Share", row=2, col=1)
+    fig.update_xaxes(tickvals=x, ticktext=labels, row=2, col=1)
+    fig.update_xaxes(title="How far through the book", row=2, col=1)
+    fig.update_annotations(font=dict(size=12, color=theme["ink2"]), x=0, xanchor="left")
+    fig = _layout(fig, theme, height=600, barmode="stack", bargap=0.25, hovermode="x unified")
+    fig.update_layout(legend_traceorder="normal", margin=dict(l=10, r=10, t=60, b=10))
+    return fig
+
+
 def pair_emotions(theme: dict, r: Relationship) -> go.Figure:
     """A pair's emotion mix in the early, middle and late book."""
     parts = ["Early", "Middle", "Late"]

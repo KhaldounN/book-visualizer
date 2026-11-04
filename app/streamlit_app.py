@@ -31,7 +31,10 @@ from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
 from analyzer.pace import chapter_pace, measure, pace_scores  # noqa: E402
-from analyzer.progression import WEAK_FIT, curve_match, key_moments, rolling_sentiment, story_shape  # noqa: E402
+from analyzer.progression import (  # noqa: E402
+    JOURNEY_STAGES, MIN_STAGE_SENTENCES, WEAK_FIT, character_journey, curve_match, journey_turns, key_moments,
+    rolling_sentiment, story_shape,
+)
 
 SAMPLES = ROOT / "data"  # famous public-domain books, from scripts/download_samples.py
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
@@ -56,6 +59,38 @@ def table(df: pd.DataFrame) -> None:
 
 def shorten(text: str, limit: int = 450) -> str:
     return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " …"
+
+
+def journey_story(analysis, journey: list[dict], turns: dict, name: str, with_emotions: bool) -> list[str]:
+    """A character's journey in a few plain sentences: how their mood moves from the
+    first stage to the last, which emotions grow or fade, and their lowest and
+    highest moment, quoted."""
+    start, end = journey[turns["start"]], journey[turns["end"]]
+    change = end["mood"] - start["mood"]
+    trend = "rises" if change > 0.05 else "falls" if change < -0.05 else "stays about the same"
+    lines = [f"**Mood:** {start['mood']:+.2f} at the start ({charts.stage_label(analysis, start)}) and "
+             f"{end['mood']:+.2f} at the end ({charts.stage_label(analysis, end)}): it **{trend}**."]
+    if with_emotions:
+        judged = [s for s in journey if s["emotions"]]
+        third = max(1, len(judged) // 3)
+        before = charts.without_neutral(average_emotions([s["emotions"] for s in judged[:third]]))
+        after = charts.without_neutral(average_emotions([s["emotions"] for s in judged[-third:]]))
+        if before and after:
+            shifts = {e: after[e] - before[e] for e in charts.EMOTION_ORDER}
+            grew, faded = max(shifts, key=shifts.get), min(shifts, key=shifts.get)
+            parts = [f"more **{charts.short_label(grew).lower()}** ({shifts[grew]:+.0%})" if shifts[grew] > 0.03
+                     else "", f"less **{charts.short_label(faded).lower()}** ({shifts[faded]:+.0%})"
+                     if shifts[faded] < -0.03 else ""]
+            parts = [p for p in parts if p]
+            lines.append(f"**Emotions:** by the end, {' and '.join(parts)} than at the start." if parts
+                         else "**Emotions:** about the same mix at the end as at the start.")
+    for icon, key, which in (("▼", "low", "darkest"), ("▲", "high", "brightest")):
+        stage = journey[turns[key]]
+        s = analysis.sentences[stage[which]]
+        label = "Lowest point" if key == "low" else "Highest point"
+        lines.append(f"{icon} **{label}** ({analysis.chapters[s.chapter].title}, mood {stage['mood']:+.2f}):\n\n"
+                     f"> {shorten(s.text, 300)}")
+    return lines
 
 
 def passage(analysis, moment, limit: int = 450) -> str:
@@ -579,6 +614,35 @@ with tab["people"]:
             {c.name: analysis.mentions_by_chapter[c.id] for c in charts.top_characters(analysis, top)},
             index=[ch.title for ch in analysis.chapters],
         ).reset_index(names="Chapter"))
+
+    left, right = panel("A character's journey", "One character's path through the book, cut into "
+                        f"{JOURNEY_STAGES} equal stages: the **mood** of the sentences about them (the dotted gray "
+                        "line is the whole book), and below it their **mix of emotions**. ▼ and ▲ mark their lowest "
+                        f"and highest point. Stages with fewer than {MIN_STAGE_SENTENCES} sentences about them are "
+                        "left empty.")
+    with left:
+        traveller = st.selectbox("Character", charts.top_characters(analysis, 20), format_func=lambda c: c.name,
+                                 key="journey_character")
+        if traveller.id in faces:
+            st.html(f'<img src="{faces[traveller.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
+    journey = character_journey(analysis.mentions, analysis.sentences, traveller.id)
+    turns = journey_turns(journey)
+    with right:
+        if not turns:
+            st.info(f"{traveller.name} is not in enough of the book to follow a journey.")
+        else:
+            color = charts.character_colors(analysis, theme)[traveller.id]
+            st.plotly_chart(charts.character_journey(analysis, theme, journey, traveller.name, color, turns),
+                            width="stretch")
+            for line in journey_story(analysis, journey, turns, traveller.name, has_emotions):
+                st.markdown(line)
+            table(pd.DataFrame([
+                {"Stage": charts.stage_label(analysis, s), "Sentences about them": s["count"],
+                 "Their mood": None if s["mood"] is None else round(s["mood"], 3),
+                 "Whole book": round(s["book_mood"], 3),
+                 **{charts.EMOTION_LABELS[e]: round(s["emotions"].get(e, 0), 3) for e in charts.EMOTION_ORDER}}
+                for s in journey
+            ]))
 
 # --- Relationships ------------------------------------------------------------------------------
 with tab["people"]:

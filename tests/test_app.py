@@ -10,6 +10,8 @@ from streamlit.testing.v1 import AppTest
 
 from analyzer.models import BookAnalysis, Chapter, ChapterEvent, Character, EntityCount, Mention, Sentence
 from analyzer.progression import (
+    character_journey,
+    journey_turns,
     chapter_emotions,
     chapter_sentiment,
     emotions_by_character,
@@ -173,9 +175,9 @@ def test_a_character_keeps_one_colour_everywhere():
 
 def test_every_visualization_has_an_explanation(app):
     titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
-    # 3 3D views + chapter cards + 3 mood + 4 emotion + 2 character + 2 relationship + 3 dialogue + 2 pace
+    # 3 3D views + chapter cards + 3 mood + 4 emotion + 3 character (with the journey) + 2 relationship + 3 dialogue + 2 pace
     # + 2 places
-    assert len(titles) == 3 + 1 + 3 + 4 + 2 + 2 + 3 + 2 + 2
+    assert len(titles) == 3 + 1 + 3 + 4 + 3 + 2 + 3 + 2 + 2
 
 
 def test_editing_the_title(app):
@@ -240,6 +242,9 @@ def test_charts_build_in_both_themes(mode):
         charts.emotion_bars(theme, analysis.chapter_emotions[0]),
         charts.emotion_bars(theme, analysis.character_emotions[0], analysis.chapter_emotions[1], name="Anna"),
         charts.emotion_journey(analysis, theme, smooth=3),
+        charts.character_journey(analysis, theme, character_journey(analysis.mentions, analysis.sentences, 0),
+                                 "Anna", theme["series"][0], journey_turns(character_journey(
+                                     analysis.mentions, analysis.sentences, 0))),
         charts.fine_bars(theme, {"guilt": 0.2, "calmness": 0.1, "grief": 0.05}),
         charts.places_heatmap(analysis, theme),
         charts.entity_bars(analysis.entities, theme),
@@ -450,3 +455,13 @@ def test_picking_dark_remembers_it_in_the_address(app):
     app.segmented_control(key="look_light").set_value("dark").run()
     assert not app.exception
     assert app.query_params["look"] == "dark", "the reload after the switch keeps the choice"
+
+
+def test_a_characters_journey_is_told_in_words(app):
+    # Anna is in every sentence: her mood follows the book (dark, bright, dark, bright)
+    assert app.selectbox(key="journey_character").value.name == "Anna"
+    lines = [m.value for m in app.markdown]
+    assert any(line.startswith("**Mood:** -0.40 at the start (Ch. 1)") for line in lines)
+    assert any(line.startswith("▼ **Lowest point** (Chapter") for line in lines)
+    assert any(line.startswith("▲ **Highest point** (Chapter") for line in lines)
+    assert any(line.startswith("**Emotions:** by the end, more **joy**") for line in lines)

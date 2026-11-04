@@ -128,6 +128,54 @@ def sentiment_by_chapter(mentions: list[Mention], sentences: list[Sentence],
     return [[_average(values) for values in row] for row in scores]
 
 
+# --- One character's journey ---------------------------------------------------------------------
+
+JOURNEY_STAGES = 10  # the book is cut into this many equal parts
+MIN_STAGE_SENTENCES = 5  # fewer sentences about a character in a stage is too little to judge
+
+
+def character_journey(mentions: list[Mention], sentences: list[Sentence], character_id: int,
+                      stages: int = JOURNEY_STAGES, min_sentences: int = MIN_STAGE_SENTENCES) -> list[dict]:
+    """One character's path through the book, in `stages` equal slices of sentences.
+
+    Equal slices (not chapters) because a character is missing from many chapters, and
+    chapters differ in length. Each stage holds: first/last chapter, `count` (sentences
+    that mention the character), `mood` and `emotions` of those sentences (None / {}
+    when there are fewer than `min_sentences`), `book_mood` (all sentences of the slice),
+    and `darkest` / `brightest` (index of the most negative / positive sentence about them)."""
+    present = characters_per_sentence(sentences, mentions)
+    n = len(sentences)
+    journey = []
+    for k in range(stages):
+        part = sentences[k * n // stages:(k + 1) * n // stages]
+        if not part:
+            continue
+        theirs = [s for s in part if character_id in present[s.index]]
+        enough = len(theirs) >= min_sentences
+        journey.append({
+            "first_chapter": part[0].chapter,
+            "last_chapter": part[-1].chapter,
+            "count": len(theirs),
+            "mood": _average([s.sentiment for s in theirs]) if enough else None,
+            "book_mood": _average([s.sentiment for s in part]),
+            "emotions": average_emotions([s.emotions for s in theirs]) if enough else {},
+            "darkest": min(theirs, key=lambda s: s.sentiment).index if enough else None,
+            "brightest": max(theirs, key=lambda s: s.sentiment).index if enough else None,
+        })
+    return journey
+
+
+def journey_turns(journey: list[dict]) -> dict | None:
+    """Where a journey starts, ends, and hits its lowest and highest mood (stage
+    positions), or None when the character is in fewer than 2 judged stages."""
+    judged = [i for i, stage in enumerate(journey) if stage["mood"] is not None]
+    if len(judged) < 2:
+        return None
+    return {"start": judged[0], "end": judged[-1],
+            "low": min(judged, key=lambda i: journey[i]["mood"]),
+            "high": max(judged, key=lambda i: journey[i]["mood"])}
+
+
 # --- The shape of the story --------------------------------------------------------------------
 # Reagan et al. (2016) ran sentiment over ~1,700 Project Gutenberg books and found that most
 # follow one of six emotional shapes. Each shape here is a few (position, height) points joined
