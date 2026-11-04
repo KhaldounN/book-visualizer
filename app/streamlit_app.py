@@ -29,7 +29,7 @@ from avatars import cast_avatars  # noqa: E402
 from analyzer import dialogue  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.loaders import book_info  # noqa: E402
-from analyzer.merge import merge_characters  # noqa: E402
+from analyzer.merge import merge_characters, suggest_merges  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
 from analyzer.segment import display_title  # noqa: E402
 from analyzer.pace import chapter_pace, measure, pace_scores  # noqa: E402
@@ -45,6 +45,13 @@ ENTITY_TYPES = {
     "NORP": "Group or nationality", "EVENT": "Event", "WORK_OF_ART": "Title of a work",
 }
 KINDS = {"place": "Places", "organization": "Organizations", "group": "Groups and families", "other": "Other"}
+# Forms of address the name finder sometimes takes for an organization or a thing ("her Ladyship", "Dear Sir")
+ADDRESS_WORDS = {"sir", "madam", "madame", "ma'am", "ladyship", "lordship", "majesty", "highness", "excellency",
+                 "honour", "honor", "dear", "my", "your", "her", "his", "mr", "mrs", "miss", "lady", "lord"}
+
+
+def is_form_of_address(name: str) -> bool:
+    return all(w.strip(".,'’").lower() in ADDRESS_WORDS for w in name.split())
 
 st.set_page_config(page_title="Book Visualizer", page_icon=str(ROOT / "app" / "assets" / "raccoon-emblem.png"),
                    layout="wide")
@@ -329,6 +336,14 @@ with st.sidebar:
     st.subheader("Merge characters")
     st.caption("Nicknames and married names need knowledge of the story, so the analysis "
                "keeps them apart. Merge them here, e.g. *Lizzy* into *Elizabeth*.")
+    suggestions = suggest_merges(analysis.characters)[:4]
+    if suggestions:  # common nicknames: one click, but only the reader knows if it's the same person
+        st.markdown("**Possibly the same person**")
+        st.caption("Common nicknames. Merge only if the story says so (Cathy and Catherine can be mother and daughter).")
+        for nick, full in suggestions:
+            if st.button(f"{nick} → {full}", key=f"suggest_{nick}_{full}", width="stretch"):
+                book["merges"].append((nick, full))
+                st.rerun()
     names = [c.name for c in charts.top_characters(analysis, len(analysis.characters))]
     source = st.selectbox("Merge", names, index=None, placeholder="Choose a character")
     into = st.selectbox("Into", [n for n in names if n != source], index=None, placeholder="Choose a character")
@@ -843,17 +858,17 @@ with tab["places"]:
 
         left, right = panel("Most mentioned", "The places, organizations and groups (such as families) named most "
                             "often in the book.")
+        named = [e for e in analysis.entities if not is_form_of_address(e.name)]
+        counts = {k: sum(e.kind == k for e in named) for k in KINDS}
+        kinds = [k for k in KINDS if counts[k]]
+        with left:
+            kind = st.radio("Show", kinds, key="entity_kind", format_func=lambda k: f"{KINDS[k]} ({counts[k]})")
         with right:
-            kinds = [(k, label) for k, label in KINDS.items() if any(e.kind == k for e in analysis.entities)]
-            for column, (kind, label) in zip(st.columns(len(kinds)), kinds):
-                with column:
-                    st.markdown(f"**{label}**")
-                    st.plotly_chart(charts.entity_bars([e for e in analysis.entities if e.kind == kind][:10], theme),
-                                    width="stretch", key=f"entity_bars_{kind}")
+            st.plotly_chart(charts.entity_bars([e for e in named if e.kind == kind][:15], theme), width="stretch")
             table(pd.DataFrame([
                 {"Name": e.name, "Kind": KINDS.get(e.kind, e.kind), "spaCy type": ENTITY_TYPES.get(e.label, e.label),
                  "Mentions": e.count}
-                for e in analysis.entities
+                for e in named
             ]))
 
 # --- About ----------------------------------------------------------------------------------------

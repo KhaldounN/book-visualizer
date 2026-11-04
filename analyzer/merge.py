@@ -57,3 +57,38 @@ def _recompute(analysis: BookAnalysis, characters: list[Character], mentions: li
         character_emotions=emotions_by_character(mentions, sentences, len(characters)),
         character_fine=emotions_by_character(mentions, sentences, len(characters), "fine"),
     )
+
+
+# Common English nicknames -> the full first name they come from (for merge suggestions only:
+# nicknames are never merged automatically, the reader decides)
+NICKNAMES = {
+    "lizzy": "elizabeth", "lizzie": "elizabeth", "liz": "elizabeth", "eliza": "elizabeth", "bess": "elizabeth",
+    "bessie": "elizabeth", "bessy": "elizabeth", "betsy": "elizabeth", "beth": "elizabeth", "kitty": "catherine",
+    "kate": "catherine", "cathy": "catherine", "jem": "james", "jemmy": "james", "jim": "james", "jamie": "james",
+    "bob": "robert", "bobby": "robert", "rob": "robert", "bill": "william", "billy": "william", "will": "william",
+    "dick": "richard", "tom": "thomas", "tommy": "thomas", "ned": "edward", "ted": "edward", "teddy": "edward",
+    "nell": "ellen", "nelly": "ellen", "meg": "margaret", "maggie": "margaret", "peggy": "margaret",
+    "polly": "mary", "molly": "mary", "sally": "sarah", "fanny": "frances", "harry": "henry", "jack": "john",
+    "johnny": "john", "charley": "charles", "charlie": "charles", "joe": "joseph", "sam": "samuel",
+    "ben": "benjamin", "fred": "frederick", "freddy": "frederick", "sophy": "sophia", "nan": "anne",
+    "nancy": "anne", "annie": "anne", "jenny": "jane", "jo": "josephine", "dolly": "dorothy", "tony": "anthony",
+    "nick": "nicholas", "pip": "philip", "matty": "matthew", "phil": "philip", "georgie": "georgiana",
+}
+
+
+def suggest_merges(characters: list[Character]) -> list[tuple[str, str]]:
+    """(nickname character, full-name character) pairs that are probably one person: "Lizzy" and
+    "Elizabeth". Only when the full name is used on its own (no title), so "Kitty" is never offered
+    as "Lady Catherine". Most mentioned targets first."""
+    by_first: dict[str, Character] = {}
+    for c in sorted(characters, key=lambda c: -c.mentions):
+        first = c.name.split()[0].lower()
+        if first not in by_first and first not in NICKNAMES:
+            by_first[first] = c
+    pairs = []
+    for c in characters:
+        words = c.name.split()
+        full = NICKNAMES.get(words[0].lower()) if len(words) == 1 else None
+        if full and full in by_first and by_first[full].id != c.id:
+            pairs.append((by_first[full].mentions, c.name, by_first[full].name))
+    return [(nick, target) for _, nick, target in sorted(pairs, reverse=True)]

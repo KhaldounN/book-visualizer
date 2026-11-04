@@ -57,3 +57,12 @@ def test_chained_and_unknown_merges():
     assert [c.name for c in merged.characters] == ["Elizabeth"]
     assert merged.characters[0].mentions == len(analysis.mentions)
     assert analysis.characters[2].name == "Lizzy", "the original analysis is not changed"
+
+
+def test_nicknames_are_suggested_never_merged():
+    from analyzer.merge import suggest_merges
+    from analyzer.models import Character
+    people = [Character(0, "Elizabeth", ["Elizabeth"], mentions=900), Character(1, "Lizzy", ["Lizzy"], mentions=40),
+              Character(2, "Lady Catherine", ["Lady Catherine"], mentions=200), Character(3, "Kitty", ["Kitty"], mentions=30)]
+    # Lizzy is Elizabeth's nickname; Kitty is never offered as Lady Catherine (a titled name is someone else)
+    assert suggest_merges(people) == [("Lizzy", "Elizabeth")]

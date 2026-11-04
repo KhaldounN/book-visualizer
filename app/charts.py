@@ -445,11 +445,34 @@ def _network_layout(characters: dict, links: list[Relationship]) -> dict:
     graph = nx.Graph()
     graph.add_nodes_from(characters)
     for r in links:
-        graph.add_edge(r.source, r.target, distance=1 / (1 + math.log(r.count)))
+        # never closer than 0.45: the main characters share moments with everyone and would knot together
+        graph.add_edge(r.source, r.target, distance=0.45 + 0.55 / (1 + math.log(r.count)))
     if graph.number_of_edges() == 0:
         return nx.circular_layout(graph)
     # characters with no links at all are placed by the layout as far away as allowed
     return nx.kamada_kawai_layout(graph, weight="distance")
+
+
+def _spread(pos: dict, radius: dict, rounds: int = 80) -> dict:
+    """Push apart any two characters whose portraits would overlap (radius = half a portrait), a
+    little at a time, so the layout keeps its shape but every face can be seen."""
+    pos = {i: [float(p[0]), float(p[1])] for i, p in pos.items()}
+    ids = list(pos)
+    for _ in range(rounds):
+        moved = False
+        for a_index, a in enumerate(ids):
+            for b in ids[a_index + 1:]:
+                dx, dy = pos[b][0] - pos[a][0], pos[b][1] - pos[a][1]
+                dist = math.hypot(dx, dy) or 1e-6
+                need = radius[a] + radius[b]
+                if dist < need:
+                    push = (need - dist) / 2 / dist
+                    pos[a][0] -= dx * push; pos[a][1] -= dy * push
+                    pos[b][0] += dx * push; pos[b][1] += dy * push
+                    moved = True
+        if not moved:
+            break
+    return pos
 
 
 def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_count: int,
@@ -458,6 +481,11 @@ def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_coun
     all_links = [r for r in analysis.relationships if r.source in characters and r.target in characters]
     links = [r for r in all_links if r.count >= min_count]
     pos = _network_layout(characters, all_links)
+    biggest_node = max(c.mentions for c in characters.values())
+    xs = [p[0] for p in pos.values()]
+    span = (max(xs) - min(xs)) or 1
+    portrait = {i: span * (0.05 + 0.08 * math.sqrt(c.mentions / biggest_node)) for i, c in characters.items()}
+    pos = _spread(pos, {i: size / 2 + span * 0.015 for i, size in portrait.items()})
 
     fig = go.Figure()
     biggest = max([r.count for r in links] + [1])
@@ -476,10 +504,11 @@ def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_coun
         hoverinfo="text",
     )
     colors = character_colors(analysis, theme)
-    biggest_node = max(c.mentions for c in characters.values())
     fig.add_scatter(
         x=[pos[i][0] for i in characters], y=[pos[i][1] for i in characters],
-        mode="markers+text", text=[c.name for c in characters.values()], textposition="top center",
+        # names of characters drawn as portraits go under the portrait (below), the rest above the dot
+        mode="markers+text", text=[c.name if not (avatars and i in avatars) else "" for i, c in characters.items()],
+        textposition="top center",
         textfont=dict(color=theme["ink2"], size=12), showlegend=False,
         marker=dict(size=[10 + 30 * math.sqrt(c.mentions / biggest_node) for c in characters.values()],
                     color=[colors[i] for i in characters],
@@ -496,11 +525,11 @@ def relationship_network(analysis: BookAnalysis, theme: dict, top: int, min_coun
                                   tickfont=dict(color=theme["muted"]), outlinewidth=0)),
     )
     if avatars:  # characters with an avatar are drawn as their portrait, as big as their dot
-        xs = [p[0] for p in pos.values()]
-        span = (max(xs) - min(xs)) or 1
         for i, c in characters.items():
             if i in avatars:
-                size = span * (0.05 + 0.08 * math.sqrt(c.mentions / biggest_node))
+                size = portrait[i]
+                fig.add_annotation(x=pos[i][0], y=pos[i][1] - size / 2, text=c.name, showarrow=False, yanchor="top",
+                                   font=dict(color=theme["ink2"], size=12), bgcolor=theme["surface"], borderpad=1)
                 fig.add_layout_image(source=avatars[i], xref="x", yref="y", x=pos[i][0], y=pos[i][1],
                                      sizex=size, sizey=size, xanchor="center", yanchor="middle", layer="above")
     fig.update_xaxes(visible=False)
