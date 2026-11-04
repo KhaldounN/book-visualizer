@@ -104,13 +104,15 @@ def sample_book(path: str, modified: float) -> tuple[str, str]:
     """(title, sha256 key) of a sample book (cached until the file changes)."""
     data = Path(path).read_bytes()
     title = re.split(r"[;:]", book_info(data, Path(path).name)[0])[0].strip()  # "A Christmas Carol in Prose; Being..."
+    title = title.removesuffix(", Complete")  # "The Adventures of Tom Sawyer, Complete"
     return title, hashlib.sha256(data).hexdigest()
 
 
 def sample_books() -> dict[str, tuple[str, str]]:
     """file name -> (title, key) for every sample book in data/, sorted by title."""
     found = {p.name: sample_book(str(p), p.stat().st_mtime) for p in SAMPLES.glob("*.txt")} if SAMPLES.exists() else {}
-    return dict(sorted(found.items(), key=lambda kv: kv[1][0].removeprefix("The ")))
+    # filed as in a library: "A Christmas Carol" under C, "The Time Machine" under T
+    return dict(sorted(found.items(), key=lambda kv: re.sub(r"^(The|An?) ", "", kv[1][0]).lower()))
 
 
 def book_pace(analysis, lines: list):
@@ -226,7 +228,12 @@ with st.sidebar:
     samples = sample_books()
     if samples:  # ⚡ = already analyzed, opens instantly (scripts/analyze_samples.py does them all)
         ready = {name for name, (_, key) in samples.items() if (CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").exists()}
-        st.selectbox("Or try a famous book", list(samples), index=None, placeholder="Pick a book…", key="sample",
+        # every book is listed at once, in a scrolling box (the owner asked for a visible list, not a menu)
+        st.markdown(f"**Or open a famous book** ({len(samples)})")
+        st.caption("Free public-domain classics from Project Gutenberg. ⚡ opens instantly; "
+                   "the others are read the first time, in about 10 minutes.")
+        with st.container(height=360, key="library"):
+            st.radio("Famous books", list(samples), index=None, key="sample", label_visibility="collapsed",
                      format_func=lambda name: samples[name][0] + (" ⚡" if name in ready else ""),
                      on_change=lambda: st.session_state.update(open_sample=True))
     sample_picked = st.session_state.pop("open_sample", False) and st.session_state.get("sample")

@@ -3,14 +3,16 @@ paragraphs separated by a blank line."""
 
 import re
 
-_NUMBER_WORDS = (
-    "one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|"
-    "fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty"
+_UNITS = "one|two|three|four|five|six|seven|eight|nine"
+_NUMBER_WORDS = (  # one ... nineteen, twenty, twenty-one ... ninety-nine ("CHAPTER TWENTY-ONE")
+    rf"(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[- ](?:{_UNITS}))?|"
+    "ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|" + _UNITS
 )
 # A whole line like "CHAPTER II.", "Chapter 12", "Chapter One: The Ball".
-# The {0,80} limit stops a normal sentence starting with "Chapter" from matching.
+# The {0,140} limit stops a normal sentence starting with "Chapter" from matching
+# (and still allows Dickens's long titles: "CHAPTER II. TREATS OF OLIVER TWIST'S GROWTH, ...").
 CHAPTER_HEADING = re.compile(
-    rf"^[ \t]*chapter\s+(?:\d+|[ivxlcdm]+|{_NUMBER_WORDS})\b[^\n]{{0,80}}$",
+    rf"^[ \t]*chapter\s+(?:\d+|[ivxlcdm]+|{_NUMBER_WORDS})\b[^\n]{{0,140}}$",
     re.IGNORECASE | re.MULTILINE,
 )
 

@@ -671,8 +671,9 @@ def landing() -> str:
       <div class="ba-kicker">A computational reading</div>
       <h1>Turn a novel into pictures.</h1>
       <div class="ba-author">Characters, relationships, places and moods, drawn from the text itself</div>
-      <p class="ba-lede">Upload an English novel as a <code>.txt</code> file in the sidebar, or choose one of the
-      famous books already read (<i>Dracula</i>, <i>Frankenstein</i>, <i>Pride and Prejudice</i>…). Every model
+      <p class="ba-lede">Upload an English novel as a <code>.txt</code> file in the sidebar, or open one of the
+      50 free classics listed there, from <i>Pride and Prejudice</i> and <i>Dracula</i> to <i>Moby Dick</i>
+      and <i>The Great Gatsby</i>. Every model
       runs on this computer: the book is never sent anywhere.</p>
       </div>
       <figure class="ba-mascot"><img src="{image_uri("raccoon.jpg")}" alt="The Raccoonatron raccoon in headphones at a keyboard">

@@ -447,8 +447,8 @@ def test_picking_a_famous_book_opens_it():
         pytest.skip("needs the sample book, already analyzed (scripts/download_samples.py, analyze_samples.py)")
     at = AppTest.from_file(str(APP), default_timeout=60)
     at.run()
-    assert "Great Expectations ⚡" in at.selectbox(key="sample").options  # ⚡ = already analyzed
-    at.selectbox(key="sample").set_value("great_expectations.txt").run()
+    assert "Great Expectations ⚡" in at.radio(key="sample").options  # ⚡ = already analyzed
+    at.radio(key="sample").set_value("great_expectations.txt").run()
     assert not at.exception and at.session_state["current"] == key
     at.run()  # later reruns keep the book open (the picker doesn't reopen it every time)
     assert at.session_state["current"] == key

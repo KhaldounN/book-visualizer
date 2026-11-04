@@ -1,4 +1,4 @@
-from analyzer.segment import FALLBACK_PARTS, split_sentences
+from analyzer.segment import FALLBACK_PARTS, find_chapters, split_sentences
 
 BOOK = """Preface by a critic. Walt Whitman once wrote something wise.
 
@@ -54,3 +54,36 @@ def test_each_sentence_counts_its_word_types(nlp):
     sentences, _ = split_sentences(BOOK, nlp)
     assert all(s.tags is not None for s in sentences)
     assert sum(s.tags["VERB"] for s in sentences) > 0 and sum(s.tags["ADJ"] for s in sentences) > 0
+
+
+def _book(headings: list[str], contents: bool = False) -> str:
+    """A book with these chapter headings, each followed by enough text to be a chapter."""
+    words = " ".join(["The road was long and the night was cold."] * 6)
+    front = "Contents\n\n" + "\n\n".join(headings) + "\n\n" if contents else ""
+    return front + "".join(f"{h}\n\n{words}\n\n" for h in headings)
+
+
+def test_chapters_without_the_word_chapter_are_found():
+    # Roman numerals with or without a title (The Wind in the Willows, Treasure Island, Gatsby)
+    assert [c.title for c in find_chapters(_book(["I. THE RIVER BANK", "II. THE OPEN ROAD", "III. THE WILD WOOD"]))] \
+        == ["I. THE RIVER BANK", "II. THE OPEN ROAD", "III. THE WILD WOOD"]
+    assert len(find_chapters(_book(["I The Old Sea-dog", "II Black Dog Appears", "III The Black Spot"]))) == 3
+    assert len(find_chapters(_book(["I", "II", "III", "IV"]))) == 4
+    # staves (A Christmas Carol), numbers (Black Beauty), number words beyond twenty (Little Women)
+    assert len(find_chapters(_book(["STAVE I: MARLEY'S GHOST", "STAVE II: THE FIRST SPIRIT", "STAVE III"]))) == 3
+    assert len(find_chapters(_book(["01 My Early Home", "02 The Hunt", "03 My Breaking In"]))) == 3
+    assert find_chapters(_book(["CHAPTER TWENTY", "CHAPTER TWENTY-ONE", "CHAPTER TWENTY-TWO"]))[1].title \
+        == "CHAPTER TWENTY-ONE"
+
+
+def test_lines_that_merely_start_with_a_numeral_are_not_chapters():
+    assert find_chapters(_book(["I took a step nearer.", "I said nothing.", "I think so?"])) == []  # sentences
+    assert find_chapters(_book(["III. A", "I. B", "VII. C", "II. D"])) == []  # not counting up: stray lines
+
+
+def test_a_contents_page_is_not_read_as_chapters():
+    titles = ["CHAPTER 1. Loomings", "CHAPTER 2. The Carpet-Bag", "CHAPTER 3. The Inn"]
+    assert [c.title for c in find_chapters(_book(titles, contents=True))] == titles
+    # the last contents entry is followed by text (an epigraph), yet comes before chapter 1
+    epigraph = " ".join(["An old epigraph about whales."] * 12)
+    assert find_chapters(f"CHAPTER 3. The Inn\n\n{epigraph}\n\n" + _book(titles))[0].title == titles[0]
