@@ -166,6 +166,17 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-toc a:hover {{ color: var(--ba-ink); border-bottom-color: var(--ba-gold); }}
     .stMainBlockContainer {{ counter-reset: part fig; }}
     .stMainBlockContainer [id] {{ scroll-margin-top: 8.5rem; }}  /* a jump stops below the sticky contents bar */
+    /* phones: the contents bar is one line you swipe sideways, and charts drop their toolbar */
+    @media (max-width: 640px) {{
+        .ba-toc {{ flex-wrap: nowrap; overflow-x: auto; gap: 1.1rem; padding: .7rem 0 .6rem; scrollbar-width: none;
+            -webkit-overflow-scrolling: touch; }}
+        .ba-toc::-webkit-scrollbar {{ display: none; }}
+        .ba-toc a {{ flex: none; }}
+        .stMainBlockContainer [id] {{ scroll-margin-top: 6rem; }}
+        .modebar-container {{ display: none !important; }}
+        [class*="st-key-panel-"] {{ padding: 1.1rem 1rem 1.2rem; }}
+        .ba-top .ba-mark b {{ font-size: 1.6rem; }}
+    }}
 
 
     /* The mascot's emblem, and its notes */
@@ -208,6 +219,9 @@ def page_css(theme: dict, mode: str) -> str:
     @media (max-width: 760px) {{ .ba-flow li {{ grid-template-columns: 2.6rem minmax(0, 1fr); }}
         .ba-flow .tool, .ba-flow .out {{ grid-column: 2; }} }}
 
+    .st-key-start-picker {{ max-width: 30rem; margin: .4rem 0 1rem; }}
+    .st-key-start-picker label p {{ font: 600 .7rem/1.3 {SANS} !important; letter-spacing: .16em; text-transform: uppercase;
+        color: var(--ba-gold); }}
     /* The start page: what the site does, in three steps */
     .ba-method {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 2rem 0 .5rem;
         border-top: 1px solid var(--ba-rule); }}
@@ -857,7 +871,7 @@ def landing() -> str:
       <h1>Turn a novel into pictures.</h1>
       <div class="ba-author">Characters, relationships, places and moods, drawn from the text itself</div>
       <p class="ba-lede">Upload an English novel as a <code>.txt</code> file in the sidebar, or open one of the
-      50 free classics listed there, from <i>Pride and Prejudice</i> and <i>Dracula</i> to <i>Moby Dick</i>
+      50 free classics below, from <i>Pride and Prejudice</i> and <i>Dracula</i> to <i>Moby Dick</i>
       and <i>The Great Gatsby</i>. Every model
       runs on this computer: the book is never sent anywhere.</p>
       </div>

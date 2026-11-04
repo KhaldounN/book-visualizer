@@ -31,6 +31,9 @@ import design  # noqa: E402
 import explore3d  # noqa: E402
 
 
+SAMPLE_DIR = Path(__file__).resolve().parent.parent / "data"
+
+
 def small_analysis() -> BookAnalysis:
     names = ["Anna", "Tom", "Eve", "Lizzy", "Max", "Ben"]
     chapters = [Chapter(i, f"Chapter {i + 1}", 0) for i in range(4)]
@@ -317,6 +320,11 @@ def test_start_page_explains_the_method():
     bodies = [h.proto.body for h in at.get("html")]
     assert any("Turn a novel into pictures" in b and b.count('class="ba-kicker">I') == 3 for b in bodies)
     assert any("data:image/jpeg" in b for b in bodies), "the About tab still shows the raccoon"
+    # the famous books can be opened from the page itself (on a phone the sidebar is hidden)
+    if (SAMPLE_DIR / "great_expectations.txt").exists() and any("Great Expectations ⚡" == o for o in
+                                                                   at.selectbox(key="sample_main").options):
+        at.selectbox(key="sample_main").set_value("great_expectations.txt").run(timeout=120)
+        assert any("Great Expectations" in h.proto.body and "ba-top" in h.proto.body for h in at.get("html"))
 
 
 def test_every_chapter_theme_has_an_icon():

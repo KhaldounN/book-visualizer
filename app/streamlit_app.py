@@ -271,6 +271,13 @@ elif re.fullmatch(r"[0-9a-f]{64}", st.query_params.get("book", "")) and \
 else:
     st.html(design.top_bar())
     st.html(design.landing())
+    if samples:  # the library on the page too: on a phone the sidebar hides behind the » button
+        def open_from_page():
+            st.session_state.update(sample=st.session_state["sample_main"], open_sample=True)
+        with st.container(key="start-picker"):
+            st.selectbox(f"Open one of the {len(samples)} famous books", list(samples), index=None, key="sample_main",
+                         placeholder="Choose a book…", on_change=open_from_page,
+                         format_func=lambda name: samples[name][0] + (" ⚡" if name in ready else ""))
     section("How it works", "What kind of AI this is, and what happens between your text file and the charts.")
     st.html(design.how_it_works())
     section("About", "Who made this, and why.")

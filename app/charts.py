@@ -83,6 +83,9 @@ def _layout(fig: go.Figure, theme: dict, height: int, **extra) -> go.Figure:
         font=dict(family=FONT, color=theme["ink"], size=13),
         hoverlabel=dict(font_family=FONT),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=theme["ink2"])),
+        # a drag scrolls the page instead of zooming the chart (on a phone, a finger drag must scroll);
+        # hovering and tapping still show the details
+        dragmode=False,
         **extra,
     )
     fig.update_xaxes(**axis)
