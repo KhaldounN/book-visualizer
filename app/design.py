@@ -124,6 +124,10 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-legend span {{ display: inline-flex; align-items: center; gap: .4rem; }}
     .ba-legend i {{ width: 9px; height: 9px; border-radius: 1px; display: inline-block; }}
 
+    .ba-brief {{ margin: 1.8rem 0 0; max-width: 50rem; }}
+    .ba-brief p {{ margin: .6rem 0 0; font: 400 1.18rem/1.65 {SERIF}; color: var(--ba-ink); }}
+    .ba-brief b {{ font-weight: 600; }}
+
     /* The headline numbers: a ledger of cells divided by hairlines */
     .ba-kpis {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 1.8rem 0 .4rem;
         background: var(--ba-line); border: 1px solid var(--ba-line); border-radius: var(--ba-radius); overflow: hidden; }}
@@ -632,6 +636,67 @@ def cast_legend(analysis: BookAnalysis, theme: dict, avatars: dict | None = None
 # --- hero banner ---------------------------------------------------------------------------
 
 
+def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
+    """The book in a few plain sentences, written from the analysis by templates (no language model):
+    who it follows and its shape, its darkest and brightest chapters, the closest pair and how they
+    change, who talks most, and the leading emotion. Each sentence is skipped when the numbers are unclear."""
+    from analyzer.progression import STORY_SHAPES, WEAK_FIT, story_shape
+    out = []
+    ranked = charts.top_characters(analysis, len(analysis.characters))
+    if not ranked or not analysis.chapters:
+        return out
+    main = ranked[0]
+    first = f"It follows <b>{escape(main.name)}</b> through {len(analysis.chapters)} chapters"
+    _, fits = story_shape(analysis.sentences)
+    if fits and fits[0][1] >= WEAK_FIT:
+        shape = fits[0][0]
+        first += (f", and its mood traces a <b>{escape(shape)}</b> story: "
+                  f"{escape(STORY_SHAPES[shape][1][:1].lower() + STORY_SHAPES[shape][1][1:])}")
+    out.append(first + ("" if first.endswith(".") else "."))
+
+    mood = analysis.chapter_sentiment
+    if len(mood) >= 3:
+        dark, bright = min(range(len(mood)), key=mood.__getitem__), max(range(len(mood)), key=mood.__getitem__)
+        def what(i):  # "Chapter 23 (theme: revelation)"
+            theme = events[i].theme.lower() if i < len(events) and events[i].theme else ""
+            return f"{escape(analysis.chapters[i].title.split(':')[0])}" + (f" (theme: {escape(theme)})" if theme else "")
+        out.append(f"The darkest moment comes in {what(dark)}; the brightest in {what(bright)}.")
+
+    pairs = [r for r in analysis.relationships if main.id in (r.source, r.target)]
+    if pairs:
+        pair = max(pairs, key=lambda r: r.count)
+        other = analysis.characters[pair.target if pair.source == main.id else pair.source]
+        sentence = f"{escape(main.name)} shares the most moments with <b>{escape(other.name)}</b> ({pair.count})"
+        tones = [t for t in pair.chapter_sentiment if t is not None]
+        third = max(1, len(tones) // 3)
+        if len(tones) >= 6:
+            start, end = sum(tones[:third]) / third, sum(tones[-third:]) / third
+            if abs(end - start) >= 0.08:
+                sentence += f", and their scenes grow {'warmer' if end > start else 'colder'} by the end"
+        out.append(sentence + ".")
+
+    lines = find_lines(analysis.sentences, analysis.mentions)
+    spoken = words_spoken(lines, len(analysis.characters))
+    said = sum(spoken)
+    if said:
+        talker = max(analysis.characters, key=lambda c: spoken[c.id])
+        out.append(f"{escape(talker.name)} has the most to say: {spoken[talker.id] / said:.0%} of the dialogue "
+                   f"with a known speaker.")
+
+    shares = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
+    if shares:
+        top = max(shares, key=shares.get)
+        out.append(f"Beyond plain narration, the strongest feeling is <b>{escape(charts.short_label(top).lower())}</b> "
+                   f"({shares[top]:.0%} of the emotional sentences).")
+    return out
+
+
+def _brief_html(analysis: BookAnalysis, events: list) -> str:
+    sentences = in_brief(analysis, events)
+    return (f'<div class="ba-brief"><div class="ba-kicker">In brief</div><p>{" ".join(sentences)}</p></div>'
+            if sentences else "")
+
+
 def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
     """The book's title over a 'mood barcode': one stripe per chapter, coloured by its
     mood (blue brighter, red darker) and as tall as the chapter is emotional."""
@@ -664,6 +729,7 @@ def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
         turns dark (compared with the rest of the book), taller where emotions run high. Hover a stripe for its chapter.
         </figcaption>
       </figure>
+      {_brief_html(analysis, events)}
     </section>"""
 
 

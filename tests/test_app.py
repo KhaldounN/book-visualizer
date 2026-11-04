@@ -472,3 +472,11 @@ def test_a_characters_journey_is_told_in_words(app):
     assert any(line.startswith("▼ **Lowest point** (Chapter") for line in lines)
     assert any(line.startswith("▲ **Highest point** (Chapter") for line in lines)
     assert any(line.startswith("**Emotions:** by the end, more **joy**") for line in lines)
+
+
+def test_the_book_is_told_in_brief():
+    analysis = small_analysis()
+    brief = design.in_brief(analysis, explore3d.events_of(analysis))
+    assert brief[0].startswith("It follows <b>Anna</b> through 4 chapters")
+    assert any(s.startswith("The darkest moment comes in") for s in brief)
+    assert "In brief" in design.hero(analysis, "A", explore3d.events_of(analysis), charts.THEMES["light"])
