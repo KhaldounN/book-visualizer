@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Book Analyzer: upload an English novel (`.txt`) and get its characters, mention counts (names + pronouns), per-sentence sentiment and emotions, key moments, character relationships, places, and how all of these change chapter by chapter. Several ideas came from the owner's 2020 project (github.com/KhaldounN/book-analyzer-beta), reimplemented. A pure-Python analysis engine (`analyzer/`) plus a Streamlit website (`app/`). The owner is learning programming: explain changes simply.
+Raccoonatron (formerly "Book Analyzer"; the folders keep the old name): upload an English novel (`.txt`) and get its characters, mention counts (names + pronouns), per-sentence sentiment and emotions, key moments, character relationships, places, and how all of these change chapter by chapter. Several ideas came from the owner's 2020 project (github.com/KhaldounN/book-analyzer-beta), reimplemented. A pure-Python analysis engine (`analyzer/`) plus a Streamlit website (`app/`). The owner is learning programming: explain changes simply.
 
 ## Versions (the owner's rule)
 

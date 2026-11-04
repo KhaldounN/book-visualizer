@@ -276,7 +276,7 @@ ABOUT = {
         "Hi, I'm Khaldoun. I live in Barcelona and work in data analytics. I studied data analysis and "
         "digital innovation at the University of Barcelona, which is where Python and machine learning "
         "first got me hooked.",
-        "Book Analyzer is a passion project, made purely for fun while I keep learning AI and programming. "
+        "Raccoonatron is a passion project, made purely for fun while I keep learning AI and programming. "
         "It began as a small experiment in 2020 and grew into this. Every AI model runs on my own computer, "
         "so your book never leaves it. Expect the odd mistake: the raccoon is still learning too.",
     ],
@@ -291,7 +291,7 @@ def about() -> str:
     links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)} ↗</a>'
                        for label, url in ABOUT["links"])
     return f"""<section class="ba-about">
-      <figure><img src="{image_uri("raccoon.jpg")}" alt="The Book Analyzer raccoon in headphones at a keyboard">
+      <figure><img src="{image_uri("raccoon.jpg")}" alt="The Raccoonatron raccoon in headphones at a keyboard">
       <figcaption>The raccoon, head of reading</figcaption></figure>
       <div><div class="ba-kicker">About · a passion project</div>
       <h2>Made for fun by {escape(ABOUT["name"])}</h2>{text}
@@ -303,7 +303,7 @@ def top_bar(title: str | None = None) -> str:
     """The masthead above the tabs on every page: the site's name and motto, then the open book."""
     book = (f'<span class="book" title="{escape(title)}">{escape(title)}</span>') if title else ""
     return f"""<header class="ba-top">
-      <div class="ba-mark"><b>Book Analyzer</b><span>A computational reading of the novel</span></div>
+      <div class="ba-mark"><b>Raccoonatron</b><span>A computational reading of the novel</span></div>
       <div class="ba-meta">{book}<span class="ba-sc">Local models · Your book stays on this computer</span></div>
     </header>"""
 
@@ -312,13 +312,13 @@ def footer() -> str:
     """The colophon at the bottom of every page."""
     links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)}</a>'
                        for label, url in ABOUT["links"])
-    return (f'<footer class="ba-foot"><span><b>Book Analyzer</b>A passion project by {escape(ABOUT["name"])}. '
+    return (f'<footer class="ba-foot"><span><b>Raccoonatron</b>A passion project by {escape(ABOUT["name"])}. '
             f'Every model runs locally; results are estimates.</span><span>{links}</span></footer>')
 
 
 def sidebar_title() -> str:
     return (f'<div class="ba-brand"><img src="{image_uri("raccoon-face.png")}" alt="">'
-            f'<div><b>Book Analyzer</b><span>with a raccoon at the keyboard</span></div></div>')
+            f'<div><b>Raccoonatron</b><span>with a raccoon at the keyboard</span></div></div>')
 
 
 def working_card(step: str = "") -> str:

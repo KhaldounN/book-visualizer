@@ -1,4 +1,4 @@
-# 📖 Book Analyzer
+# Raccoonatron
 
 Upload an English novel as a `.txt` file and explore:
 
