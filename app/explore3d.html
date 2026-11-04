@@ -656,12 +656,10 @@ function constellation() {
     const r = 0.18 + 0.55 * Math.sqrt(c.mentions / maxM);
     const ball = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), new THREE.MeshBasicMaterial({ color }));
     ball.position.copy(pos[i]); ball.userData.i = i;
-    const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 1.7, 1), new THREE.MeshBasicMaterial({ color: HOLO, wireframe: true, transparent: true, opacity: 0.18 }));
-    shell.position.copy(pos[i]);
+    // (a rotating wireframe cage used to sit around each star: decoration only, removed at the owner's request)
     const halo = glow(color, r * 7); halo.position.copy(pos[i]);
     const name = label(c.name, { size: 0.42, color: c.color }); name.position.copy(pos[i]).add(new THREE.Vector3(0, r + 0.45, 0));
-    st.scene.add(ball, shell, halo, name);
-    st.tick.push((t) => { shell.rotation.y = t * 0.4 + i; shell.rotation.x = t * 0.2; });
+    st.scene.add(ball, halo, name);
     return ball;
   });
   const maxL = Math.max(1, ...data.links.map((l) => l.count));
