@@ -5,6 +5,7 @@ Colours come from `charts.THEMES`, so light and dark mode both work.
 """
 
 import base64
+import re
 from functools import cache
 from html import escape
 from pathlib import Path
@@ -169,6 +170,10 @@ def page_css(theme: dict, mode: str) -> str:
 
     /* The mascot's emblem, and its notes */
     .ba-emblem {{ flex: none; }}
+    .ba-anim-box {{ margin: .4rem 0 1.4rem; padding: 1rem 1rem .4rem; background: var(--ba-surface);
+        border: 1px solid var(--ba-line); border-radius: var(--ba-radius); }}
+    .ba-anim {{ display: block; width: 100%; height: auto; }}
+    .ba-anim.em-{'dark' if mode == 'light' else 'light'} {{ display: none; }}
     .ba-emblem.em-{'dark' if mode == 'light' else 'light'} {{ display: none; }}
     .ba-top .ba-mark {{ display: flex; align-items: center; gap: .9rem; }}
     .ba-foot .ba-emblem {{ vertical-align: -5px; margin-right: .45rem; }}
@@ -427,6 +432,108 @@ def raccoon_note(text: str) -> str:
     return (f'<aside class="ba-rnote">{emblem(34)}<p><b>The raccoon’s note.</b> {escape(text)}</p></aside>')
 
 
+# --- How it works, animated --------------------------------------------------------------------------
+# An SVG with CSS animations, shown as a picture (like a GIF, but sharp at any size and a few KB):
+# the raccoon pushes a page cart from the book, past the seven stations, to a growing dashboard.
+
+ANIM_COLOURS = {  # ink, muted text, station fill, page, accent
+    "light": ("#1b1a17", "#6f6a60", "#ffffff", "#fbfaf6", "#8a2b1f"),
+    "dark": ("#ece8df", "#a39e93", "#1c1b19", "#121110", "#e0957a"),
+}
+STATION_ICONS = [  # one simple line drawing per workflow step, in a 32 x 32 box centred on 0,0
+    # read: an open book
+    '<path d="M-13 -9 Q-6 -12 0 -8 Q6 -12 13 -9 L13 10 Q6 7 0 11 Q-6 7 -13 10 Z M0 -8 L0 11"/>',
+    # names: a magnifying glass over "Aa"
+    '<circle cx="-3" cy="-3" r="8"/><path d="M3 3 L11 11"/><text x="-3" y="0" font-size="8" text-anchor="middle" '
+    'stroke="none" fill="currentColor" font-family="Georgia, serif">Aa</text>',
+    # pronouns: two chain links
+    '<rect x="-14" y="-5" width="15" height="10" rx="5"/><rect x="-1" y="-5" width="15" height="10" rx="5"/>',
+    # tone: a gauge from minus to plus
+    '<path d="M-13 6 A13 13 0 0 1 13 6"/><path d="M0 6 L7 -5"/><text x="-14" y="13" font-size="7" stroke="none" '
+    'fill="currentColor">−</text><text x="10" y="13" font-size="7" stroke="none" fill="currentColor">+</text>',
+    # emotions: a heart
+    '<path d="M0 11 C-14 1 -13 -11 -5 -10 C-2 -10 0 -7 0 -5 C0 -7 2 -10 5 -10 C13 -11 14 1 0 11 Z"/>',
+    # chapters: a tag
+    '<path d="M-12 -9 L3 -9 L13 0 L3 9 L-12 9 Z"/><circle cx="-6" cy="0" r="2"/>',
+    # statistics: a sigma
+    '<text x="0" y="8" font-size="22" text-anchor="middle" stroke="none" fill="currentColor" '
+    'font-family="Georgia, serif">Σ</text>',
+]
+STATION_NAMES = [("Read", "spaCy"), ("Names", "spaCy NER"), ("Pronouns", "fastcoref"), ("Tone", "RoBERTa"),
+                 ("Emotions", "EmoLit"), ("Chapters", "MiniLM"), ("Count", "statistics")]
+ANIM_SECONDS = 14
+
+
+def _workflow_svg(mode: str) -> str:
+    ink, muted, fill, page, accent = ANIM_COLOURS[mode]
+    xs = [190 + i * 112 for i in range(len(STATION_ICONS))]
+    travel = ANIM_SECONDS * 0.8  # the cart rides for 80% of the loop, then the dashboard holds
+    stations = []
+    for i, (x, icon, (name, tool)) in enumerate(zip(xs, STATION_ICONS, STATION_NAMES)):
+        arrive = (x - 70) / (1040 - 70) * travel  # when the cart passes this station
+        stations.append(
+            f'<g transform="translate({x} 150)">'
+            f'<circle r="34" fill="{fill}" stroke="{muted}" stroke-width="1.5"/>'
+            f'<circle r="34" fill="none" stroke="{accent}" stroke-width="3" class="lit" '
+            f'style="animation-delay:{arrive:.2f}s"/>'
+            f'<g fill="none" stroke="{ink}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+            f'color="{ink}" class="icon" style="animation-delay:{arrive:.2f}s">{icon}</g>'
+            f'<circle cx="24" cy="-24" r="10" fill="{accent}"/>'
+            f'<text x="24" y="-20.5" font-size="11" text-anchor="middle" fill="{page}" font-weight="700">{i + 1}</text>'
+            f'<text y="58" font-size="15" text-anchor="middle" fill="{ink}" font-family="Georgia, serif">{name}</text>'
+            f'<text y="76" font-size="11" text-anchor="middle" fill="{muted}">{tool}</text></g>')
+    raccoon = re.sub(r"^<svg[^>]*>|</svg>$", "", _emblem_svg(64).strip())
+    bars = "".join(f'<rect x="{1072 + k * 14}" y="{170 - h}" width="10" height="{h}" rx="2" fill="{c}" class="bar" '
+                   f'style="animation-delay:{travel:.2f}s"/>'
+                   for k, (h, c) in enumerate(((22, "#2a78d6"), (38, "#e87ba4"), (30, "#eda100"), (46, "#1baf7a"))))
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 250" font-family="Inter, Arial, sans-serif">
+  <style>
+    .belt {{ stroke-dasharray: 10 8; animation: belt 1s linear infinite; }}
+    @keyframes belt {{ to {{ stroke-dashoffset: -18; }} }}
+    .cart {{ animation: ride {ANIM_SECONDS}s linear infinite; }}
+    @keyframes ride {{ 0% {{ transform: translate(70px, 0); }} 80% {{ transform: translate(1040px, 0); }}
+                       80.01%, 100% {{ transform: translate(1040px, 0); opacity: 0; }} }}
+    .lit {{ opacity: 0; animation: lit {ANIM_SECONDS}s ease-out infinite; }}
+    @keyframes lit {{ 0% {{ opacity: 1; }} 12% {{ opacity: 0; }} 100% {{ opacity: 0; }} }}
+    .icon {{ animation: pop {ANIM_SECONDS}s ease-out infinite; transform-box: fill-box; transform-origin: center; }}
+    @keyframes pop {{ 0% {{ transform: scale(1.35); }} 6% {{ transform: scale(1); }} 100% {{ transform: scale(1); }} }}
+    .bar {{ transform-box: fill-box; transform-origin: bottom; transform: scaleY(.15);
+            animation: grow {ANIM_SECONDS}s ease-out infinite; }}
+    @keyframes grow {{ 0% {{ transform: scaleY(.15); }} 8% {{ transform: scaleY(1); }} 18%, 100% {{ transform: scaleY(1); }} }}
+    .bob {{ animation: bob .5s ease-in-out infinite alternate; }}
+    @keyframes bob {{ to {{ transform: translateY(-3px); }} }}
+    @media (prefers-reduced-motion: reduce) {{ .belt, .cart, .lit, .icon, .bar, .bob {{ animation: none; }}
+      .cart {{ transform: translate(70px, 0); }} .bar {{ transform: none; }} }}
+  </style>
+  <path d="M40 72 L1120 72" stroke="{muted}" stroke-width="3" class="belt"/>
+  <g transform="translate(70 150)"><path d="M-30 -26 Q-14 -34 0 -24 Q14 -34 30 -26 L30 26 Q14 18 0 28 Q-14 18 -30 26 Z"
+     fill="{fill}" stroke="{ink}" stroke-width="2"/><path d="M0 -24 L0 28" stroke="{ink}" stroke-width="2"/>
+    <path d="M-24 -14 L-6 -14 M-24 -6 L-6 -6 M-24 2 L-6 2 M6 -14 L24 -14 M6 -6 L24 -6 M6 2 L24 2" stroke="{muted}"/>
+    <text y="58" font-size="15" text-anchor="middle" fill="{ink}" font-family="Georgia, serif">Your book</text></g>
+  {"".join(stations)}
+  <g><rect x="1062" y="118" width="72" height="62" rx="6" fill="{fill}" stroke="{ink}" stroke-width="2"/>{bars}
+    <text x="1098" y="208" font-size="15" text-anchor="middle" fill="{ink}" font-family="Georgia, serif">Charts</text></g>
+  <g class="cart"><g class="bob">
+    <rect x="-22" y="38" width="30" height="22" rx="3" fill="{page}" stroke="{ink}" stroke-width="2"/>
+    <path d="M-17 45 L3 45 M-17 51 L3 51" stroke="{muted}" stroke-width="1.5"/>
+    <circle cx="-14" cy="66" r="5" fill="{ink}"/><circle cx="2" cy="66" r="5" fill="{ink}"/>
+    <svg x="4" y="14" width="42" height="42" viewBox="0 0 64 64">{raccoon}</svg></g></g>
+</svg>"""
+
+
+@cache
+def _workflow_uri(mode: str) -> str:
+    return "data:image/svg+xml;base64," + base64.b64encode(_workflow_svg(mode).encode()).decode()
+
+
+def workflow_animation() -> str:
+    """The animated workflow, one picture per look (page_css shows the one that matches)."""
+    return "".join(f'<img class="ba-anim em-{mode}" src="{_workflow_uri(mode)}" alt="'
+                   f'{"An animation of the workflow: the raccoon carries a page of the book past seven stations, "
+                      "read, names, pronouns, tone, emotions, chapters and count, and a chart grows at the end" if mode == "light" else ""}">'
+                   for mode in ANIM_COLOURS)
+
+
 # The table of contents: (label, the anchor that streamlit_app.section() gives each part's heading)
 CONTENTS = [("Overview", "overview"), ("3D", "explore-in-3d"), ("Story", "the-story"), ("Pace", "pace"),
             ("Mood", "mood"), ("Emotions", "emotions"), ("Characters", "characters"),
@@ -463,6 +570,7 @@ def how_it_works() -> str:
                     "and I never make anything up: every chart can be traced back to sentences in the book.")}
       <div class="ba-kicker">The workflow</div>
       <h3>From a text file to a picture of the novel, in seven steps</h3>
+      <figure class="ba-anim-box">{workflow_animation()}</figure>
       <ol class="ba-flow">{steps}</ol>
       <p class="ba-flow-note">A whole novel takes about ten minutes on an ordinary laptop. The results are saved, so a
       book is only read once. All the numbers are estimates: they show trends, not exact counts.</p>
