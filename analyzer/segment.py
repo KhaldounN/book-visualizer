@@ -172,3 +172,47 @@ def _equal_parts(sentences: list[Sentence]) -> list[Chapter]:
         if s.chapter == len(chapters):
             chapters.append(Chapter(index=s.chapter, title=f"Part {s.chapter + 1}", start=s.start))
     return chapters
+
+
+# --- Chapter titles for display ---------------------------------------------------------------------
+# Books write headings every way: "Chapter I.", "CHAPTER XLVII.", "CHAPTER II. TREATS OF OLIVER...",
+# "STAVE I: MARLEY'S GHOST", "IV. THE CYLINDER OPENS.", "01 My Early Home". The website shows them one
+# way: "Chapter 47", "Chapter 2: Treats of Oliver...", "Stave 1: Marley's Ghost".
+
+_ONES = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+_TEENS = ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+          "nineteen"]
+_TENS = ["twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+_WORD_NUMBERS = {w: i + 1 for i, w in enumerate(_ONES)} | {w: i + 10 for i, w in enumerate(_TEENS)}
+_WORD_NUMBERS |= {t: 20 + 10 * i for i, t in enumerate(_TENS)}
+_WORD_NUMBERS |= {f"{t}-{o}": 20 + 10 * i + j + 1 for i, t in enumerate(_TENS) for j, o in enumerate(_ONES)}
+_WORD_NUMBERS |= {f"{t} {o}": 20 + 10 * i + j + 1 for i, t in enumerate(_TENS) for j, o in enumerate(_ONES)}
+_NUMBER = r"\d+|[ivxlcdm]+|" + "|".join(sorted(_WORD_NUMBERS, key=len, reverse=True))
+_HEADING_PARTS = re.compile(rf"^(?:(chapter|stave|book|part)\s+)?({_NUMBER})\b[\s.:\-—]*(.*)$", re.IGNORECASE)
+_SMALL_WORDS = {"a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into", "of", "on", "or", "the",
+                "to", "with"}
+
+
+def _value(number: str) -> int | None:
+    low = number.lower()
+    if low.isdigit():
+        return int(low)
+    return _WORD_NUMBERS.get(low) or _number(number)
+
+
+def _title_case(text: str) -> str:
+    """'TREATS OF OLIVER TWIST'S GROWTH' -> "Treats of Oliver Twist's Growth"; mixed case is kept."""
+    if text != text.upper():
+        return text
+    words = text.lower().split()
+    return " ".join(w if i and w in _SMALL_WORDS else w[:1].upper() + w[1:] for i, w in enumerate(words))
+
+
+def display_title(title: str) -> str:
+    """One tidy form of a chapter heading (anything else, like "Part 3", is returned as it is)."""
+    m = _HEADING_PARTS.match(title.strip())
+    if not m or _value(m.group(2)) is None:
+        return title
+    keyword = (m.group(1) or "chapter").capitalize()
+    rest = _title_case(m.group(3).strip().rstrip(".").strip())
+    return f"{keyword} {_value(m.group(2))}" + (f": {rest}" if rest else "")

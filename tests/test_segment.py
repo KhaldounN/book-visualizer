@@ -87,3 +87,14 @@ def test_a_contents_page_is_not_read_as_chapters():
     # the last contents entry is followed by text (an epigraph), yet comes before chapter 1
     epigraph = " ".join(["An old epigraph about whales."] * 12)
     assert find_chapters(f"CHAPTER 3. The Inn\n\n{epigraph}\n\n" + _book(titles))[0].title == titles[0]
+
+
+def test_chapter_titles_are_shown_one_tidy_way():
+    from analyzer.segment import display_title
+    assert display_title("CHAPTER XLVII.") == "Chapter 47"
+    assert display_title("CHAPTER II. TREATS OF OLIVER TWIST'S GROWTH") == "Chapter 2: Treats of Oliver Twist's Growth"
+    assert display_title("STAVE I: MARLEY'S GHOST") == "Stave 1: Marley's Ghost"
+    assert display_title("IV. THE CYLINDER OPENS.") == "Chapter 4: The Cylinder Opens"
+    assert display_title("CHAPTER TWENTY-ONE MEG GOES TO VANITY FAIR") == "Chapter 21: Meg Goes to Vanity Fair"
+    assert display_title("Chapter I The Cyclone") == "Chapter 1: The Cyclone"  # mixed case stays as written
+    assert display_title("Part 3") == "Part 3"

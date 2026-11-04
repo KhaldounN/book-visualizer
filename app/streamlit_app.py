@@ -3,6 +3,7 @@
     .venv\\Scripts\\streamlit run app\\streamlit_app.py
 """
 
+import dataclasses
 import hashlib
 import html
 import itertools
@@ -30,6 +31,7 @@ from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters  # noqa: E402
 from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
+from analyzer.segment import display_title  # noqa: E402
 from analyzer.pace import chapter_pace, measure, pace_scores  # noqa: E402
 from analyzer.progression import (  # noqa: E402
     JOURNEY_STAGES, MIN_STAGE_SENTENCES, WEAK_FIT, character_journey, curve_match, journey_turns, key_moments,
@@ -282,6 +284,9 @@ book = analyses[st.session_state["current"]]
 if st.query_params.get("book") != st.session_state["current"]:
     st.query_params["book"] = st.session_state["current"]  # so a reload reopens this book
 analysis = merge_characters(book["analysis"], book["merges"]) if book["merges"] else book["analysis"]
+# every chapter title in one tidy form for the page ("CHAPTER XLVII." -> "Chapter 47"); the saved analysis keeps the book's own
+analysis = dataclasses.replace(analysis, chapters=[dataclasses.replace(c, title=display_title(c.title))
+                                                   for c in analysis.chapters])
 if not analysis.characters:
     st.warning("No characters were found in this book.")
     st.stop()
