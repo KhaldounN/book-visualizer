@@ -86,15 +86,16 @@ def app():
 
 def test_the_dashboard_shows_every_section_in_order(app):
     assert not app.exception
-    # a website with tabs at the top (the owner's choice for version 2), each holding its sections
-    assert [t.label for t in app.tabs] == ["Overview", "Explore in 3D", "Story", "Mood & emotions", "Characters",
-                                           "Places", "About"]
-    inside = {t.label: [h.value for h in t.header] for t in app.tabs}
-    assert inside == {"Overview": [], "Explore in 3D": ["Explore in 3D"], "Story": ["The story", "Pace"],
-                      "Mood & emotions": ["Mood", "Emotions"],
-                      "Characters": ["Characters", "Relationships", "Dialogue"], "Places": ["Places"],
-                      "About": ["About"]}
-    assert "ba-foot" in app.get("html")[-1].proto.body, "a footer under every tab"
+    # one continuous page (the owner's choice, replacing tabs): every part in reading order,
+    # under a sticky table of contents that links to each of them
+    assert not app.tabs
+    assert [h.value for h in app.header] == ["Explore in 3D", "The story", "Pace", "Mood", "Emotions", "Characters",
+                                             "Relationships", "Dialogue", "Places", "How it works", "About"]
+    toc = next(h.proto.body for h in app.get("html") if "ba-toc" in h.proto.body)
+    assert all(f'href="#{h.anchor}"' in toc for h in app.header), "the contents bar links to every part"
+    assert any("Not a chatbot" in h.proto.body and h.proto.body.count("<li>") == len(design.WORKFLOW)
+               for h in app.get("html")), "the How it works part explains the kind of AI and the workflow"
+    assert "ba-foot" in app.get("html")[-1].proto.body, "a footer at the bottom"
     assert not any("Jump to" in m.value for m in app.sidebar.markdown), "the tabs replace the jump links"
     assert any("passion project" in h.proto.body for h in app.get("html")), "the About card is shown"
     assert any("The shape of the story" in h.proto.body for h in app.get("html")), "the story shape badge is shown"
@@ -126,8 +127,9 @@ def kpi_values(analysis, mode="light"):
 def test_kpis_come_first(app):
     page = app.get("html")
     assert "ba-top" in page[0].proto.body, "the top bar comes first"
-    overview = app.tabs[0].get("html")
-    assert "ba-hero" in overview[0].proto.body and "ba-kpis" in overview[1].proto.body, "hero, then KPI cards"
+    bodies = [h.proto.body for h in page]
+    hero = next(i for i, b in enumerate(bodies) if "ba-hero" in b)
+    assert "ba-toc" in bodies[1] and "ba-kpis" in bodies[hero + 1], "contents bar, then hero, then KPI cards"
     values = kpi_values(small_analysis())
     assert [values[k] for k in ("Chapters", "Sentences", "Characters")] == ["4", "80", "6"]
     assert values["Main character"] == "Anna"

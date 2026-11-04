@@ -44,7 +44,7 @@ ENTITY_TYPES = {
 }
 KINDS = {"place": "Places", "organization": "Organizations", "group": "Groups and families", "other": "Other"}
 
-st.set_page_config(page_title="Raccoonatron", page_icon=str(ROOT / "app" / "assets" / "raccoon-face.png"),
+st.set_page_config(page_title="Raccoonatron", page_icon=str(ROOT / "app" / "assets" / "raccoon-emblem.png"),
                    layout="wide")
 MODE = "dark" if st.context.theme.type == "dark" else "light"
 theme = charts.THEMES[MODE]
@@ -249,11 +249,11 @@ elif re.fullmatch(r"[0-9a-f]{64}", st.query_params.get("book", "")) and \
     data, filename = None, None
 else:
     st.html(design.top_bar())
-    home, about_tab = st.tabs(["Home", "About"])
-    with home:
-        st.html(design.landing())
-    with about_tab:
-        st.html(design.about())
+    st.html(design.landing())
+    section("How it works", "What kind of AI this is, and what happens between your text file and the charts.")
+    st.html(design.how_it_works())
+    section("About", "Who made this, and why.")
+    st.html(design.about())
     st.html(design.footer())
     st.stop()
 
@@ -344,9 +344,13 @@ names = {c.id: c.name for c in analysis.characters}
 # --- The top bar and the tabs: one per part of the analysis ---------------------------------
 
 TABS = {"overview": "Overview", "3d": "Explore in 3D", "story": "Story", "mood": "Mood & emotions",
-        "people": "Characters", "places": "Places", "about": "About"}
+        "people": "Characters", "places": "Places", "how": "How it works", "about": "About"}
 st.html(design.top_bar(book["title"]))
-tab = dict(zip(TABS, st.tabs(list(TABS.values()))))
+# One continuous page. Each part is an empty container made here, in reading order, and filled
+# further down, so the code can stay grouped by topic while the page reads top to bottom.
+with st.container(key="toc"):  # sticky (design.py: .st-key-toc)
+    st.html(design.contents())
+tab = {key: st.container() for key in TABS}
 
 # --- Header and KPIs ---------------------------------------------------------------
 with tab["overview"]:
@@ -358,15 +362,15 @@ with tab["overview"]:
     with st.container():
         with st.expander("How to read these results"):
             st.markdown(
-                "- **Tone** comes from an AI model that scores each sentence from −1 (negative) to +1 "
+                "- **Tone** comes from a machine-learning model that scores each sentence from −1 (negative) to +1 "
                 "(positive). It reads the *words*, not the characters' true feelings: polite flattery "
                 "scores positive even when it is ridiculous.\n"
                 "- **Mentions** include names *and* pronouns (\"she\", \"his\"). Pronouns are linked by "
-                "another AI model that is right roughly 3 times out of 4, so treat counts as estimates "
+                "another machine-learning model that is right roughly 3 times out of 4, so treat counts as estimates "
                 "and look at trends. \"I\" and \"you\" in dialogue are not counted.\n"
                 "- Two characters are **together** when both are mentioned in the same or neighbouring "
                 "sentences. Their tone is the tone of those shared moments.\n"
-                "- **Emotions** come from a third AI model, trained on sentences from classic books, that "
+                "- **Emotions** come from a third machine-learning model, trained on sentences from classic books, that "
                 "scores 38 fine emotions (grief, guilt, gratitude, curiosity…) in every sentence. The charts "
                 "group them into 8 families; most sentences in a novel are *neutral*. On a hand check it was "
                 "right about 4 times in 5, and it is weakest at fear.\n"
@@ -469,7 +473,7 @@ with tab["story"]:
         </style><div class="cards">{"".join(cards)}</div>"""
 
 
-    section("The story", "What happens chapter by chapter. Each chapter's theme is picked by a small AI model running "
+    section("The story", "What happens chapter by chapter. Each chapter's theme is picked by a small machine-learning model running "
             "on this computer; it is right about half the time, so every label comes with the sentence and words it "
             "is based on.")
     if not analysis.chapter_events:
@@ -490,7 +494,7 @@ with tab["story"]:
 # --- Mood --------------------------------------------------------------------------------------
 with tab["mood"]:
 
-    section("Mood", "The tone of the sentences, from −1 (negative) to +1 (positive), scored by an AI model.")
+    section("Mood", "The tone of the sentences, from −1 (negative) to +1 (positive), scored by a machine-learning model.")
 
     candidates = charts.top_characters(analysis, 8)
     left, right = panel("Mood by chapter", "The average tone of each chapter for the **whole book** (gray), next to "
@@ -537,7 +541,7 @@ with tab["mood"]:
 # --- Emotions -----------------------------------------------------------------------------------
 with tab["mood"]:
 
-    section("Emotions", "An AI model trained on classic books scores 38 fine emotions in every sentence; the "
+    section("Emotions", "A machine-learning model trained on classic books scores 38 fine emotions in every sentence; the "
             f"charts group them into 8 families. About {book_mix.get('neutral', 0):.0%} of this book is neutral "
             "narration; the charts show how the rest divides.")
     if not has_emotions:
@@ -588,7 +592,7 @@ with tab["mood"]:
 with tab["people"]:
 
     section("Characters", "Who the book is about. Mentions count names and pronouns (\"she\", \"his\"); pronouns are "
-            "linked by an AI model that is right about 3 times in 4, so treat counts as estimates.")
+            "linked by a machine-learning model that is right about 3 times in 4, so treat counts as estimates.")
 
     left, right = panel("Mentions", "How often each character is mentioned, **by name** and **by pronoun or "
                         "description**. Two names for one person (a nickname, a married name)? Merge them in the "
@@ -816,6 +820,11 @@ with tab["places"]:
             ]))
 
 # --- About ----------------------------------------------------------------------------------------
+with tab["how"]:
+
+    section("How it works", "What kind of AI this is, and what happens between your text file and the charts.")
+    st.html(design.how_it_works())
+
 with tab["about"]:
 
     section("About", "Who made this, and why.")

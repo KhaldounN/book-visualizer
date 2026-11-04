@@ -83,7 +83,6 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-foot a:hover {{ color: var(--ba-ink); border-color: var(--ba-gold); }}
 
     /* Parts and figures are numbered, as in a printed study: each tab starts again at Part I, Figure 1 */
-    .stMainBlockContainer [role="tabpanel"] {{ counter-reset: part fig; }}
     .stMainBlockContainer [data-testid="stHeading"] h2 {{ counter-increment: part;
         font-family: {SERIF}; font-size: 2.35rem; font-weight: 500; letter-spacing: -.015em; line-height: 1.15;
         padding: 2.4rem 0 .6rem; border-bottom: 1px solid var(--ba-rule); }}
@@ -150,6 +149,55 @@ def page_css(theme: dict, mode: str) -> str:
         text-transform: uppercase; padding: .3rem .5rem; border-radius: 2px; color: #fff; }}
     .ba-kpi blockquote {{ margin: .25rem 0 0; padding: 0 0 0 .9rem; border-left: 2px solid var(--tone);
         font-family: {SERIF}; font-style: italic; font-size: 1.05rem; line-height: 1.5; color: var(--ba-ink2); }}
+
+
+    /* One continuous page: a sticky table of contents (it replaced the tabs) */
+    /* sticky on Streamlit's wrapper box around the container (a sticky box only sticks inside its parent) */
+    div:has(> .st-key-toc) {{ position: sticky; top: 3.75rem; z-index: 90; }}
+    .st-key-toc {{ background: var(--ba-page); border-bottom: 1px solid var(--ba-rule); }}
+    .ba-toc {{ display: flex; flex-wrap: wrap; gap: .2rem 1.05rem; padding: .85rem 0 .75rem; }}
+    .ba-toc a {{ font: 600 .68rem/1 {SANS}; letter-spacing: .1em; text-transform: uppercase; color: var(--ba-muted);
+        text-decoration: none; padding: .2rem 0; border-bottom: 2px solid transparent; }}
+    .ba-toc a:hover {{ color: var(--ba-ink); border-bottom-color: var(--ba-gold); }}
+    .stMainBlockContainer {{ counter-reset: part fig; }}
+    .stMainBlockContainer [id] {{ scroll-margin-top: 8.5rem; }}  /* a jump stops below the sticky contents bar */
+
+
+    /* The mascot's emblem, and its notes */
+    .ba-emblem {{ flex: none; }}
+    .ba-emblem.em-{'dark' if mode == 'light' else 'light'} {{ display: none; }}
+    .ba-top .ba-mark {{ display: flex; align-items: center; gap: .9rem; }}
+    .ba-foot .ba-emblem {{ vertical-align: -5px; margin-right: .45rem; }}
+    .ba-rnote {{ display: flex; gap: .9rem; align-items: flex-start; max-width: 46rem; margin: 0 0 2rem; }}
+    .ba-rnote p {{ margin: 0; font: italic 400 1.02rem/1.55 {SERIF}; color: var(--ba-ink2); }}
+    .ba-rnote b {{ font: 600 .66rem/1 {SANS}; font-style: normal; letter-spacing: .16em; text-transform: uppercase;
+        color: var(--ba-gold); margin-right: .3rem; }}
+
+    /* How it works: what kind of AI this is, and the workflow */
+    .ba-how h3 {{ font: 500 1.6rem/1.2 {SERIF}; color: var(--ba-ink); margin: .5rem 0 1rem; padding: 0; }}
+    .ba-note {{ margin: 1.6rem 0 2.4rem; padding: 1.4rem 1.6rem; background: var(--ba-surface);
+        border: 1px solid var(--ba-line); border-left: 3px solid var(--ba-gold); border-radius: var(--ba-radius); }}
+    .ba-note p {{ max-width: 48rem; font: 400 1.05rem/1.6 {SERIF}; color: var(--ba-ink2); margin: 0 0 .7rem; }}
+    .ba-note p.fine {{ font: 400 .82rem/1.55 {SANS}; color: var(--ba-muted); margin: 0; }}
+    .ba-flow {{ list-style: none; margin: 0; padding: 0; counter-reset: none; }}
+    .ba-flow li {{ position: relative; display: grid; grid-template-columns: 2.6rem minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1.2rem; align-items: start; padding: 1rem 0; border-top: 1px solid var(--ba-line); margin: 0; }}
+    .ba-flow li:last-child {{ border-bottom: 1px solid var(--ba-line); }}
+    .ba-flow li:not(:last-child)::after {{ content: ""; position: absolute; left: 1.3rem; top: 3.4rem; bottom: -1rem;
+        width: 1px; background: var(--ba-rule); }}  /* the line joining the steps */
+    .ba-flow .n {{ width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid; place-items: center;
+        border: 1px solid var(--ba-gold); color: var(--ba-gold); font: 500 1.15rem/1 {SERIF}; background: var(--ba-page);
+        position: relative; z-index: 1; }}
+    .ba-flow b {{ display: block; font: 500 1.2rem/1.3 {SERIF}; color: var(--ba-ink); }}
+    .ba-flow p {{ margin: .25rem 0 0; font-size: .86rem; line-height: 1.55; color: var(--ba-ink2); }}
+    .ba-flow .tool code {{ display: inline-block; font-size: .78rem; padding: .2rem .45rem; border-radius: 3px;
+        background: var(--ba-surface); border: 1px solid var(--ba-line); color: var(--ba-ink); }}
+    .ba-flow .tool span {{ display: block; margin-top: .35rem; font: 600 .62rem/1.2 {SANS}; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--ba-muted); }}
+    .ba-flow .out {{ font: italic 400 .98rem/1.45 {SERIF}; color: var(--ba-ink2); }}
+    .ba-flow-note {{ margin: 1rem 0 0; font-size: .82rem; color: var(--ba-muted); }}
+    @media (max-width: 760px) {{ .ba-flow li {{ grid-template-columns: 2.6rem minmax(0, 1fr); }}
+        .ba-flow .tool, .ba-flow .out {{ grid-column: 2; }} }}
 
     /* The start page: what the site does, in three steps */
     .ba-method {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 2rem 0 .5rem;
@@ -285,6 +333,127 @@ ABOUT = {
 }
 
 
+# The workflow: (what happens, the tool that does it, what kind of tool it is, what comes out)
+WORKFLOW = [
+    ("Read the book", "Python + spaCy", "rules",
+     "The Project Gutenberg header and licence are removed, the text is cut into chapters, then into sentences.",
+     "chapters and sentences"),
+    ("Find the names", "spaCy en_core_web_lg", "statistical model",
+     "A named-entity recognizer marks people, places and organizations. Forms of one full name "
+     "(Elizabeth Bennet, Elizabeth) are grouped; nicknames can be merged by hand in the sidebar.", "characters, places"),
+    ("Link the pronouns", "fastcoref", "coreference model",
+     "Works out who “she”, “his” and “the young lady” refer to, so a character is counted even when "
+     "they are not named. Right about 3 times in 4.", "every mention of every character"),
+    ("Score the tone", "RoBERTa sentiment classifier", "classifier",
+     "Gives every sentence a score from −1 (negative) to +1 (positive).", "the mood of each sentence"),
+    ("Tag the emotions", "EmoLit RoBERTa classifier", "classifier",
+     "Trained on sentences from classic literature: rates 38 fine emotions (grief, guilt, gratitude, "
+     "curiosity…) in every sentence, grouped into 8 families.", "the emotions of each sentence"),
+    ("Name the chapters", "MiniLM sentence embeddings", "similarity model",
+     "Turns each chapter's sentences into numbers and finds the closest of a list of themes "
+     "(ball, proposal, scandal, journey…).", "a theme for each chapter"),
+    ("Count and compare", "plain statistics", "no model",
+     "Averages, counts and correlations: who appears near whom, who speaks, how fast the book reads, "
+     "and which of six classic story shapes its mood follows.", "every chart on this page"),
+]
+
+
+# --- the emblem: the raccoon as a publisher's mark ----------------------------------------------
+
+
+def _emblem_svg(size: int, ink: str, paper: str, accent: str, fur: str = "#9a948a") -> str:
+    """The site's mascot as a small ink drawing: a raccoon's head (round ears, cheek tufts,
+    white brows and muzzle, the black mask), like a publisher's mark. Colours are CSS values,
+    so it follows light and dark mode."""
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 64 64">
+      <ellipse cx="14.5" cy="16" rx="7.5" ry="8.5" transform="rotate(-28 14.5 16)" fill="{ink}"/>
+      <ellipse cx="49.5" cy="16" rx="7.5" ry="8.5" transform="rotate(28 49.5 16)" fill="{ink}"/>
+      <ellipse cx="15.5" cy="17.5" rx="3.6" ry="4.6" transform="rotate(-28 15.5 17.5)" fill="{accent}"/>
+      <ellipse cx="48.5" cy="17.5" rx="3.6" ry="4.6" transform="rotate(28 48.5 17.5)" fill="{accent}"/>
+      <path d="M32 13 C44 13 52 19 55 27 L62 36 L54.5 38.5 L58 44 L48 45.5 C44 52 38 56 32 57
+               C26 56 20 52 16 45.5 L6 44 L9.5 38.5 L2 36 L9 27 C12 19 20 13 32 13 Z"
+            fill="{fur}" stroke="{ink}" stroke-width="2" stroke-linejoin="round"/>
+      <ellipse cx="22" cy="25.5" rx="6.5" ry="3" fill="{paper}"/><ellipse cx="42" cy="25.5" rx="6.5" ry="3" fill="{paper}"/>
+      <path d="M32 14 L29.6 31 L34.4 31 Z" fill="{ink}"/>
+      <path d="M7.5 35 C13 27.5 24 28 32 35 C40 28 51 27.5 56.5 35 C51.5 42 42.5 43.5 36.5 40 L32 44
+               L27.5 40 C21.5 43.5 12.5 42 7.5 35 Z" fill="{ink}"/>
+      <circle cx="21.5" cy="34.3" r="2.6" fill="{paper}"/><circle cx="42.5" cy="34.3" r="2.6" fill="{paper}"/>
+      <circle cx="22" cy="34" r="1.1" fill="{ink}"/><circle cx="43" cy="34" r="1.1" fill="{ink}"/>
+      <path d="M23.5 43 C26 39.5 38 39.5 40.5 43 C40.5 49.5 36.5 54 32 55 C27.5 54 23.5 49.5 23.5 43 Z" fill="{paper}"/>
+      <ellipse cx="32" cy="45" rx="3.4" ry="2.4" fill="{ink}"/>
+      <path d="M32 47.4 L32 50.4 M32 50.4 Q29.6 52.3 27.8 51 M32 50.4 Q34.4 52.3 36.2 51" fill="none"
+            stroke="{ink}" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>"""
+
+
+# the emblem's colours in each look: ink, paper (the page), the accent inside the ears
+EMBLEM_COLOURS = {"light": ("#1b1a17", "#fbfaf6", "#8a2b1f"), "dark": ("#ece8df", "#121110", "#e0957a")}
+
+
+@cache
+def _emblem_uri(mode: str) -> str:
+    return "data:image/svg+xml;base64," + base64.b64encode(_emblem_svg(64, *EMBLEM_COLOURS[mode]).encode()).decode()
+
+
+def emblem(size: int = 44) -> str:
+    """The mascot's emblem as pictures, one per look; page_css shows the one that matches.
+    (A picture, because st.html removes inline SVG drawings.)"""
+    return "".join(f'<img class="ba-emblem em-{mode}" src="{_emblem_uri(mode)}" width="{size}" height="{size}" '
+                   f'alt="{"Raccoonatron’s raccoon" if mode == "light" else ""}">' for mode in EMBLEM_COLOURS)
+
+
+def favicon_svg() -> str:
+    """The emblem for the browser tab (app/assets/raccoon-emblem.png was made from it)."""
+    return _emblem_svg(64, *EMBLEM_COLOURS["light"])
+
+
+def raccoon_note(text: str) -> str:
+    """A short aside from the mascot, set in the margin style of a printed edition."""
+    return (f'<aside class="ba-rnote">{emblem(34)}<p><b>The raccoon’s note.</b> {escape(text)}</p></aside>')
+
+
+# The table of contents: (label, the anchor that streamlit_app.section() gives each part's heading)
+CONTENTS = [("Overview", "overview"), ("3D", "explore-in-3d"), ("Story", "the-story"), ("Pace", "pace"),
+            ("Mood", "mood"), ("Emotions", "emotions"), ("Characters", "characters"),
+            ("Relationships", "relationships"), ("Dialogue", "dialogue"), ("Places", "places"),
+            ("How it works", "how-it-works"), ("About", "about")]
+
+
+def contents() -> str:
+    """The sticky bar of links to every part of the page."""
+    links = "".join(f'<a href="#{anchor}">{escape(label)}</a>' for label, anchor in CONTENTS)
+    return f'<nav class="ba-toc" aria-label="Contents">{links}</nav>'
+
+
+def how_it_works() -> str:
+    """What kind of AI this is (and isn't), and the workflow from the book to the charts."""
+    steps = "".join(
+        f'<li><span class="n">{i}</span><div><b>{escape(what)}</b><p>{escape(text)}</p></div>'
+        f'<div class="tool"><code>{escape(tool)}</code><span>{escape(kind)}</span></div>'
+        f'<div class="out">→ {escape(out)}</div></li>'
+        for i, (what, tool, kind, text, out) in enumerate(WORKFLOW, 1))
+    return f"""<section class="ba-how">
+      <div class="ba-note">
+        <div class="ba-kicker">Not a chatbot</div>
+        <h3>Good old machine learning, not a large language model</h3>
+        <p>Nothing here writes text or “understands” the book the way ChatGPT or Claude do, and nothing is sent
+        to an online AI service. Raccoonatron uses small, specialised machine-learning models, each trained for one
+        narrow job: spotting names, linking pronouns, scoring a sentence's tone, tagging its emotions. Their
+        answers are then counted and compared with plain statistics. Every model runs on this computer.</p>
+        <p class="fine">To be exact: the tone and emotion models are built on RoBERTa, a small (125-million-parameter)
+        neural network pre-trained on English text and then trained to classify. Unlike a chatbot it can only pick
+        labels from a fixed list; it cannot write, answer questions or invent anything.</p>
+      </div>
+      {raccoon_note("I do not read the way you do. I count, compare and score, sentence by sentence, "
+                    "and I never make anything up: every chart can be traced back to sentences in the book.")}
+      <div class="ba-kicker">The workflow</div>
+      <h3>From a text file to a picture of the novel, in seven steps</h3>
+      <ol class="ba-flow">{steps}</ol>
+      <p class="ba-flow-note">A whole novel takes about ten minutes on an ordinary laptop. The results are saved, so a
+      book is only read once. All the numbers are estimates: they show trends, not exact counts.</p>
+    </section>"""
+
+
 def about() -> str:
     """Who made the site: a short, friendly card with the raccoon."""
     text = "".join(f"<p>{escape(p)}</p>" for p in ABOUT["paragraphs"])
@@ -303,7 +472,7 @@ def top_bar(title: str | None = None) -> str:
     """The masthead above the tabs on every page: the site's name and motto, then the open book."""
     book = (f'<span class="book" title="{escape(title)}">{escape(title)}</span>') if title else ""
     return f"""<header class="ba-top">
-      <div class="ba-mark"><b>Raccoonatron</b><span>A computational reading of the novel</span></div>
+      <div class="ba-mark">{emblem(58)}<div><b>Raccoonatron</b><span>A computational reading of the novel</span></div></div>
       <div class="ba-meta">{book}<span class="ba-sc">Local models · Your book stays on this computer</span></div>
     </header>"""
 
@@ -312,7 +481,7 @@ def footer() -> str:
     """The colophon at the bottom of every page."""
     links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)}</a>'
                        for label, url in ABOUT["links"])
-    return (f'<footer class="ba-foot"><span><b>Raccoonatron</b>A passion project by {escape(ABOUT["name"])}. '
+    return (f'<footer class="ba-foot"><span>{emblem(22)}<b>Raccoonatron</b>A passion project by {escape(ABOUT["name"])}. '
             f'Every model runs locally; results are estimates.</span><span>{links}</span></footer>')
 
 
@@ -468,12 +637,12 @@ def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
     shares = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
     author = f'<div class="ba-author">by {escape(analysis.author)}</div>' if analysis.author else ""
     words = sum(len(s.text.split()) for s in analysis.sentences)
-    return f"""<section class="ba-hero">
+    return f"""<section class="ba-hero ba-anchor" id="overview">
       <div class="ba-kicker">A computational reading · {len(analysis.chapters)} chapters · {words:,} words</div>
       <h1>{escape(title)}</h1>{author}
-      <p class="ba-lede">Every sentence of the novel has been read by language models running on this computer,
-      scored for its mood and emotions, and searched for characters and places. The tabs above open each part of
-      the reading; this page gives the whole book at a glance.</p>
+      <p class="ba-lede">Every sentence of the novel has been read by machine-learning models running on this computer,
+      scored for its mood and emotions, and searched for characters and places. The contents bar above jumps to each
+      part of the reading; this first part gives the whole book at a glance.</p>
       <figure class="ba-figure">
         <div class="ba-ribbon">{stripes}</div>
         <div class="ba-axis"><span>Beginning</span><span>Middle</span><span>End</span></div>
@@ -492,19 +661,23 @@ def landing() -> str:
     steps = (
         ("I · Read", "Every sentence", "The novel is split into chapters and sentences; names, places and pronouns "
                                        "are found and linked to the characters they refer to."),
-        ("II · Measure", "Tone and feeling", "Language models score the mood of each sentence and 38 fine emotions, "
+        ("II · Measure", "Tone and feeling", "Trained classifiers score the mood of each sentence and 38 fine emotions, "
                                              "from grief and guilt to gratitude and curiosity."),
         ("III · Map", "The shape of the story", "Who meets whom, where the story happens, how each character's "
                                                 "journey rises and falls, and which classic shape the plot follows."),
     )
     method = "".join(f'<div><span class="ba-kicker">{a}</span><b>{b}</b><p>{c}</p></div>' for a, b, c in steps)
-    return f"""<section class="ba-hero">
+    return f"""<section class="ba-hero"><div class="ba-split"><div>
       <div class="ba-kicker">A computational reading</div>
       <h1>Turn a novel into pictures.</h1>
       <div class="ba-author">Characters, relationships, places and moods, drawn from the text itself</div>
       <p class="ba-lede">Upload an English novel as a <code>.txt</code> file in the sidebar, or choose one of the
       famous books already read (<i>Dracula</i>, <i>Frankenstein</i>, <i>Pride and Prejudice</i>…). Every model
       runs on this computer: the book is never sent anywhere.</p>
+      </div>
+      <figure class="ba-mascot"><img src="{image_uri("raccoon.jpg")}" alt="The Raccoonatron raccoon in headphones at a keyboard">
+      <figcaption>Your reader for today: the raccoon. Careful, quick, and fond of a good ending.</figcaption></figure>
+      </div>
       <div class="ba-method">{method}</div>
     </section>"""
 
