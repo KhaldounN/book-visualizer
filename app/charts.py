@@ -75,13 +75,17 @@ def top_characters(analysis: BookAnalysis, n: int):
 
 
 def _layout(fig: go.Figure, theme: dict, height: int, **extra) -> go.Figure:
-    axis = dict(gridcolor=theme["grid"], linecolor=theme["axis"], zeroline=False,
-                tickfont=dict(color=theme["muted"]), title_font=dict(color=theme["ink2"]))
+    axis = dict(gridcolor=theme["grid"], linecolor=theme["axis"], zeroline=False, ticks="", gridwidth=1,
+                tickfont=dict(color=theme["muted"], size=12), title_font=dict(color=theme["ink2"], size=12),
+                title_standoff=10)
     fig.update_layout(
         height=height, margin=dict(l=10, r=10, t=30, b=10),
         paper_bgcolor=theme["surface"], plot_bgcolor=theme["surface"],
         font=dict(family=FONT, color=theme["ink"], size=13),
-        hoverlabel=dict(font_family=FONT),
+        # tooltips as small cards in the page's own colours, not Plotly's coloured boxes
+        hoverlabel=dict(bgcolor=theme["surface"], bordercolor=theme["axis"], align="left",
+                        font=dict(family=FONT, color=theme["ink"], size=13)),
+        barcornerradius=3,  # softly rounded bar ends
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=theme["ink2"])),
         # a drag scrolls the page instead of zooming the chart (on a phone, a finger drag must scroll);
         # hovering and tapping still show the details
@@ -181,6 +185,29 @@ def story_sentiment(analysis: BookAnalysis, theme: dict, character_ids: list[int
             ends.append((last[0], last[1], label))
     _zero_line(fig, theme)
     _tone_axis(fig, all_values)
+    # the story's acts (a new one starts at each low turning point, progression.story_arc) as faint bands
+    from analyzer.progression import story_arc
+    if len(analysis.chapter_sentiment) >= 8:
+        _, _, acts = story_arc(analysis.chapter_sentiment)
+        numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]
+        for k, (first, last) in enumerate(acts[:len(numerals)]):
+            if k % 2 == 0:
+                fig.add_vrect(x0=first + 0.5, x1=last + 1.5, fillcolor=theme["grid"], opacity=0.55, line_width=0,
+                              layer="below")
+            fig.add_annotation(x=(first + last) / 2 + 1, y=0.99, yref="paper", yanchor="top", showarrow=False,
+                               text=f"Act {numerals[k]}", font=dict(color=theme["muted"], size=11))
+    # the book's darkest and brightest chapters, labelled on its line
+    raw = analysis.chapter_sentiment
+    whole = _smooth(raw, smooth) if smooth > 1 else raw
+    if len(raw) >= 3:
+        for index, label, shift in ((min(range(len(raw)), key=raw.__getitem__), "darkest", 1),
+                                    (max(range(len(raw)), key=raw.__getitem__), "brightest", -1)):
+            if whole[index] is not None:
+                fig.add_annotation(x=index + 1, y=whole[index], text=f"{label}: {titles[index].split(':')[0]}",
+                                   showarrow=True, arrowhead=0, arrowwidth=1, arrowcolor=theme["muted"],
+                                   ax=0, ay=34 * shift, font=dict(color=theme["ink2"], size=11),
+                                   bgcolor=theme["surface"])
+    fig.update_traces(line_shape="spline", line_smoothing=0.6, selector=dict(type="scatter"))
     if len(lines) > 1:
         _end_labels(fig, theme, ends, fig.layout.yaxis.range)
     fig.update_xaxes(title="Chapter", range=[0.5, len(chapters) + (len(chapters) * 0.14 + 3 if len(lines) > 1 else 0.5)])
@@ -360,6 +387,7 @@ def emotion_journey(analysis: BookAnalysis, theme: dict, smooth: int) -> go.Figu
     fig.update_yaxes(title="Share of the emotional content", ticksuffix="%", range=[0, 100])
     fig = _layout(fig, theme, height=440, hovermode="x unified")
     fig.update_layout(legend_traceorder="normal")  # Love ... Disapproval, like the other emotion charts
+    fig.update_traces(line_shape="spline", line_smoothing=0.6, selector=dict(type="scatter"))  # smooth trend
     return fig
 
 
@@ -412,6 +440,7 @@ def character_journey(analysis: BookAnalysis, theme: dict, journey: list[dict], 
     fig.update_annotations(font=dict(size=12, color=theme["ink2"]), x=0, xanchor="left")
     fig = _layout(fig, theme, height=600, barmode="stack", bargap=0.25, hovermode="x unified")
     fig.update_layout(legend_traceorder="normal", margin=dict(l=10, r=10, t=60, b=10))
+    fig.update_traces(line_shape="spline", line_smoothing=0.6, selector=dict(type="scatter"))  # smooth trend
     return fig
 
 
@@ -554,6 +583,7 @@ def pair_tone(analysis: BookAnalysis, theme: dict, r: Relationship, smooth: int)
     _zero_line(fig, theme)
     _tone_axis(fig, values)
     fig.update_xaxes(title="Chapter", range=[0.5, len(chapters) + 0.5])
+    fig.update_traces(line_shape="spline", line_smoothing=0.6, selector=dict(type="scatter"))  # smooth trend
     return _layout(fig, theme, height=320, showlegend=False)
 
 
