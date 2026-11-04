@@ -182,7 +182,7 @@ def test_every_visualization_has_an_explanation(app):
     titles = [m.value for m in app.markdown if m.value.startswith("#### ")]
     # 3 3D views + chapter cards + 3 mood + 4 emotion + 3 character (with the journey) + 2 relationship + 4 dialogue + 2 pace
     # + 2 places
-    assert len(titles) == 3 + 1 + 3 + 4 + 3 + 2 + 4 + 2 + 2
+    assert len(titles) == 3 + 2 + 3 + 4 + 3 + 2 + 4 + 2 + 2  # story: chapter cards + search
 
 
 def test_editing_the_title(app):

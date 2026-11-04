@@ -10,6 +10,7 @@ import itertools
 import pickle
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
@@ -26,7 +27,7 @@ import design  # noqa: E402
 import explore3d  # noqa: E402
 import looks  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
-from analyzer import dialogue  # noqa: E402
+from analyzer import dialogue, search  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters, suggest_merges  # noqa: E402
@@ -534,6 +535,34 @@ with tab["story"]:
              "Mood": round(analysis.chapter_sentiment[i], 3)}
             for i, (c, e) in enumerate(zip(analysis.chapters, events))
         ]))
+
+    # Search the book: any word or phrase, where it appears and in what mood
+    common = [w for w, _ in Counter(k for e in events for k in e.keywords).most_common(6)]
+    left, right = panel("Search the book", "Type any **word, name or phrase** to see where it appears: one bar per "
+                        "chapter, as tall as how many sentences contain it, coloured by their mood (**blue** brighter, "
+                        "**red** darker). Below are its first appearance and its brightest and darkest sentences.")
+    with left:
+        query = st.text_input("Word or phrase", value=common[0] if common else "", key="search_query").strip()
+        if common:
+            st.caption("This book's own keywords: " + ", ".join(f"*{w}*" for w in common))
+    found = search.find(analysis.sentences, query)
+    with right:
+        if not query:
+            st.caption("Type a word to search the whole book.")
+        elif not found:
+            st.caption(f"“{query}” doesn't appear in this book.")
+        else:
+            counts, tones = search.by_chapter(found, len(analysis.chapters))
+            busiest = max(range(len(counts)), key=counts.__getitem__)
+            st.markdown(f"**“{query}”** appears in **{len(found):,} sentences** across "
+                        f"{sum(1 for c in counts if c)} chapters, most in {analysis.chapters[busiest].title.split(':')[0]}.")
+            st.plotly_chart(charts.word_by_chapter(analysis, theme, counts, tones, query), width="stretch")
+            hit = search.pattern(query)
+            for label, s in (("First appearance", found[0]), ("Brightest", max(found, key=lambda s: s.sentiment)),
+                             ("Darkest", min(found, key=lambda s: s.sentiment))):
+                text = hit.sub(lambda m: f"**{m.group(0)}**", shorten(s.text, 300))
+                st.markdown(f"**{label}** · {analysis.chapters[s.chapter].title.split(':')[0]} · mood {s.sentiment:+.2f}"
+                            f"\n\n> {text}")
 
 # --- Mood --------------------------------------------------------------------------------------
 with tab["mood"]:

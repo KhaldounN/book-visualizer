@@ -615,6 +615,22 @@ def talk_bars(analysis: BookAnalysis, theme: dict, words: list[int], top: int = 
     return _layout(fig, theme, height=60 + 28 * len(ranked), bargap=0.35)
 
 
+def word_by_chapter(analysis: BookAnalysis, theme: dict, counts: list[int], tones: list[float | None],
+                    word: str) -> go.Figure:
+    """Where a searched word appears: one bar per chapter, as tall as how many sentences contain it,
+    coloured by the mood of those sentences (red darker, gray neutral, blue brighter)."""
+    x = list(range(1, len(counts) + 1))
+    fig = go.Figure(go.Bar(
+        x=x, y=counts, marker=dict(color=[_tone_color(theme, t) if t is not None else theme["grid"] for t in tones],
+                                   line=dict(color=theme["surface"], width=1)),
+        customdata=[[c.title, "" if t is None else f"{t:+.2f}"] for c, t in zip(analysis.chapters, tones)],
+        hovertemplate=f"%{{customdata[0]}}<br>“{word}” in %{{y}} sentences · mood %{{customdata[1]}}<extra></extra>",
+    ))
+    fig.update_xaxes(title="Chapter")
+    fig.update_yaxes(title="Sentences", rangemode="tozero")
+    return _layout(fig, theme, height=320, showlegend=False, bargap=0.15)
+
+
 def talk_by_chapter(analysis: BookAnalysis, theme: dict, counts: list[list[int]], unknown: list[int] | None = None,
                     share: bool = False) -> go.Figure:
     """One stacked bar per chapter: the words each main character speaks there, in their own colour

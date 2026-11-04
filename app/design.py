@@ -939,6 +939,10 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None
     talker = max(analysis.characters, key=lambda c: spoken[c.id])
     said = sum(line.words for line in lines)
     negative, middle, positive = theme["diverging"]
+    from analyzer.narration import narrator
+    teller = narrator(analysis, lines)  # in a first-person book the narrator is the main character
+    if teller is not None:
+        main = analysis.characters[teller]
 
     cards = [
         dict(icon="📚", label="Chapters", value=f"{len(analysis.chapters)}",
@@ -955,9 +959,10 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None
                    if spoken[talker.id] else "no dialogue with a known speaker"),
              art=_stack([(spoken[c.id], colors[c.id], f"{c.name}: {spoken[c.id]:,} words")
                          for c in sorted(analysis.characters, key=lambda c: -spoken[c.id])[:8] if spoken[c.id]])),
-        dict(icon="👑", label="Main character", value=escape(main.name), small=True,
-             note=f"in {sum(1 for n in analysis.mentions_by_chapter[main.id] if n)} "
-                  f"of {len(analysis.chapters)} chapters",
+        dict(icon="👑", label="Narrator" if teller is not None else "Main character", value=escape(main.name),
+             small=True,
+             note=("tells the story as “I”; named by others " if teller is not None else "")
+                  + f"in {sum(1 for n in analysis.mentions_by_chapter[main.id] if n)} of {len(analysis.chapters)} chapters",
              art=_mini_bars(analysis.mentions_by_chapter[main.id], colors[main.id])),
         dict(icon="🌗", label="Overall mood", value=f"{book_tone:+.2f}",
              note="brighter than neutral" if book_tone > 0.02 else "darker than neutral" if book_tone < -0.02
