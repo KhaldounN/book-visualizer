@@ -19,3 +19,28 @@ def test_roles_come_from_the_numbers():
     assert roles[2] == ["Bennet family"]
     assert roles[3] == ["Darker scenes with Elizabeth"]
     assert surname(people[1]) == "Darcy" and surname(people[3]) is None
+
+
+def test_a_first_person_narrator_is_found_from_who_names_them():
+    from analyzer.dialogue import Line
+    from analyzer.models import Chapter, Mention, Sentence
+    from analyzer.narration import narrator
+    # narration in "I"; Pip is named only inside quotes, Joe also in the narration
+    text, sentences, mentions, lines = "", [], [], []
+    for i in range(30):
+        quote = '"Well, Pip," said Joe.'
+        narration = "I went home and Joe followed me."
+        for chunk in (quote, narration):
+            start = len(text)
+            sentences.append(Sentence(len(sentences), chunk, start, start + len(chunk), i % 3))
+            text += chunk + " "
+        q = sentences[-2]
+        lines.append(Line(q.start + 1, q.start + 11, "Well, Pip,", q.chapter, i, q.index, q.index))
+        mentions += [Mention(0, q.index, q.start + 7, q.start + 10, "Pip"), Mention(1, q.index, q.start + 17, q.start + 20, "Joe"),
+                     Mention(1, q.index + 1, sentences[-1].start + 17, sentences[-1].start + 20, "Joe")]
+    book = BookAnalysis(chapters=[Chapter(i, f"Chapter {i + 1}", 0) for i in range(3)], sentences=sentences,
+                        characters=[Character(0, "Pip", ["Pip"], 30), Character(1, "Joe", ["Joe"], 60)],
+                        mentions=mentions, entities=[], relationships=[], chapter_sentiment=[0.0] * 3,
+                        mentions_by_chapter=[], sentiment_by_chapter=[[0.0] * 3, [0.0] * 3])
+    assert narrator(book, lines) == 0
+    assert story_roles(book, narrator=0)[0][0] == "Narrator"

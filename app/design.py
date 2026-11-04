@@ -768,11 +768,20 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
     if not ranked or not analysis.chapters:
         return out
     main = ranked[0]
-    first = f"It follows <b>{escape(main.name)}</b> through {len(analysis.chapters)} chapters"
+    from analyzer.narration import narrator
+    lines = find_lines(analysis.sentences, analysis.mentions)
+    teller = narrator(analysis, lines)
+    if teller is not None:  # a first-person book: its narrator, not the most named character, is who it follows
+        main = analysis.characters[teller]
+        first = (f"It is told in the first person, mostly by <b>{escape(main.name)}</b>, "
+                 f"over {len(analysis.chapters)} chapters")
+    else:
+        first = f"It follows <b>{escape(main.name)}</b> through {len(analysis.chapters)} chapters"
     _, fits = story_shape(analysis.sentences)
     if fits and fits[0][1] >= WEAK_FIT:
         shape = fits[0][0]
-        first += (f", and its mood traces a <b>{escape(shape)}</b> story: "
+        article = "an" if shape[0].lower() in "aeiou" else "a"
+        first += (f", and its mood traces {article} <b>{escape(shape)}</b> story: "
                   f"{escape(STORY_SHAPES[shape][1][:1].lower() + STORY_SHAPES[shape][1][1:])}")
     out.append(first + ("" if first.endswith(".") else "."))
 
@@ -797,7 +806,6 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
                 sentence += f", and their scenes grow {'warmer' if end > start else 'colder'} by the end"
         out.append(sentence + ".")
 
-    lines = find_lines(analysis.sentences, analysis.mentions)
     spoken = words_spoken(lines, len(analysis.characters))
     said = sum(spoken)
     if said:
@@ -892,7 +900,8 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
     from analyzer.roles import story_roles
     from avatars import look_in_words
     colors = charts.character_colors(analysis, theme)
-    roles = story_roles(analysis, n)
+    from analyzer.narration import narrator
+    roles = story_roles(analysis, n, narrator(analysis, find_lines(analysis.sentences, analysis.mentions)))
     book_fine = average_emotions([s.fine for s in analysis.sentences])
     cards = []
     for c in charts.top_characters(analysis, n):

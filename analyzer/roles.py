@@ -36,14 +36,21 @@ def _mood_by_third(analysis: BookAnalysis, character_id: int) -> tuple[float | N
     return avg(first), avg(last)
 
 
-def story_roles(analysis: BookAnalysis, top: int = 8) -> dict[int, list[str]]:
-    """{character id: up to two labels} for the `top` most mentioned characters."""
+def story_roles(analysis: BookAnalysis, top: int = 8, narrator: int | None = None) -> dict[int, list[str]]:
+    """{character id: up to two labels} for the `top` most mentioned characters. In a first-person
+    book the `narrator` (analyzer.narration) is the main character, whatever the mention counts say."""
     cast = sorted(analysis.characters, key=lambda c: -c.mentions)[:top]
     if not cast:
         return {}
-    main = cast[0]
     roles: dict[int, list[str]] = defaultdict(list)
-    roles[main.id].append("Main character")
+    if narrator is not None:
+        main = analysis.characters[narrator]
+        roles[main.id].append("Narrator")
+        if main not in cast:
+            cast = [main] + cast[:-1]
+    else:
+        main = cast[0]
+        roles[main.id].append("Main character")
 
     # the main character's pairs: closest (most moments), clashing (clearly darker than their others)
     pairs = {(r.target if r.source == main.id else r.source): r for r in analysis.relationships
