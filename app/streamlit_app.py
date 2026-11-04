@@ -1,4 +1,4 @@
-"""Raccoonatron (the Book Analyzer website). Run from the project folder:
+"""Book Visualizer (the Book Analyzer website). Run from the project folder:
 
     .venv\\Scripts\\streamlit run app\\streamlit_app.py
 """
@@ -44,7 +44,7 @@ ENTITY_TYPES = {
 }
 KINDS = {"place": "Places", "organization": "Organizations", "group": "Groups and families", "other": "Other"}
 
-st.set_page_config(page_title="Raccoonatron", page_icon=str(ROOT / "app" / "assets" / "raccoon-emblem.png"),
+st.set_page_config(page_title="Book Visualizer", page_icon=str(ROOT / "app" / "assets" / "raccoon-emblem.png"),
                    layout="wide")
 MODE = "dark" if st.context.theme.type == "dark" else "light"
 theme = charts.THEMES[MODE]

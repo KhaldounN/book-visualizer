@@ -324,7 +324,7 @@ ABOUT = {
         "Hi, I'm Khaldoun. I live in Barcelona and work in data analytics. I studied data analysis and "
         "digital innovation at the University of Barcelona, which is where Python and machine learning "
         "first got me hooked.",
-        "Raccoonatron is a passion project, made purely for fun while I keep learning AI and programming. "
+        "Book Visualizer is a passion project, made purely for fun while I keep learning AI and programming. "
         "It began as a small experiment in 2020 and grew into this. Every AI model runs on my own computer, "
         "so your book never leaves it. Expect the odd mistake: the raccoon is still learning too.",
     ],
@@ -361,28 +361,37 @@ WORKFLOW = [
 # --- the emblem: the raccoon as a publisher's mark ----------------------------------------------
 
 
-def _emblem_svg(size: int, ink: str, paper: str, accent: str, fur: str = "#9a948a") -> str:
-    """The site's mascot as a small ink drawing: a raccoon's head (round ears, cheek tufts,
-    white brows and muzzle, the black mask), like a publisher's mark. Colours are CSS values,
-    so it follows light and dark mode."""
+def _emblem_svg(size: int, ink: str = "", paper: str = "", accent: str = "") -> str:
+    """The mascot: a cheerful cartoon raccoon (big ears, bandit mask, a wink, a toothy grin).
+    It has its own fixed colours, and a cream "sticker" border so it stands out on light and
+    dark pages alike. (The ink/paper/accent arguments are kept for the callers; unused.)"""
+    line = "#2b2622"
+    head = ("M32 10 C46 10 55 18 57 28 L62.5 34 L56 36.5 L59.5 41.5 L51 42.5 C47 51 40 55.5 32 55.5 "
+            "C24 55.5 17 51 13 42.5 L4.5 41.5 L8 36.5 L1.5 34 L7 28 C9 18 18 10 32 10 Z")
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 64 64">
-      <ellipse cx="14.5" cy="16" rx="7.5" ry="8.5" transform="rotate(-28 14.5 16)" fill="{ink}"/>
-      <ellipse cx="49.5" cy="16" rx="7.5" ry="8.5" transform="rotate(28 49.5 16)" fill="{ink}"/>
-      <ellipse cx="15.5" cy="17.5" rx="3.6" ry="4.6" transform="rotate(-28 15.5 17.5)" fill="{accent}"/>
-      <ellipse cx="48.5" cy="17.5" rx="3.6" ry="4.6" transform="rotate(28 48.5 17.5)" fill="{accent}"/>
-      <path d="M32 13 C44 13 52 19 55 27 L62 36 L54.5 38.5 L58 44 L48 45.5 C44 52 38 56 32 57
-               C26 56 20 52 16 45.5 L6 44 L9.5 38.5 L2 36 L9 27 C12 19 20 13 32 13 Z"
-            fill="{fur}" stroke="{ink}" stroke-width="2" stroke-linejoin="round"/>
-      <ellipse cx="22" cy="25.5" rx="6.5" ry="3" fill="{paper}"/><ellipse cx="42" cy="25.5" rx="6.5" ry="3" fill="{paper}"/>
-      <path d="M32 14 L29.6 31 L34.4 31 Z" fill="{ink}"/>
-      <path d="M7.5 35 C13 27.5 24 28 32 35 C40 28 51 27.5 56.5 35 C51.5 42 42.5 43.5 36.5 40 L32 44
-               L27.5 40 C21.5 43.5 12.5 42 7.5 35 Z" fill="{ink}"/>
-      <circle cx="21.5" cy="34.3" r="2.6" fill="{paper}"/><circle cx="42.5" cy="34.3" r="2.6" fill="{paper}"/>
-      <circle cx="22" cy="34" r="1.1" fill="{ink}"/><circle cx="43" cy="34" r="1.1" fill="{ink}"/>
-      <path d="M23.5 43 C26 39.5 38 39.5 40.5 43 C40.5 49.5 36.5 54 32 55 C27.5 54 23.5 49.5 23.5 43 Z" fill="{paper}"/>
-      <ellipse cx="32" cy="45" rx="3.4" ry="2.4" fill="{ink}"/>
-      <path d="M32 47.4 L32 50.4 M32 50.4 Q29.6 52.3 27.8 51 M32 50.4 Q34.4 52.3 36.2 51" fill="none"
-            stroke="{ink}" stroke-width="1.3" stroke-linecap="round"/>
+      <g stroke="#fbf6ec" stroke-width="5" stroke-linejoin="round" fill="#fbf6ec">
+        <circle cx="14.5" cy="15" r="9"/><circle cx="49.5" cy="15" r="9"/><path d="{head}"/></g>
+      <circle cx="14.5" cy="15" r="9" fill="#8e8984" stroke="{line}" stroke-width="2"/>
+      <circle cx="49.5" cy="15" r="9" fill="#8e8984" stroke="{line}" stroke-width="2"/>
+      <circle cx="14.5" cy="15.5" r="4.6" fill="#f4a3b4"/><circle cx="49.5" cy="15.5" r="4.6" fill="#f4a3b4"/>
+      <path d="{head}" fill="#aaa5a0" stroke="{line}" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M32 11 Q29.6 19 30 25.5 L34 25.5 Q34.4 19 32 11 Z" fill="#4c4642"/>
+      <ellipse cx="21.5" cy="22.5" rx="6.2" ry="3" fill="#fff"/><ellipse cx="42.5" cy="22.5" rx="6.2" ry="3" fill="#fff"/>
+      <path d="M6.5 31 C12 23.5 24 24 32 30 C40 24 52 23.5 57.5 31 C53 38 44 40.5 38 37 L32 40 L26 37
+               C20 40.5 11 38 6.5 31 Z" fill="#2f2a27"/>
+      <circle cx="21" cy="31.6" r="5.3" fill="#fff"/>
+      <circle cx="22" cy="32.2" r="3.4" fill="{line}"/>
+      <circle cx="23.4" cy="30.7" r="1.3" fill="#fff"/><circle cx="20.8" cy="33.6" r=".65" fill="#fff"/>
+      <path d="M36.5 32.6 Q42.5 26.8 48.5 32.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+      <ellipse cx="32" cy="45.5" rx="11.5" ry="8.6" fill="#f7f0e6"/>
+      <circle cx="17.5" cy="43" r="3.4" fill="#f59aaa" opacity=".75"/><circle cx="46.5" cy="43" r="3.4" fill="#f59aaa" opacity=".75"/>
+      <path d="M24 44.6 Q32 56 40 44.6 Q32 47.6 24 44.6 Z" fill="#6e2b2e" stroke="{line}" stroke-width="1.5"
+            stroke-linejoin="round"/>
+      <ellipse cx="32" cy="50.3" rx="3.6" ry="2.2" fill="#f27d8f"/>
+      <rect x="29.7" y="45.4" width="2.2" height="2.9" rx=".5" fill="#fff" stroke="{line}" stroke-width=".7"/>
+      <rect x="32.1" y="45.4" width="2.2" height="2.9" rx=".5" fill="#fff" stroke="{line}" stroke-width=".7"/>
+      <ellipse cx="32" cy="40.6" rx="3.8" ry="2.7" fill="{line}"/>
+      <ellipse cx="30.9" cy="39.8" rx="1.2" ry=".7" fill="#fff" opacity=".7"/>
     </svg>"""
 
 
@@ -399,7 +408,7 @@ def emblem(size: int = 44) -> str:
     """The mascot's emblem as pictures, one per look; page_css shows the one that matches.
     (A picture, because st.html removes inline SVG drawings.)"""
     return "".join(f'<img class="ba-emblem em-{mode}" src="{_emblem_uri(mode)}" width="{size}" height="{size}" '
-                   f'alt="{"Raccoonatron’s raccoon" if mode == "light" else ""}">' for mode in EMBLEM_COLOURS)
+                   f'alt="{"The Book Visualizer raccoon" if mode == "light" else ""}">' for mode in EMBLEM_COLOURS)
 
 
 def favicon_svg() -> str:
@@ -437,7 +446,7 @@ def how_it_works() -> str:
         <div class="ba-kicker">Not a chatbot</div>
         <h3>Good old machine learning, not a large language model</h3>
         <p>Nothing here writes text or “understands” the book the way ChatGPT or Claude do, and nothing is sent
-        to an online AI service. Raccoonatron uses small, specialised machine-learning models, each trained for one
+        to an online AI service. Book Visualizer uses small, specialised machine-learning models, each trained for one
         narrow job: spotting names, linking pronouns, scoring a sentence's tone, tagging its emotions. Their
         answers are then counted and compared with plain statistics. Every model runs on this computer.</p>
         <p class="fine">To be exact: the tone and emotion models are built on RoBERTa, a small (125-million-parameter)
@@ -460,7 +469,7 @@ def about() -> str:
     links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)} ↗</a>'
                        for label, url in ABOUT["links"])
     return f"""<section class="ba-about">
-      <figure><img src="{image_uri("raccoon.jpg")}" alt="The Raccoonatron raccoon in headphones at a keyboard">
+      <figure><img src="{image_uri("raccoon.jpg")}" alt="The Book Visualizer raccoon in headphones at a keyboard">
       <figcaption>The raccoon, head of reading</figcaption></figure>
       <div><div class="ba-kicker">About · a passion project</div>
       <h2>Made for fun by {escape(ABOUT["name"])}</h2>{text}
@@ -472,7 +481,7 @@ def top_bar(title: str | None = None) -> str:
     """The masthead above the tabs on every page: the site's name and motto, then the open book."""
     book = (f'<span class="book" title="{escape(title)}">{escape(title)}</span>') if title else ""
     return f"""<header class="ba-top">
-      <div class="ba-mark">{emblem(58)}<div><b>Raccoonatron</b><span>A computational reading of the novel</span></div></div>
+      <div class="ba-mark">{emblem(58)}<div><b>Book Visualizer</b><span>A computational reading of the novel</span></div></div>
       <div class="ba-meta">{book}<span class="ba-sc">Local models · Your book stays on this computer</span></div>
     </header>"""
 
@@ -481,13 +490,13 @@ def footer() -> str:
     """The colophon at the bottom of every page."""
     links = " · ".join(f'<a href="{url}" target="_blank" rel="noopener">{escape(label)}</a>'
                        for label, url in ABOUT["links"])
-    return (f'<footer class="ba-foot"><span>{emblem(22)}<b>Raccoonatron</b>A passion project by {escape(ABOUT["name"])}. '
+    return (f'<footer class="ba-foot"><span>{emblem(22)}<b>Book Visualizer</b>A passion project by {escape(ABOUT["name"])}. '
             f'Every model runs locally; results are estimates.</span><span>{links}</span></footer>')
 
 
 def sidebar_title() -> str:
     return (f'<div class="ba-brand"><img src="{image_uri("raccoon-face.png")}" alt="">'
-            f'<div><b>Raccoonatron</b><span>with a raccoon at the keyboard</span></div></div>')
+            f'<div><b>Book Visualizer</b><span>with a raccoon at the keyboard</span></div></div>')
 
 
 def working_card(step: str = "") -> str:
@@ -676,7 +685,7 @@ def landing() -> str:
       and <i>The Great Gatsby</i>. Every model
       runs on this computer: the book is never sent anywhere.</p>
       </div>
-      <figure class="ba-mascot"><img src="{image_uri("raccoon.jpg")}" alt="The Raccoonatron raccoon in headphones at a keyboard">
+      <figure class="ba-mascot"><img src="{image_uri("raccoon.jpg")}" alt="The Book Visualizer raccoon in headphones at a keyboard">
       <figcaption>Your reader for today: the raccoon. Careful, quick, and fond of a good ending.</figcaption></figure>
       </div>
       <div class="ba-method">{method}</div>

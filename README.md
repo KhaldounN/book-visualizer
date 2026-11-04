@@ -1,4 +1,4 @@
-# Raccoonatron
+# Book Visualizer
 
 Upload an English novel as a `.txt` file and explore:
 
