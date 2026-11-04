@@ -95,4 +95,57 @@ def test_avatars_are_valid_pictures_and_always_the_same():
     assert "opacity=\".55\"" in avatars.avatar_svg("Miss Havisham", looks[1], "#eb6834"), "the bride wears a veil"
     assert avatars.avatar_uri("Joe", looks[0], "#2a78d6").startswith("data:image/svg+xml;base64,")
     assert avatars.look_in_words(looks[0]) == "Blacksmith · fair hair"
-    assert avatars.look_in_words(looks[2]) == "Period figure", "nothing in the book (not even his gender): the assumed look"
+    # nothing in the book but his first name, which says he is a man: the assumed look
+    assert avatars.look_in_words(looks[2]) == "Period gentleman"
+
+
+def placed_book(lines: list[tuple[str, list[tuple[str, int]]]], characters: list[Character]) -> BookAnalysis:
+    """Sentences with mentions at their real positions: (text, [(word as written, character id)])."""
+    sentences, mentions, offset = [], [], 0
+    for i, (text, who) in enumerate(lines):
+        sentences.append(Sentence(i, text, offset, offset + len(text), 0, sentiment=0.0))
+        for word, cid in who:
+            at = offset + text.index(word)
+            source = "coref" if word.lower() in ("he", "she", "his", "her") else "name"
+            mentions.append(Mention(cid, i, at, at + len(word), word, source))
+        offset += len(text) + 1
+    book = tiny_book([], characters)
+    book.sentences, book.mentions = sentences, mentions
+    for c in characters:
+        c.mentions = sum(m.character_id == c.id for m in mentions)
+    return book
+
+
+def test_descriptions_are_read_from_the_words_attached_to_a_character():
+    people = [Character(0, "Mr. Darcy", ["Mr. Darcy", "Darcy"]), Character(1, "Jane", ["Jane"])]
+    looks = describe(placed_book([
+        # two people in the sentence, but the grey eyes hang off Darcy's name
+        ("Jane smiled at Darcy's grey eyes.", [("Jane", 1), ("Darcy", 0)]),
+        ("Darcy was tall and grave.", [("Darcy", 0)]),
+        ("Jane, a pale young woman, sat down.", [("Jane", 1)]),
+        # a job near his name is someone else's: a title says he is a man, so he is not the maid
+        ("Darcy called the maid.", [("Darcy", 0)]), ("The maid came to Darcy.", [("Darcy", 0)]),
+        ("Darcy thanked the maid at Pemberley.", [("Darcy", 0)]),
+    ], people))
+    assert (looks[0].eyes, looks[0].build, looks[0].gender, looks[0].role) == ("grey", "tall", "m", None)
+    assert looks[1].complexion == "pale" and looks[1].eyes is None
+
+
+def test_a_mark_known_only_from_pronouns_goes_to_its_surest_owner():
+    people = [Character(0, "Joe", ["Joe"]), Character(1, "Pip", ["Pip"])]
+    lines = [("Joe's pipe was lit.", [("Joe", 0)])]
+    # the pronoun model links some of Joe's "his pipe" to Pip
+    lines += [(f"Pip waited while he filled his pipe {i}.", [("Pip", 1), ("his", 1)]) for i in range(4)]
+    looks = describe(placed_book(lines, people))
+    assert "pipe" in looks[0].features and "pipe" not in looks[1].features
+
+
+def test_a_stated_age_and_a_first_name_are_used():
+    people = [Character(0, "Lydia", ["Lydia"]), Character(1, "Jonathan", ["Jonathan"])]
+    looks = describe(placed_book([("Lydia, a girl of fifteen, laughed.", [("Lydia", 0)]),
+                                  ("Jonathan wrote in his diary.", [("Jonathan", 1)])], people))
+    assert (looks[0].years, looks[0].age, looks[0].gender) == (15, "young", "f")
+    assert looks[1].gender == "m"
+    svg = avatars.avatar_svg("Lydia", looks[0], "#6250d6")
+    ET.fromstring(svg)
+    assert avatars.look_in_words(looks[0]).startswith("Young · about 15")
