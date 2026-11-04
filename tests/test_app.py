@@ -488,3 +488,10 @@ def test_the_book_is_told_in_brief():
     assert brief[0].startswith("It follows <b>Anna</b> through 4 chapters")
     assert any(s.startswith("The darkest moment comes in") for s in brief)
     assert "In brief" in design.hero(analysis, "A", explore3d.events_of(analysis), charts.THEMES["light"])
+
+
+def test_a_relationship_is_told_in_words():
+    analysis = small_analysis()
+    story = design.pair_story(analysis, analysis.relationships[0], explore3d.events_of(analysis))
+    a = analysis.characters[analysis.relationships[0].source].name
+    assert story.startswith(f"**{a} and ") or "too few chapters" in story

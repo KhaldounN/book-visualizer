@@ -821,6 +821,42 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
     return out
 
 
+def _tone_word(tone: float) -> str:
+    return ("very warm" if tone > 0.15 else "warm" if tone > 0.05 else "neutral" if tone > -0.05
+            else "cool" if tone > -0.15 else "cold")
+
+
+def pair_story(analysis: BookAnalysis, pair, events: list) -> str:
+    """A relationship in a few plain sentences (markdown), from the same numbers as its charts:
+    how it starts and ends, where they meet most, their lowest and highest chapters, and which
+    emotion grows between them."""
+    a, b = analysis.characters[pair.source].name, analysis.characters[pair.target].name
+    chapters = [i for i, n in enumerate(pair.chapter_counts) if n >= 2 and pair.chapter_sentiment[i] is not None]
+    if len(chapters) < 3:
+        return f"{a} and {b} share {pair.count} moments, too few chapters together to follow a change."
+    third = max(1, len(chapters) // 3)
+    start = sum(pair.chapter_sentiment[i] for i in chapters[:third]) / third
+    end = sum(pair.chapter_sentiment[i] for i in chapters[-third:]) / third
+
+    def name(i: int) -> str:
+        theme = events[i].theme.lower() if i < len(events) and events[i].theme else ""
+        return f"{analysis.chapters[i].title.split(':')[0]}" + (f" ({theme})" if theme else "")
+    low = min(chapters, key=lambda i: pair.chapter_sentiment[i])
+    high = max(chapters, key=lambda i: pair.chapter_sentiment[i])
+    busiest = max(range(len(pair.chapter_counts)), key=pair.chapter_counts.__getitem__)
+    text = (f"**{a} and {b}** start out **{_tone_word(start)}** ({start:+.2f}) and end **{_tone_word(end)}** "
+            f"({end:+.2f}). They meet most in {name(busiest)}, {pair.chapter_counts[busiest]} moments. "
+            f"Their lowest point is {name(low)}, their highest {name(high)}.")
+    parts = [p for p in pair.emotions_by_part if p]
+    if len(parts) >= 2:
+        early, late = charts.without_neutral(parts[0]), charts.without_neutral(parts[-1])
+        if early and late:
+            grows = max(late, key=lambda e: late[e] - early.get(e, 0))
+            if late[grows] - early.get(grows, 0) >= 0.03:
+                text += f" By the end, more **{charts.short_label(grows).lower()}** runs between them."
+    return text
+
+
 def _brief_html(analysis: BookAnalysis, events: list) -> str:
     sentences = in_brief(analysis, events)
     return (f'<div class="ba-brief"><div class="ba-kicker">In brief</div><p>{" ".join(sentences)}</p></div>'

@@ -747,6 +747,7 @@ with tab["people"]:
             smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="pair_smooth")
         pair = analysis.relationships[picked]
         with right:
+            st.markdown(design.pair_story(analysis, pair, events))
             st.plotly_chart(charts.pair_tone(analysis, theme, pair, smooth), width="stretch")
             st.plotly_chart(charts.pair_moments(analysis, theme, pair), width="stretch")
             if any(pair.emotions_by_part):
