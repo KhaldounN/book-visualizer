@@ -902,6 +902,11 @@ with tab["places"]:
             with left:
                 top = how_many("Places to show", len(places), 15, "places_top")
             with right:
+                route = search.place_journey(analysis.entities, len(analysis.chapters), analysis.characters,
+                                             analysis.sentences)
+                if len(route) >= 2:  # the story's route: each sixth of the book by its most characteristic place
+                    st.markdown("**The route:** " + " → ".join(
+                        f"{name} *(ch. {first + 1}–{last + 1})*" for name, first, last in route))
                 st.plotly_chart(charts.places_heatmap(analysis, theme, top), width="stretch")
 
         left, right = panel("Most mentioned", "The places, organizations and groups (such as families) named most "
