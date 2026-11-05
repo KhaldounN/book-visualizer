@@ -840,6 +840,15 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
     return out
 
 
+def relative_tone(analysis: BookAnalysis, tone: float) -> float:
+    """A chapter's mood compared with the book's own average, scaled so the book's darkest and
+    brightest chapters reach the ends of the colour scale (for colouring chapters)."""
+    mood = analysis.chapter_sentiment
+    mean = sum(mood) / len(mood) if mood else 0.0
+    reach = max((abs(t - mean) for t in mood), default=0) or 1
+    return (tone - mean) / reach * charts.TONE_RANGE
+
+
 def chapter_focus(analysis: BookAnalysis, index: int, events: list, avatars: dict, theme: dict) -> str:
     """One chapter in detail: its theme and mood, its most telling sentence, who is in it, the
     feelings that stand out against the whole book, and its typical words."""
@@ -850,8 +859,7 @@ def chapter_focus(analysis: BookAnalysis, index: int, events: list, avatars: dic
     if not sentences:
         return ""
     mood = analysis.chapter_sentiment[index]
-    reach = max(abs(t) for t in analysis.chapter_sentiment) or 1
-    tone_color = charts._tone_color(theme, mood / reach * charts.TONE_RANGE)
+    tone_color = charts._tone_color(theme, relative_tone(analysis, mood))
     feels = stand_out(average_emotions([s.fine for s in sentences]), average_emotions([s.fine for s in analysis.sentences]))
     theme_chip = (f'<span class="ba-chip" style="background:{tone_color}">{escape(event.theme)} · {mood:+.2f}</span>'
                   if event and event.theme else "")
@@ -951,11 +959,11 @@ def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
     mood (blue brighter, red darker) and as tall as the chapter is emotional."""
     intensity = [1 - mix.get("neutral", 1) if mix else 0.5 for mix in analysis.chapter_emotions]
     top = max(intensity) or 1
-    # colours relative to this book: its darkest and brightest chapters get the full red and blue
-    reach = max(abs(t) for t in analysis.chapter_sentiment) or 1
+    # colours relative to this book: compared with its own average mood, its darkest and brightest
+    # chapters get the full red and blue (a gloomy book is not red from end to end)
     stripes = "".join(
         f'<i style="height:{20 + 80 * level / top:.0f}%;'
-        f'background:{charts._tone_color(theme, tone / reach * charts.TONE_RANGE)}" '
+        f'background:{charts._tone_color(theme, relative_tone(analysis, tone))}" '
         f'title="{escape(chapter.title)} · {escape(event.theme)} · mood {tone:+.2f}"></i>'
         for chapter, event, tone, level in zip(analysis.chapters, events, analysis.chapter_sentiment, intensity)
     )
