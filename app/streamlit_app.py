@@ -445,6 +445,10 @@ with tab["overview"]:
                           f"{stem}_chapters.csv", "text/csv", width="stretch")
     second.download_button("Download characters (CSV)", character_rows.to_csv(index=False).encode("utf-8-sig"),
                            f"{stem}_characters.csv", "text/csv", width="stretch")
+    # a link that reopens this book straight away (it reads the saved result, so it works where the site runs)
+    base = (st.context.url or "http://localhost:8502").split("?")[0]
+    st.caption("Link to this book (the copy button is on the right):")
+    st.code(f"{base}?book={st.session_state['current']}", language=None)
 
 # --- Explore in 3D ---------------------------------------------------------------------
 with tab["3d"]:
