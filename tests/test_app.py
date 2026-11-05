@@ -502,3 +502,9 @@ def test_a_passage_shows_who_is_there():
     m = analysis.mentions[0]
     html = design.who_is_there(analysis, m.sentence_index, m.sentence_index, {}, charts.THEMES["light"])
     assert analysis.characters[m.character_id].name in html
+
+
+def test_each_emotion_peak_is_named():
+    analysis = small_analysis()
+    html = design.emotion_peaks(analysis, explore3d.events_of(analysis), charts.THEMES["light"])
+    assert "Where each feeling peaks" in html and "Chapter" in html

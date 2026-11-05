@@ -125,6 +125,12 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-legend span {{ display: inline-flex; align-items: center; gap: .4rem; }}
     .ba-legend i {{ width: 9px; height: 9px; border-radius: 1px; display: inline-block; }}
 
+    .ba-peaks {{ margin-top: 1.2rem; }}
+    .ba-peaks ul {{ list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; font-size: .85rem;
+        color: var(--ba-ink); }}
+    .ba-peaks li {{ display: flex; align-items: center; gap: .4rem; margin: 0; }}
+    .ba-peaks i {{ width: 9px; height: 9px; border-radius: 2px; flex: none; }}
+    .ba-peaks span {{ color: var(--ba-muted); }}
     .ba-who {{ display: flex; flex-wrap: wrap; gap: .3rem .9rem; margin: -.2rem 0 .5rem; font-size: .8rem;
         color: var(--ba-ink2); }}
     .ba-who span {{ display: inline-flex; align-items: center; gap: .35rem; }}
@@ -822,6 +828,24 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
         out.append(f"Beyond plain narration, the strongest feeling is <b>{escape(charts.short_label(top).lower())}</b> "
                    f"({shares[top]:.0%} of the emotional sentences).")
     return out
+
+
+def emotion_peaks(analysis: BookAnalysis, events: list, theme: dict) -> str:
+    """Where each emotion family peaks: the chapter where it takes the biggest share of the
+    emotional sentences, with that chapter's theme, in the family's colour."""
+    shares = [charts.without_neutral(mix) if mix else {} for mix in analysis.chapter_emotions]
+    rows = []
+    for e in charts.EMOTION_ORDER:
+        values = [mix.get(e, 0) for mix in shares]
+        if not any(values):
+            continue
+        i = max(range(len(values)), key=values.__getitem__)
+        theme_word = events[i].theme.lower() if i < len(events) and events[i].theme else ""
+        rows.append(f'<li><i style="background:{theme["emotions"][e]}"></i><b>{escape(charts.short_label(e))}</b> '
+                    f'{escape(analysis.chapters[i].title.split(":")[0])}'
+                    + (f' <span>· {escape(theme_word)}</span>' if theme_word else "") + "</li>")
+    return (f'<div class="ba-peaks"><div class="ba-kicker">Where each feeling peaks</div><ul>{"".join(rows)}</ul></div>'
+            if rows else "")
 
 
 def who_is_there(analysis: BookAnalysis, first: int, last: int, avatars: dict, theme: dict, n: int = 4) -> str:

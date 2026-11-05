@@ -639,6 +639,7 @@ with tab["mood"]:
                             "the chapter.")
         with left:
             smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="emotion_smooth")
+            st.html(design.emotion_peaks(analysis, events, theme))
         with right:
             st.plotly_chart(charts.emotion_journey(analysis, theme, smooth), width="stretch")
             table(pd.DataFrame([
