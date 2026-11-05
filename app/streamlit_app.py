@@ -257,16 +257,43 @@ def run_analysis(data: bytes, key: str, filename: str, book: Path | None = None)
     st.rerun()  # failed: the next run explains why
 
 
-def panel(title: str, explanation: str, columns: tuple = (1, 2.4)):
+def panel(title: str, explanation: str, columns: tuple = (1, 2.4), number: int | None = None):
     """One dashboard row: what the visualization shows on the left, the
-    visualization itself on the right. Returns both columns."""
+    visualization itself on the right. Returns both columns. `number` keeps a
+    panel's key the same when a fragment redraws it on its own."""
     st.space("small")
-    with st.container(key=f"panel-{next(PANELS)}"):  # the key gives the card its CSS class
+    with st.container(key=f"panel-{next(PANELS) if number is None else number}"):  # the key gives the card its CSS class
         left, right = st.columns(columns, gap="large")
     with left:
         st.markdown(f"#### {title}")
         st.markdown(explanation)
     return left, right
+
+
+AUTOPLAY_SECONDS = 5  # the character pickers play through the cast on their own, one every 5 seconds
+
+
+def autoplay(key: str, options: list) -> None:
+    """Called in a panel that redraws itself every AUTOPLAY_SECONDS (a fragment), just before its
+    picker: moves the picker to the next option, so the charts keep changing. It stops when the
+    visitor picks one themselves (see stop_autoplay) and can be switched back on."""
+    if not st.session_state.setdefault(f"{key}_auto", True) or len(options) < 2:
+        return
+    now, last = time.time(), st.session_state.get(f"{key}_at")
+    st.session_state[f"{key}_at"] = now if last is None or now - last >= AUTOPLAY_SECONDS - .5 else last
+    if last is None or now - last < AUTOPLAY_SECONDS - .5:  # first draw, or redrawn for another reason
+        return
+    current = st.session_state.get(key)
+    st.session_state[key] = options[(options.index(current) + 1) % len(options) if current in options else 0]
+
+
+def stop_autoplay(key: str):
+    """on_change for a picker: the visitor chose, so stop playing through."""
+    return lambda: st.session_state.update({f"{key}_auto": False})
+
+
+def autoplay_switch(key: str) -> None:
+    st.toggle("Play through them", key=f"{key}_auto", help=f"Shows the next one every {AUTOPLAY_SECONDS} seconds")
 
 
 def section(title: str, intro: str) -> None:
@@ -749,20 +776,27 @@ with tab["mood"]:
                 for c, mix in zip(analysis.chapters, analysis.chapter_emotions)
             ]))
 
-        left, right = panel("A character's emotions", "The emotions of the sentences that mention one character "
-                            "(in colour), next to the whole book (in gray). Bars longer than the gray ones are what "
-                            "stands out about them, and the fine emotions most above the book's average are named.")
-        with left:
-            who = st.selectbox("Character", charts.top_characters(analysis, 20), format_func=lambda c: c.name,
-                               key="emotion_character")
-            if who.id in faces:
-                st.html(f'<img src="{faces[who.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
-            feels = stand_out(analysis.character_fine[who.id], book_fine) if analysis.character_fine else []
-            if feels:
-                st.markdown(f"**Stands out for {who.name}:** " + ", ".join(feels))
-        with right:
-            st.plotly_chart(charts.emotion_bars(theme, analysis.character_emotions[who.id], book_mix, name=who.name),
-                            width="stretch")
+        # redraws itself every {AUTOPLAY_SECONDS} s while it plays through (a fragment: only this panel)
+        @st.fragment(run_every=AUTOPLAY_SECONDS if st.session_state.get("emotion_character_auto", True) else None)
+        def emotions_panel(number: int = next(PANELS)) -> None:
+            left, right = panel("A character's emotions", "The emotions of the sentences that mention one character "
+                                "(in colour), next to the whole book (in gray). Bars longer than the gray ones are what "
+                                "stands out about them, and the fine emotions most above the book's average are named.", number=number)
+            with left:
+                cast = charts.top_characters(analysis, 20)
+                autoplay("emotion_character", cast)
+                who = st.selectbox("Character", cast, format_func=lambda c: c.name, key="emotion_character",
+                                   on_change=stop_autoplay("emotion_character"))
+                autoplay_switch("emotion_character")
+                if who.id in faces:
+                    st.html(f'<img src="{faces[who.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
+                feels = stand_out(analysis.character_fine[who.id], book_fine) if analysis.character_fine else []
+                if feels:
+                    st.markdown(f"**Stands out for {who.name}:** " + ", ".join(feels))
+            with right:
+                st.plotly_chart(charts.emotion_bars(theme, analysis.character_emotions[who.id], book_mix, name=who.name),
+                                width="stretch")
+        emotions_panel()
 
 # --- Characters ---------------------------------------------------------------------------------
 with tab["people"]:
@@ -795,40 +829,47 @@ with tab["people"]:
             index=[ch.title for ch in analysis.chapters],
         ).reset_index(names="Chapter"))
 
-    left, right = panel("A character's journey", "One character's path through the book, cut into "
-                        f"{JOURNEY_STAGES} equal stages: the **mood** of the sentences about them (the dotted gray "
-                        "line is the whole book), and below it their **mix of emotions**. ▼ and ▲ mark their lowest "
-                        f"and highest point. Stages with fewer than {MIN_STAGE_SENTENCES} sentences about them are "
-                        "left empty.")
-    with left:
-        traveller = st.selectbox("Character", charts.top_characters(analysis, 20), format_func=lambda c: c.name,
-                                 key="journey_character")
-        if traveller.id in faces:
-            st.html(f'<img src="{faces[traveller.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
-        rival = st.selectbox("Compare with", [c for c in charts.top_characters(analysis, 20) if c.id != traveller.id],
-                             format_func=lambda c: c.name, index=None, placeholder="Nobody", key="journey_compare")
-    journey = character_journey(analysis.mentions, analysis.sentences, traveller.id)
-    turns = journey_turns(journey)
-    with right:
-        if not turns:
-            st.info(f"{traveller.name} is not in enough of the book to follow a journey.")
-        else:
-            color = charts.character_colors(analysis, theme)[traveller.id]
-            other = None
-            if rival is not None:  # the second character's mood on the same stages
-                other = (character_journey(analysis.mentions, analysis.sentences, rival.id), rival.name,
-                         charts.character_colors(analysis, theme)[rival.id])
-            st.plotly_chart(charts.character_journey(analysis, theme, journey, traveller.name, color, turns, other),
-                            width="stretch")
-            for line in journey_story(analysis, journey, turns, traveller.name, has_emotions):
-                st.markdown(line)
-            table(pd.DataFrame([
-                {"Stage": charts.stage_label(analysis, s), "Sentences about them": s["count"],
-                 "Their mood": None if s["mood"] is None else round(s["mood"], 3),
-                 "Whole book": round(s["book_mood"], 3),
-                 **{charts.EMOTION_LABELS[e]: round(s["emotions"].get(e, 0), 3) for e in charts.EMOTION_ORDER}}
-                for s in journey
-            ]))
+    # redraws itself every {AUTOPLAY_SECONDS} s while it plays through (a fragment: only this panel)
+    @st.fragment(run_every=AUTOPLAY_SECONDS if st.session_state.get("journey_character_auto", True) else None)
+    def journey_panel(number: int = next(PANELS)) -> None:
+        left, right = panel("A character's journey", "One character's path through the book, cut into "
+                            f"{JOURNEY_STAGES} equal stages: the **mood** of the sentences about them (the dotted gray "
+                            "line is the whole book), and below it their **mix of emotions**. ▼ and ▲ mark their lowest "
+                            f"and highest point. Stages with fewer than {MIN_STAGE_SENTENCES} sentences about them are "
+                            "left empty.", number=number)
+        with left:
+            cast = charts.top_characters(analysis, 20)
+            autoplay("journey_character", cast)
+            traveller = st.selectbox("Character", cast, format_func=lambda c: c.name, key="journey_character",
+                                     on_change=stop_autoplay("journey_character"))
+            autoplay_switch("journey_character")
+            if traveller.id in faces:
+                st.html(f'<img src="{faces[traveller.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
+            rival = st.selectbox("Compare with", [c for c in charts.top_characters(analysis, 20) if c.id != traveller.id],
+                                 format_func=lambda c: c.name, index=None, placeholder="Nobody", key="journey_compare")
+        journey = character_journey(analysis.mentions, analysis.sentences, traveller.id)
+        turns = journey_turns(journey)
+        with right:
+            if not turns:
+                st.info(f"{traveller.name} is not in enough of the book to follow a journey.")
+            else:
+                color = charts.character_colors(analysis, theme)[traveller.id]
+                other = None
+                if rival is not None:  # the second character's mood on the same stages
+                    other = (character_journey(analysis.mentions, analysis.sentences, rival.id), rival.name,
+                             charts.character_colors(analysis, theme)[rival.id])
+                st.plotly_chart(charts.character_journey(analysis, theme, journey, traveller.name, color, turns, other),
+                                width="stretch")
+                for line in journey_story(analysis, journey, turns, traveller.name, has_emotions):
+                    st.markdown(line)
+                table(pd.DataFrame([
+                    {"Stage": charts.stage_label(analysis, s), "Sentences about them": s["count"],
+                     "Their mood": None if s["mood"] is None else round(s["mood"], 3),
+                     "Whole book": round(s["book_mood"], 3),
+                     **{charts.EMOTION_LABELS[e]: round(s["emotions"].get(e, 0), 3) for e in charts.EMOTION_ORDER}}
+                    for s in journey
+                ]))
+    journey_panel()
 
 # --- Relationships ------------------------------------------------------------------------------
 with tab["people"]:
@@ -847,25 +888,32 @@ with tab["people"]:
         with right:
             st.plotly_chart(charts.relationship_network(analysis, theme, top, min_count, faces), width="stretch")
 
-        left, right = panel("How a relationship changes", "Pick a pair to follow through the book: the **tone** of "
-                            "their shared moments chapter by chapter, **how often** they meet, and their **emotions** "
-                            "in the early, middle and late book.")
-        with left:
-            pair_labels = [f"{names[r.source]} & {names[r.target]} ({r.count})" for r in analysis.relationships[:40]]
-            picked = st.selectbox("Pair", range(len(pair_labels)), format_func=lambda i: pair_labels[i], key="pair")
-            smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="pair_smooth")
-        pair = analysis.relationships[picked]
-        with right:
-            st.markdown(design.pair_story(analysis, pair, events))
-            st.plotly_chart(charts.pair_tone(analysis, theme, pair, smooth), width="stretch")
-            st.plotly_chart(charts.pair_moments(analysis, theme, pair), width="stretch")
-            if any(pair.emotions_by_part):
-                st.plotly_chart(charts.pair_emotions(theme, pair), width="stretch")
-            table(pd.DataFrame([
-                {"Character": names[r.source], "With": names[r.target], "Moments together": r.count,
-                 "Average tone": round(r.sentiment, 3)}
-                for r in analysis.relationships
-            ]))
+        # redraws itself every {AUTOPLAY_SECONDS} s while it plays through (a fragment: only this panel)
+        @st.fragment(run_every=AUTOPLAY_SECONDS if st.session_state.get("pair_auto", True) else None)
+        def pair_panel(number: int = next(PANELS)) -> None:
+            left, right = panel("How a relationship changes", "Pick a pair to follow through the book: the **tone** of "
+                                "their shared moments chapter by chapter, **how often** they meet, and their **emotions** "
+                                "in the early, middle and late book.", number=number)
+            with left:
+                pair_labels = [f"{names[r.source]} & {names[r.target]} ({r.count})" for r in analysis.relationships[:40]]
+                autoplay("pair", list(range(min(len(pair_labels), 12))))  # plays through the 12 closest pairs
+                picked = st.selectbox("Pair", range(len(pair_labels)), format_func=lambda i: pair_labels[i], key="pair",
+                                      on_change=stop_autoplay("pair"))
+                autoplay_switch("pair")
+                smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="pair_smooth")
+            pair = analysis.relationships[picked]
+            with right:
+                st.markdown(design.pair_story(analysis, pair, events))
+                st.plotly_chart(charts.pair_tone(analysis, theme, pair, smooth), width="stretch")
+                st.plotly_chart(charts.pair_moments(analysis, theme, pair), width="stretch")
+                if any(pair.emotions_by_part):
+                    st.plotly_chart(charts.pair_emotions(theme, pair), width="stretch")
+                table(pd.DataFrame([
+                    {"Character": names[r.source], "With": names[r.target], "Moments together": r.count,
+                     "Average tone": round(r.sentiment, 3)}
+                    for r in analysis.relationships
+                ]))
+        pair_panel()
 
 # --- Dialogue -------------------------------------------------------------------------------------
 with tab["people"]:
@@ -934,30 +982,37 @@ with tab["people"]:
 
         talkers = sorted((c for c in analysis.characters if spoken[c.id] >= 50), key=lambda c: -spoken[c.id])[:20]
         if talkers:
-            left, right = panel("A character's voice", "What one character sounds like: the words they use **more "
-                                "than everyone else** in the dialogue (a word must come up several times, so one odd "
-                                "word doesn't count), and their brightest and darkest lines: only lines where the "
-                                "book names them as the speaker, the surest kind.")
-            with left:
-                voice = st.selectbox("Character", talkers, format_func=lambda c: c.name, key="voice_character")
-                if voice.id in faces:
-                    st.html(f'<img src="{faces[voice.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
-            with right:
-                words = dialogue.signature_words(lines, voice.id, stop_words=STOP_WORDS)
-                if words:  # most typical first and largest, tinted in their colour
-                    st.html(design.word_chips(f"{voice.name}'s words", words,
-                                              charts.character_colors(analysis, theme)[voice.id]))
-                else:
-                    st.markdown(f"**{voice.name}'s words:** nothing stands out (too few lines).")
-                for column, kind, found in zip(st.columns(2), ("Brightest", "Darkest"),
-                                               dialogue.strongest_lines(lines, analysis.sentences, voice.id)):
-                    with column:
-                        st.markdown(f"**{kind} lines**")
-                        for line, tone in found:
-                            st.markdown(f"> {shorten(line.text, 300)}\n\n"
-                                        f"{analysis.chapters[line.chapter].title} · tone {tone:+.2f}")
-                        if not found:
-                            st.caption("None found.")
+            # redraws itself every {AUTOPLAY_SECONDS} s while it plays through (a fragment: only this panel)
+            @st.fragment(run_every=AUTOPLAY_SECONDS if st.session_state.get("voice_character_auto", True) else None)
+            def voice_panel(number: int = next(PANELS)) -> None:
+                left, right = panel("A character's voice", "What one character sounds like: the words they use **more "
+                                    "than everyone else** in the dialogue (a word must come up several times, so one odd "
+                                    "word doesn't count), and their brightest and darkest lines: only lines where the "
+                                    "book names them as the speaker, the surest kind.", number=number)
+                with left:
+                    autoplay("voice_character", talkers)
+                    voice = st.selectbox("Character", talkers, format_func=lambda c: c.name, key="voice_character",
+                                         on_change=stop_autoplay("voice_character"))
+                    autoplay_switch("voice_character")
+                    if voice.id in faces:
+                        st.html(f'<img src="{faces[voice.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
+                with right:
+                    words = dialogue.signature_words(lines, voice.id, stop_words=STOP_WORDS)
+                    if words:  # most typical first and largest, tinted in their colour
+                        st.html(design.word_chips(f"{voice.name}'s words", words,
+                                                  charts.character_colors(analysis, theme)[voice.id]))
+                    else:
+                        st.markdown(f"**{voice.name}'s words:** nothing stands out (too few lines).")
+                    for column, kind, found in zip(st.columns(2), ("Brightest", "Darkest"),
+                                                   dialogue.strongest_lines(lines, analysis.sentences, voice.id)):
+                        with column:
+                            st.markdown(f"**{kind} lines**")
+                            for line, tone in found:
+                                st.markdown(f"> {shorten(line.text, 300)}\n\n"
+                                            f"{analysis.chapters[line.chapter].title} · tone {tone:+.2f}")
+                            if not found:
+                                st.caption("None found.")
+            voice_panel()
 
 # --- Pace -----------------------------------------------------------------------------------------
 with tab["story"]:
