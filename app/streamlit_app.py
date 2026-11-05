@@ -10,12 +10,12 @@ import itertools
 import pickle
 import re
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-from spacy.lang.en.stop_words import STOP_WORDS
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))  # so "analyzer" can be imported when Streamlit runs this file
@@ -24,6 +24,7 @@ import streamlit.components.v1 as components  # noqa: E402
 
 import charts  # noqa: E402
 import design  # noqa: E402
+import jobs  # noqa: E402
 import explore3d  # noqa: E402
 import looks  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
@@ -31,7 +32,7 @@ from analyzer import dialogue, search  # noqa: E402
 from analyzer.emotions import average_emotions, stand_out  # noqa: E402
 from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters, suggest_merges  # noqa: E402
-from analyzer.pipeline import ANALYSIS_VERSION, analyze  # noqa: E402
+from analyzer.version import ANALYSIS_VERSION  # noqa: E402
 from analyzer.segment import display_title  # noqa: E402
 from analyzer.pace import chapter_pace, measure, pace_scores  # noqa: E402
 from analyzer.progression import (  # noqa: E402
@@ -49,6 +50,20 @@ KINDS = {"place": "Places", "organization": "Organizations", "group": "Groups an
 # Forms of address the name finder sometimes takes for an organization or a thing ("her Ladyship", "Dear Sir")
 ADDRESS_WORDS = {"sir", "madam", "madame", "ma'am", "ladyship", "lordship", "majesty", "highness", "excellency",
                  "honour", "honor", "dear", "my", "your", "her", "his", "mr", "mrs", "miss", "lady", "lord"}
+
+
+def _stop_words() -> set[str]:
+    """spaCy's English stop words, read from its file without starting spaCy (that would load torch,
+    about 1 GB, into the website, which no longer analyzes anything itself)."""
+    import importlib.util
+    spec = importlib.util.find_spec("spacy")  # finds the package without running it
+    path = Path(spec.origin).parent / "lang" / "en" / "stop_words.py"
+    namespace: dict = {}
+    exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), namespace)
+    return namespace["STOP_WORDS"]
+
+
+STOP_WORDS = _stop_words()
 
 
 def is_form_of_address(name: str) -> bool:
@@ -149,7 +164,7 @@ def summary(analysis) -> dict:
 @st.cache_data(show_spinner="Comparing with the famous books…")
 def library_entry(key: str, title: str, modified: float) -> dict:
     """summary() of one analysed famous book (cached until its saved analysis changes)."""
-    analysis = pickle.loads((CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").read_bytes())
+    analysis = saved_analysis(key)
     return {"key": key, "title": title, **summary(analysis)}
 
 
@@ -171,35 +186,75 @@ def how_many(label: str, available: int, default: int, key: str) -> int:
     return st.slider(label, 5, min(40, available), min(default, available), key=key)
 
 
-def run_analysis(data: bytes, key: str, filename: str):
-    """Analyze the book, or load the saved result if it was analyzed before.
-    The file is never stored, only the analysis results. The version in the
-    file name means results from an older version of the analysis are ignored."""
+@st.cache_resource(max_entries=4, show_spinner="Opening the book…")
+def load_saved(key: str, modified: float):
+    """A saved analysis, read once and shared by every visitor (each page used to keep its own copy).
+    Only the 4 most recent stay in memory. Nothing on the page changes it: merges make a new one."""
+    return pickle.loads((CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").read_bytes())
+
+
+def saved_analysis(key: str):
     saved = CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl"
-    if saved.exists():
-        return pickle.loads(saved.read_bytes())
-    # the raccoon at work: its card changes with each step (a new animated scene);
-    # in between only the progress bar moves
-    holder = st.empty()
-    with holder.container():
-        card = st.empty()
-        card.html(design.working_card())
-        bar = st.progress(0.0, text="Starting… a full novel takes about 10 minutes.")
-    shown = [None]
+    return load_saved(key, saved.stat().st_mtime) if saved.exists() else None
 
-    def progress(step: str, fraction: float) -> None:
-        if step != shown[0]:  # a new step: a new scene and line from the raccoon
-            shown[0] = step
-            card.html(design.working_card(step))
-        bar.progress(min(fraction, 1.0), text=f"{step}… {fraction:.0%}")
 
-    try:
-        result = analyze(data, progress, filename=filename)
-    finally:
-        holder.empty()
-    CACHE.mkdir(exist_ok=True)
-    saved.write_bytes(pickle.dumps(result))
-    return result
+def run_analysis(data: bytes, key: str, filename: str, book: Path | None = None):
+    """The book's analysis: the saved result if there is one, else it is analyzed in a separate
+    process (app/jobs.py) while the raccoon shows the progress. Stops the page (st.stop) while it
+    can't be shown yet: another book is being read, there isn't enough memory, or it failed.
+    The uploaded file is only kept while it is analyzed, then deleted; only the results are saved."""
+    found = saved_analysis(key)
+    if found is not None:
+        return found
+    result = CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl"
+    other = jobs.running()
+    if other and other[0] != key:  # one at a time: two would need twice the memory
+        st.html(design.top_bar())
+        st.info(f"🦝 The raccoon is still reading **{other[1].get('book', 'another book')}** "
+                f"({other[1].get('step', '')}, {other[1].get('fraction', 0):.0%}). Books are read one at a time, "
+                "so your choice starts when that one is done. Pick a ⚡ book meanwhile: those open instantly.")
+        st.stop()
+    job = jobs.status(key)
+    if not job or job.get("state") != "running":
+        if job and job.get("state") == "failed" and not st.session_state.pop(f"retry_{key}", False):
+            st.html(design.top_bar())
+            reason = job.get("reason")
+            if reason in ("memory", "crashed"):
+                st.error("The computer ran out of memory while reading this book, so the reading stopped (the "
+                         "website itself is fine). Long books need more: the Bible about 4 GB. Close programs you "
+                         "don't need (browsers, games) and try again.")
+            else:
+                st.error("This book couldn't be read: " + (job.get("error") or "an unknown error").splitlines()[-1])
+            st.button("Try again", type="primary", on_click=lambda: st.session_state.update({f"retry_{key}": True}))
+            st.stop()
+        need, free = jobs.needed_mb(len(data)), jobs.available_mb()
+        if free is not None and free < need and not st.session_state.get(f"force_{key}"):
+            st.html(design.top_bar())
+            st.warning(f"Reading this book needs about **{need / 1024:.1f} GB** of memory, and this computer can "
+                       f"spare only **{free / 1024:.1f} GB** right now. Close programs you don't need (browsers, games) "
+                       "and press the button, or open a ⚡ book: those were read before and open instantly.")
+            st.button("Start reading anyway", on_click=lambda: st.session_state.update({f"force_{key}": True}))
+            st.stop()
+        jobs.start(key, result, data, filename, book)
+    # follow the worker: its card changes with each step (a new animated scene), the bar moves in between
+    card = st.empty()
+    card.html(design.working_card())
+    bar = st.progress(0.0, text="Starting… a full novel takes about 10 minutes.")
+    st.caption("You can close this page: the reading carries on, and the book opens instantly when it's done.")
+    shown = None
+    while True:
+        job = jobs.status(key) or {"state": "running", "step": "Starting", "fraction": 0.0}
+        if job["state"] != "running":
+            break
+        if job["step"] != shown:
+            shown = job["step"]
+            card.html(design.working_card(shown if shown != "Starting" else ""))
+        bar.progress(min(job["fraction"], 1.0), text=f"{job['step']}… {job['fraction']:.0%}")
+        time.sleep(1)
+    if job["state"] == "done" and result.exists():
+        jobs.forget(key)
+        return saved_analysis(key)
+    st.rerun()  # failed: the next run explains why
 
 
 def panel(title: str, explanation: str, columns: tuple = (1, 2.4)):
@@ -257,15 +312,22 @@ with st.sidebar:
 new_upload = uploaded is not None and st.session_state.get("last_upload") != uploaded.file_id
 if sample_picked:
     data, filename = (SAMPLES / sample_picked).read_bytes(), sample_picked
+    st.session_state["pending"] = {"filename": filename, "sample": True}
 elif new_upload:
     data, filename = uploaded.getvalue(), uploaded.name
+    st.session_state["pending"] = {"filename": filename, "data": data}
+    st.session_state["last_upload"] = uploaded.file_id
+elif "pending" in st.session_state:  # still waiting to open (being read, short of memory, or failed)
+    pending = st.session_state["pending"]
+    filename = pending["filename"]
+    data = (SAMPLES / filename).read_bytes() if pending.get("sample") else pending["data"]
 elif "current" in st.session_state:
     data, filename = None, None  # keep showing the last book
 elif re.fullmatch(r"[0-9a-f]{64}", st.query_params.get("book", "")) and \
         (CACHE / f"v{ANALYSIS_VERSION}-{st.query_params['book']}.pkl").exists():
     # the page was reloaded (e.g. to switch light/dark): reopen the book from its saved analysis
     key = st.query_params["book"]
-    result = pickle.loads((CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").read_bytes())
+    result = saved_analysis(key)
     st.session_state.setdefault("analyses", {})[key] = {"title": result.title, "analysis": result, "merges": []}
     st.session_state["current"] = key
     data, filename = None, None
@@ -302,15 +364,11 @@ analyses = st.session_state.setdefault("analyses", {})
 if data is not None:
     key = hashlib.sha256(data).hexdigest()
     if key not in analyses:
-        try:
-            result = run_analysis(data, key, filename)
-            analyses[key] = {"title": result.title, "analysis": result, "merges": []}
-        except ValueError as error:
-            st.error(str(error))
-            st.stop()
+        sample = st.session_state.get("pending", {}).get("sample")
+        result = run_analysis(data, key, filename, SAMPLES / filename if sample else None)
+        analyses[key] = {"title": result.title, "analysis": result, "merges": []}
+    st.session_state.pop("pending", None)
     st.session_state["current"] = key
-    if new_upload:
-        st.session_state["last_upload"] = uploaded.file_id
 
 book = analyses[st.session_state["current"]]
 if st.query_params.get("book") != st.session_state["current"]:

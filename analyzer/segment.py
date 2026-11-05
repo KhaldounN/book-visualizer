@@ -2,9 +2,10 @@
 
 import re
 from bisect import bisect_right
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
-from spacy.language import Language
+if TYPE_CHECKING:  # only for the type hint: importing spaCy at run time would load torch into the website
+    from spacy.language import Language
 
 from .loaders import CHAPTER_HEADING
 from .models import Chapter, Entity, Sentence
@@ -135,7 +136,7 @@ def _story_paragraphs(text: str, chapters: list[Chapter]) -> list[tuple[int, str
 
 
 def split_sentences(
-    text: str, nlp: Language, progress: ProgressCallback | None = None
+    text: str, nlp: "Language", progress: ProgressCallback | None = None
 ) -> tuple[list[Sentence], list[Chapter]]:
     """Return every story sentence (with the entities spaCy found in it) and
     the chapters. Books without headings are cut into equal parts."""

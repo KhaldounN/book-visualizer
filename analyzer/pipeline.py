@@ -24,9 +24,7 @@ from .segment import split_sentences
 
 SPACY_MODEL = "en_core_web_lg"
 
-# Bump this whenever BookAnalysis changes shape or the analysis changes, so
-# results saved by an older version are re-analyzed instead of loaded
-ANALYSIS_VERSION = 5  # 5: EmoLit's 38 fine emotions in 8 families
+from .version import ANALYSIS_VERSION  # noqa: E402,F401  (kept here too: scripts and tests import it from the pipeline)
 
 # (step name, share of the total time) measured on Great Expectations
 # (~12 min); used to turn each step's own progress into one overall progress bar

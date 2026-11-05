@@ -544,3 +544,31 @@ def test_a_cover_on_the_shelf_opens_its_book():
     covers[0].click().run(timeout=120)
     assert not at.exception, at.exception
     assert any("Great Expectations" in h.proto.body and "ba-top" in h.proto.body for h in at.get("html"))
+
+
+def test_a_worker_that_died_silently_counts_as_failed(tmp_path, monkeypatch):
+    """Windows ends a program that runs out of memory without a word: its status file still
+    says 'running', so the page must check the process is alive."""
+    import jobs
+    monkeypatch.setattr(jobs, "JOBS", tmp_path)
+    (tmp_path / "abc.json").write_text(json.dumps({"state": "running", "pid": 999999, "step": "Linking pronouns",
+                                                   "fraction": .3}), encoding="utf-8")
+    assert jobs.status("abc")["state"] == "failed" and jobs.status("abc")["reason"] == "crashed"
+    assert jobs.running() is None
+    assert jobs.needed_mb(4_400_000) > jobs.needed_mb(700_000) > 2000, "a longer book needs more memory"
+
+
+def test_a_book_too_big_for_the_free_memory_is_not_started(monkeypatch, tmp_path):
+    """Picking an unread book when memory is short explains it on the page instead of crashing,
+    and starts nothing (the website used to analyze in its own process and go down)."""
+    import jobs
+    monkeypatch.setattr(jobs, "JOBS", tmp_path)
+    monkeypatch.setattr(jobs, "available_mb", lambda: 500)
+    started = []
+    monkeypatch.setattr(jobs, "start", lambda *a, **k: started.append(a))
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    at.session_state["pending"] = {"filename": "never_read.txt", "data": b"CHAPTER I\n\nA tiny unread book.\n" * 50}
+    at.run()
+    assert not at.exception and not started
+    assert any("needs about" in w.value for w in at.warning)
+    assert any(b.label == "Start reading anyway" for b in at.button)
