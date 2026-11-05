@@ -522,3 +522,8 @@ def test_one_chapter_can_be_read_in_detail():
     analysis = small_analysis()
     html = design.chapter_focus(analysis, 0, explore3d.events_of(analysis), {}, charts.THEMES["light"])
     assert "Chapter 1 of 4" in html and "Who is here" in html
+
+
+def test_the_numbers_can_be_downloaded(app):
+    labels = [b.label for b in app.get("download_button")]
+    assert labels == ["Download chapters (CSV)", "Download characters (CSV)"]

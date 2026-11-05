@@ -423,6 +423,29 @@ with tab["overview"]:
             st.caption(f"Read in {max(total / 60, 1):.0f} minutes on this computer" + (": " + ", ".join(slow) if slow else "")
                        + ". The result is saved, so this book now opens instantly.")
 
+    # the numbers behind the page, for a spreadsheet (one row per chapter / per character)
+    talk = dialogue.words_spoken(dialogue.find_lines(analysis.sentences, analysis.mentions), len(analysis.characters))
+    sentences_in = Counter(s.chapter for s in analysis.sentences)
+    chapter_rows = pd.DataFrame([
+        {"Chapter": c.title, "Theme": e.theme, "Mood": round(analysis.chapter_sentiment[i], 3),
+         "Sentences": sentences_in[i],
+         **{charts.short_label(k): round(v, 3)
+            for k, v in charts.without_neutral(analysis.chapter_emotions[i] if has_emotions else {}).items()},
+         "Key sentence": e.event}
+        for i, (c, e) in enumerate(zip(analysis.chapters, events))])
+    tones = {c.id: [t for t in analysis.sentiment_by_chapter[c.id] if t is not None] for c in analysis.characters}
+    character_rows = pd.DataFrame([
+        {"Character": c.name, "Mentions": c.mentions, "Words spoken": talk[c.id],
+         "Average tone": round(sum(tones[c.id]) / len(tones[c.id]), 3) if tones[c.id] else None,
+         "Stands out": ", ".join(stand_out(analysis.character_fine[c.id], book_fine)) if analysis.character_fine else ""}
+        for c in charts.top_characters(analysis, len(analysis.characters))])
+    stem = re.sub(r"[^A-Za-z0-9]+", "_", book["title"]).strip("_").lower() or "book"
+    first, second = st.columns(2)
+    first.download_button("Download chapters (CSV)", chapter_rows.to_csv(index=False).encode("utf-8-sig"),
+                          f"{stem}_chapters.csv", "text/csv", width="stretch")
+    second.download_button("Download characters (CSV)", character_rows.to_csv(index=False).encode("utf-8-sig"),
+                           f"{stem}_characters.csv", "text/csv", width="stretch")
+
 # --- Explore in 3D ---------------------------------------------------------------------
 with tab["3d"]:
 
