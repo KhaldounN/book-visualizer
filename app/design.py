@@ -1020,10 +1020,16 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
     from avatars import look_in_words
     colors = charts.character_colors(analysis, theme)
     from analyzer.narration import narrator
-    roles = story_roles(analysis, n, narrator(analysis, find_lines(analysis.sentences, analysis.mentions)))
+    teller = narrator(analysis, find_lines(analysis.sentences, analysis.mentions))
+    roles = story_roles(analysis, n, teller)
     book_fine = average_emotions([s.fine for s in analysis.sentences])
     cards = []
-    for c in charts.top_characters(analysis, n):
+    people = charts.top_characters(analysis, n)
+    if teller is not None and analysis.characters[teller] not in people:  # the narrator always has a card, first
+        people = [analysis.characters[teller]] + people[:-1]
+    elif teller is not None:
+        people = [analysis.characters[teller]] + [c for c in people if c.id != teller]
+    for c in people:
         look = looks.get(c.id)
         if not look:
             continue
