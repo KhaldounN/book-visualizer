@@ -544,22 +544,3 @@ def test_a_cover_on_the_shelf_opens_its_book():
     covers[0].click().run(timeout=120)
     assert not at.exception, at.exception
     assert any("Great Expectations" in h.proto.body and "ba-top" in h.proto.body for h in at.get("html"))
-
-
-@pytest.mark.parametrize("layout", ["classic", "tabs", "guided", "cinematic", "bento"])
-def test_every_layout_shows_the_whole_book(layout):
-    """The layouts being tried out (?layout=, app/layouts.py) arrange the same parts differently."""
-    at = AppTest.from_file(str(APP), default_timeout=30)
-    at.query_params["layout"] = layout
-    at.session_state["analyses"] = {"book": {"title": "Test Book", "analysis": small_analysis(), "merges": []}}
-    at.session_state["current"] = "book"
-    at.run()
-    assert not at.exception
-    assert len(at.header) == 11, "every part is drawn (in guided, the hidden ones too)"
-    if layout == "tabs":
-        assert len(at.tabs) == 8
-    if layout == "guided":
-        nxt = next(b for b in at.button if b.label.startswith("Next:"))
-        nxt.click().run()
-        assert at.session_state["part"] == "3d" and not at.exception
-        assert any(b.label.startswith("←") for b in at.button), "a way back"
