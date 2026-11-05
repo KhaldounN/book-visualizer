@@ -36,6 +36,89 @@ LIKELY_EYES = {"fair": ["blue", "grey", "blue"], "golden": ["blue", "blue", "gre
                "red": ["green", "hazel", "blue"], "auburn": ["hazel", "green", "brown"]}
 
 
+def _shade(colour: str, amount: float) -> str:
+    """A lighter (amount > 0) or darker (amount < 0) version of a #rrggbb colour."""
+    r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
+    target = 255 if amount > 0 else 0
+    mix = lambda c: round(c + (target - c) * abs(amount))  # noqa: E731
+    return f"#{mix(r):02x}{mix(g):02x}{mix(b):02x}"
+
+
+# the backdrop glows faintly in the colour of the emotion that stands out around the character
+TINT = {"joy": "#c9962a", "love": "#c2457a", "sadness": "#3b6fb0", "anger": "#b8392f", "fear": "#6a55b8",
+        "surprise": "#2a9a7a", "shame": "#c0603a", "disapproval": "#4f7a2a"}
+
+# Small looping movements, like an animated GIF, that run inside the SVG itself (so they also play
+# in an <img>): every face blinks and breathes; the feeling that stands out adds its own movement.
+# They stop for people who ask their system for less motion. (A 3D texture shows the first frame.)
+MOTION = """<style>
+.lid{transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0);animation:blink 5.2s infinite}
+@keyframes blink{0%,93%,100%{transform:scaleY(0)}95.5%{transform:scaleY(1)}}
+.body{animation:breathe 4.8s ease-in-out infinite}
+@keyframes breathe{50%{transform:translateY(.7px)}}
+.joy .head{animation:bob 2.2s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-1.6px) rotate(-1deg)}}
+.spark{transform-box:fill-box;transform-origin:center;animation:twinkle 2.2s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.3)}50%{opacity:1;transform:scale(1)}}
+.tear{animation:tear 3.6s ease-in infinite}
+@keyframes tear{0%,30%{opacity:0;transform:translateY(0)}40%{opacity:1}90%{opacity:.9;transform:translateY(11px)}100%{opacity:0;transform:translateY(13px)}}
+.sadness .head{animation:droop 6s ease-in-out infinite}
+@keyframes droop{50%{transform:translateY(1.2px) rotate(1.2deg)}}
+.heart{animation:float 3.4s ease-out infinite}
+@keyframes float{0%{opacity:0;transform:translate(0,0) scale(.5)}20%{opacity:1}100%{opacity:0;transform:translate(4px,-22px) scale(1.1)}}
+.flush{animation:flush 2.4s ease-in-out infinite}
+@keyframes flush{0%,100%{opacity:.05}50%{opacity:.32}}
+.vein{transform-box:fill-box;transform-origin:center;animation:throb 1.2s ease-in-out infinite}
+@keyframes throb{50%{transform:scale(1.25)}}
+.fear .head{animation:shiver .22s linear infinite}
+@keyframes shiver{25%{transform:translateX(.45px)}75%{transform:translateX(-.45px)}}
+.sweat{animation:sweat 3s ease-in infinite}
+@keyframes sweat{0%,40%{opacity:0;transform:translateY(0)}55%{opacity:1}100%{opacity:0;transform:translateY(8px)}}
+.surprise .brows{animation:raise 2.6s ease-in-out infinite}
+@keyframes raise{0%,60%,100%{transform:translateY(0)}70%,85%{transform:translateY(-2.2px)}}
+.blush{animation:blush 3s ease-in-out infinite}
+@keyframes blush{0%,100%{opacity:.25}50%{opacity:.55}}
+.disapproval .brow-r{animation:arch 4s ease-in-out infinite}
+@keyframes arch{0%,55%,100%{transform:translateY(0)}65%,85%{transform:translateY(-1.8px)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>"""
+
+
+def _feeling(look: Appearance) -> str:
+    return look.emotion or ("joy" if look.mood > 0.08 else "sadness" if look.mood < -0.05 else "")
+
+
+def _star(x: float, y: float, delay: float) -> str:
+    return (f'<path class="spark" style="animation-delay:{delay}s" d="M{x} {y - 3} L{x + .8} {y - .8} L{x + 3} {y} '
+            f'L{x + .8} {y + .8} L{x} {y + 3} L{x - .8} {y + .8} L{x - 3} {y} L{x - .8} {y - .8} Z" fill="#ffd966"/>')
+
+
+def _heart(x: float, delay: float, colour: str) -> str:
+    return (f'<path class="heart" style="animation-delay:{delay}s" d="M{x} 44 C{x - 4} 40 {x - 6} 45 {x} 49 '
+            f'C{x + 6} 45 {x + 4} 40 {x} 44 Z" fill="{colour}"/>')
+
+
+def _emotion_extras(feel: str) -> str:
+    """The moving extra that shows the feeling: sparkles, a tear, hearts, a flush, sweat, a blush."""
+    if feel == "joy":
+        return _star(30, 30, 0) + _star(92, 40, .8) + _star(86, 18, 1.5)
+    if feel == "sadness":
+        return '<path class="tear" d="M70.5 53 Q73 57.5 70.5 59 Q68 57.5 70.5 53 Z" fill="#9fd3ff" opacity=".9"/>'
+    if feel == "love":
+        return (_heart(88, 0, "#ff6b8b") + _heart(30, 1.7, "#ff8fa6")
+                + '<g class="blush"><circle cx="48" cy="59.5" r="4.8" fill="#e8506a"/>'
+                  '<circle cx="72" cy="59.5" r="4.8" fill="#e8506a"/></g>')
+    if feel == "anger":
+        return ('<ellipse class="flush" cx="60" cy="52" rx="19" ry="20" fill="#d8382e"/>'
+                '<path class="vein" d="M73 31 l3 3 m0 -3 l-3 3" stroke="#e23b2e" stroke-width="1.6" stroke-linecap="round"/>')
+    if feel == "fear":
+        return '<path class="sweat" d="M79 38 Q81.5 42.5 79 44 Q76.5 42.5 79 38 Z" fill="#bfe6ff"/>'
+    if feel == "shame":
+        return ('<g class="blush"><ellipse cx="48" cy="59" rx="6" ry="3.6" fill="#e0606a"/>'
+                '<ellipse cx="72" cy="59" rx="6" ry="3.6" fill="#e0606a"/></g>')
+    return ""
+
+
 def _face_width(look: Appearance) -> float:
     return {"stout": 22, "thin": 17.5}.get(look.build or "", 19.5)
 
@@ -43,7 +126,7 @@ def _face_width(look: Appearance) -> float:
 def _expression(look: Appearance, lips: str, brow: str, iris: str, skin: str) -> str:
     """Eyes, brows and mouth set by the emotion that stands out around the character
     (else by their overall mood): the face tells the reader how the book treats them."""
-    feel = look.emotion or ("joy" if look.mood > 0.08 else "sadness" if look.mood < -0.05 else "")
+    feel = _feeling(look)
     out = []
     # eyes: white, iris in the book's colour, pupil; wide for fear and surprise, cast down for shame
     wide = feel in ("fear", "surprise")
@@ -51,9 +134,20 @@ def _expression(look: Appearance, lips: str, brow: str, iris: str, skin: str) ->
     ry = 3.2 if wide else 2.6
     for x in (52, 68):
         out.append(f'<ellipse cx="{x}" cy="50" rx="3.4" ry="{ry}" fill="#fbf8f2"/>'
-                   f'<circle cx="{x}" cy="{50 + down:.1f}" r="2.1" fill="{iris}"/>'
+                   f'<circle cx="{x}" cy="{50 + down:.1f}" r="2.15" fill="{iris}" stroke="{_shade(iris, -.45)}" '
+                   f'stroke-width=".55"/>'
                    f'<circle cx="{x}" cy="{50 + down:.1f}" r="1" fill="{INK}"/>'
-                   f'<circle cx="{x + .7:.1f}" cy="{49.3 + down:.1f}" r=".55" fill="#fff"/>')
+                   f'<circle cx="{x + .7:.1f}" cy="{49.3 + down:.1f}" r=".6" fill="#fff"/>'
+                   f'<circle cx="{x - .8:.1f}" cy="{50.9 + down:.1f}" r=".3" fill="#fff" opacity=".7"/>'
+                   f'<path d="M{x - 3.7} {50.4 - ry * .3:.1f} Q{x} {49.6 - ry * 1.25:.1f} {x + 3.7} {50.4 - ry * .3:.1f}" '
+                   f'fill="none" stroke="{INK}" stroke-opacity=".75" stroke-width=".9" stroke-linecap="round"/>')
+        if look.gender == "f":  # lashes at the outer corner
+            side = -1 if x < 60 else 1
+            out.append(f'<path d="M{x + 3.3 * side:.1f} {49.2 - ry * .35:.1f} l{1.4 * side:.1f} -1.2 '
+                       f'M{x + 2.2 * side:.1f} {48.3 - ry * .5:.1f} l{1 * side:.1f} -1.4" stroke="{INK}" '
+                       f'stroke-width=".7" stroke-linecap="round"/>')
+        # the eyelid that comes down when the face blinks
+        out.append(f'<ellipse class="lid" cx="{x}" cy="50" rx="3.9" ry="{ry + .6:.1f}" fill="{_shade(skin, -.06)}"/>')
         if feel == "joy":  # smiling eyes: the lower lid pushes up
             out.append(f'<path d="M{x - 3.6} 52.4 Q{x} 50.2 {x + 3.6} 52.4 L{x + 3.6} 54 L{x - 3.6} 54 Z" fill="{skin}"/>')
         if feel == "shame" or feel == "sadness":  # heavy upper lids
@@ -65,10 +159,10 @@ def _expression(look: Appearance, lips: str, brow: str, iris: str, skin: str) ->
         "disapproval": ((44.5, 44.5), (41.5, 40.5)), "shame": ((43, 45), (43, 45)),
     }.get(feel, ((44, 44.5), (44, 44.5)))
     width = 2.6 if look.gender != "f" else 1.8
-    out.append(f'<path d="M47 {left[1]} Q51.5 {min(left) - .8} 56 {left[0]}" fill="none" stroke="{brow}" '
-               f'stroke-width="{width}" stroke-linecap="round"/>'
-               f'<path d="M64 {right[0]} Q68.5 {min(right) - .8} 73 {right[1]}" fill="none" stroke="{brow}" '
-               f'stroke-width="{width}" stroke-linecap="round"/>')
+    out.append(f'<g class="brows"><path d="M47 {left[1]} Q51.5 {min(left) - .8} 56 {left[0]}" fill="none" '
+               f'stroke="{brow}" stroke-width="{width}" stroke-linecap="round"/>'
+               f'<path class="brow-r" d="M64 {right[0]} Q68.5 {min(right) - .8} 73 {right[1]}" fill="none" '
+               f'stroke="{brow}" stroke-width="{width}" stroke-linecap="round"/></g>')
     # mouth
     mouths = {
         "joy": "M52.5 64.5 Q60 72.5 67.5 64.5", "love": "M54 65.5 Q60 70 66 65.5",
@@ -83,6 +177,11 @@ def _expression(look: Appearance, lips: str, brow: str, iris: str, skin: str) ->
     else:
         out.append(f'<path d="{mouths.get(feel, "M54.5 66.5 Q60 68 65.5 66.5")}" fill="none" stroke="{lips}" '
                    f'stroke-width="2.2" stroke-linecap="round"/>')
+    if feel != "surprise":
+        out.append(f'<path d="M57 70.2 Q60 71.6 63 70.2" fill="none" stroke="{lips}" stroke-opacity=".35" '
+                   'stroke-width="1.2" stroke-linecap="round"/>')
+    out.append('<circle cx="48" cy="60" r="4.4" fill="#e0606a" opacity=".1"/>'
+               '<circle cx="72" cy="60" r="4.4" fill="#e0606a" opacity=".1"/>')
     if feel in ("love", "shame") or look.complexion == "ruddy":  # a blush
         out.append('<circle cx="48" cy="59.5" r="4.6" fill="#e0606a" opacity=".3"/>'
                    '<circle cx="72" cy="59.5" r="4.6" fill="#e0606a" opacity=".3"/>')
@@ -106,7 +205,8 @@ def avatar_svg(name: str, look: Appearance, ring: str) -> str:
     hair_name = look.hair or (_pick(seed, ["grey", "white", "grey"], 1) if old else _pick(seed, YOUTHFUL_HAIR, 2))
     if role == "wizard":
         hair_name = look.hair or "grey"
-    hair = HAIR[hair_name]
+    hair_hex = HAIR[hair_name]
+    hair = "url(#hr)"  # the hair is shaded: lighter on top, darker below
     iris = IRIS[look.eyes or _pick(seed, LIKELY_EYES.get(hair_name, ["brown", "dark", "brown", "grey"]), 4)]
     face_rx = _face_width(look) + (1 if role == "hobbit" else 0)
     parts: list[str] = []
@@ -121,8 +221,9 @@ def avatar_svg(name: str, look: Appearance, ring: str) -> str:
             for y in (62, 70, 78):
                 add(f'<circle cx="38" cy="{y}" r="4.2" fill="{hair}"/><circle cx="82" cy="{y}" r="4.2" fill="{hair}"/>')
 
-    # --- clothes
-    add(_clothes(seed, look))
+    # --- clothes, shaded towards the bottom and under the chin
+    add('<g class="body">' + _clothes(seed, look) + '<rect x="0" y="84" width="120" height="36" fill="url(#cloth)"/></g>')
+    add('<g class="head">')
 
     # --- neck and head
     add(f'<rect x="52" y="64" width="16" height="20" rx="6" fill="{skin}"/>'
@@ -133,7 +234,11 @@ def avatar_svg(name: str, look: Appearance, ring: str) -> str:
         ear = 60 - face_rx - .2
         add(f'<ellipse cx="{ear:.1f}" cy="54" rx="4" ry="6" fill="{skin}"/>'
             f'<ellipse cx="{120 - ear:.1f}" cy="54" rx="4" ry="6" fill="{skin}"/>')
-    add(f'<ellipse cx="60" cy="50" rx="{face_rx}" ry="{22 if role == "hobbit" else 24}" fill="{skin}"/>')
+    add(f'<ellipse cx="60" cy="50" rx="{face_rx}" ry="{22 if role == "hobbit" else 24}" fill="url(#sk)"/>')
+    # soft light on the forehead, shade along the jaw
+    add('<ellipse cx="57" cy="40" rx="8" ry="5" fill="#fff" opacity=".13"/>'
+        f'<path d="M{60 - face_rx + 2:.1f} 58 Q60 {74 if role == "hobbit" else 78} {60 + face_rx - 2:.1f} 58" '
+        'fill="none" stroke="#000" stroke-opacity=".07" stroke-width="3"/>')
     if look.build == "stout":  # a fuller jaw
         add(f'<path d="M48 70 Q60 78 72 70" fill="none" stroke="#000" stroke-opacity=".12" stroke-width="1.4"/>')
     elif look.build == "thin":  # cheekbones
@@ -144,7 +249,7 @@ def avatar_svg(name: str, look: Appearance, ring: str) -> str:
         add("".join(f'<circle cx="{x}" cy="{y}" r=".7" fill="#a0583a" opacity=".55"/>'
                     for x, y in ((47, 57), (50, 58.5), (48.5, 60), (73, 57), (70, 58.5), (71.5, 60), (57, 56), (63, 56))))
     lips = "#b4535c" if woman else "#8f4c42"
-    brow = HAIR["grey"] if old else (hair if hair_name not in ("fair", "golden", "white") else "#8a6a48")
+    brow = HAIR["grey"] if old else (hair_hex if hair_name not in ("fair", "golden", "white") else "#8a6a48")
     add(_expression(look, lips, brow, iris, skin))
     add(_nose(seed))
     if old:
@@ -168,8 +273,12 @@ def avatar_svg(name: str, look: Appearance, ring: str) -> str:
         if "moustache" in look.features and not beard:
             add(f'<path d="M52.5 63.5 Q56 60.5 60 62.5 Q64 60.5 67.5 63.5 Q64 63.8 60 64 Q56 63.8 52.5 63.5 Z" fill="{hair}"/>')
 
-    # --- hair on top
-    add(_top_hair(seed, look, hair, woman, old, young))
+    # --- hair on top, with a few lighter strands for sheen
+    top = _top_hair(seed, look, hair, woman, old, young)
+    add(top)
+    if top and look.hairstyle not in ("bald", "curly") and role != "hobbit" and not (old and seed % 2 == 0):
+        add(f'<path d="M47 33 Q54 27.5 61 27.5 M50 36 Q57 30 66 30.5 M64 28 Q71 29 75 35" fill="none" '
+            f'stroke="{_shade(hair_hex, .35)}" stroke-opacity=".55" stroke-width=".8" stroke-linecap="round"/>')
 
     # --- accessories
     if "glasses" in look.features:
@@ -184,11 +293,26 @@ def avatar_svg(name: str, look: Appearance, ring: str) -> str:
             '<path d="M74 66 L80 66 L79 74 Q77 76 75 74 Z" fill="#5a3a26"/>'
             '<path d="M77 63 Q75 60 78 57 Q81 54 78 51" fill="none" stroke="#d8d4cc" stroke-width="1.2" opacity=".6"/>')
     add(_headwear(seed, look, woman, young))
+    feel = _feeling(look)
+    add(_emotion_extras(feel))
+    add('</g>')
 
     body = "".join(parts)
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="240" height="240">'
-            f'<defs><clipPath id="c"><circle cx="60" cy="60" r="55"/></clipPath></defs>'
-            f'<circle cx="60" cy="60" r="58" fill="#1a2130"/>'
+    tint = TINT.get(feel, "#2a3550")
+    defs = (f'<clipPath id="c"><circle cx="60" cy="60" r="55"/></clipPath>'
+            f'<radialGradient id="bg" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="{_shade(tint, -.35)}"/>'
+            f'<stop offset="1" stop-color="#121722"/></radialGradient>'
+            f'<radialGradient id="sk" cx="45%" cy="38%" r="65%"><stop offset="0" stop-color="{_shade(skin, .12)}"/>'
+            f'<stop offset=".7" stop-color="{skin}"/><stop offset="1" stop-color="{_shade(skin, -.16)}"/></radialGradient>'
+            f'<linearGradient id="hr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{_shade(hair_hex, .18)}"/>'
+            f'<stop offset=".55" stop-color="{hair_hex}"/><stop offset="1" stop-color="{_shade(hair_hex, -.3)}"/>'
+            f'</linearGradient>'
+            f'<linearGradient id="cloth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".22"/>'
+            f'<stop offset=".25" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/>'
+            f'</linearGradient>')
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="240" height="240" '
+            f'class="{feel or "calm"}">{MOTION}<defs>{defs}</defs>'
+            f'<circle cx="60" cy="60" r="58" fill="url(#bg)"/>'
             f'<g clip-path="url(#c)"><g transform="translate(60 66) scale(1.12) translate(-60 -60)">{body}</g></g>'
             f'<circle cx="60" cy="60" r="56.5" fill="none" stroke="{ring}" stroke-width="5"/></svg>')
 
