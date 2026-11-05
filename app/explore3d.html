@@ -266,6 +266,9 @@ function road() {
   // every chapter gets the same stretch of road, so long books get a longer road (with room
   // for each chapter's landscape and weather). The opening view shows the first VIEW units of
   // it at the usual size; Travel and the chapter slider carry you along the rest.
+  // MINIMAL (the owner's choice): a plain dark ground and the road, with text signs that name the
+  // dominant emotion and the mood; no scenery, water, weather, emoji badges or roadside faces
+  const MINIMAL = true;
   const n = data.chapters, PER_CHAPTER = 4, VIEW = 80;  // 4 units: room between signposts, badges and clouds
   const LENGTH = Math.max(40, n * PER_CHAPTER), startX = Math.min(0, -LENGTH / 2 + VIEW / 2);
   const st = stage({ camera: [startX, 24, 35], autoRotate: false, fog: 0.008 });
@@ -306,6 +309,7 @@ function road() {
     const t = tOfX(x);
     const off = (x < -LENGTH / 2 ? -LENGTH / 2 - x : x > LENGTH / 2 ? x - LENGTH / 2 : 0);  // beyond the ends
     const fall = Math.exp(-((Math.hypot(z - zOf(t), off * 1.4) / 7.5) ** 2)), away = 1 - fall;
+    if (MINIMAL) return [(hOf(t) - 0.12) * fall - 0.4 * away, fall];  // a smooth embankment under the road, flat beyond
     let y = (hOf(t) - 0.12) * fall + 0.25 * Math.sin(x * 0.7) * Math.cos(z * 0.6) * away - 0.4;
     const edge = 1 - Math.min(1, Math.abs(z) / (D / 2)) ** 3;  // ...sinking again at the map's edge, so it ends without a wall
     y += landAt("mountains", t) * away * away * edge * (1 + 3 * bumps(x, z));  // high ground rising away from the road
@@ -322,19 +326,20 @@ function road() {
     const x = gp.getX(v), z = gp.getZ(v), t = tOfX(x), [y, fall] = groundAt(x, z);
     gp.setY(v, y);
     const land = new THREE.Color(0, 0, 0);
-    KINDS.forEach((k) => { const w = landAt(k, t); if (w) land.add(new THREE.Color(LAND_LOOK[k].ground).multiplyScalar(w)); });
-    if (landAt("mountains", t) && y > 2.6) land.lerp(new THREE.Color(0xdfe6ee), Math.min(1, (y - 2.6) / 1.5));  // snowy tops
+    if (MINIMAL) land.set(0x161b24);  // one quiet slate colour
+    else KINDS.forEach((k) => { const w = landAt(k, t); if (w) land.add(new THREE.Color(LAND_LOOK[k].ground).multiplyScalar(w)); });
+    if (!MINIMAL && landAt("mountains", t) && y > 2.6) land.lerp(new THREE.Color(0xdfe6ee), Math.min(1, (y - 2.6) / 1.5));  // snowy tops
     const near = fall ** 2;  // only the land right next to the road takes the mood colour
     const c = land.lerp(colorOf(t).multiplyScalar(0.55), near * 0.8);
     gcolors.push(c.r, c.g, c.b);
   }
   ground.setAttribute("color", new THREE.Float32BufferAttribute(gcolors, 3)); ground.computeVertexNormals();
-  st.scene.add(new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true })));
+  st.scene.add(new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: !MINIMAL })));
   const wire = new THREE.Mesh(ground, new THREE.MeshBasicMaterial({ color: HOLO, wireframe: true, transparent: true, opacity: 0.025 }));
-  st.scene.add(wire);
+  if (!MINIMAL) st.scene.add(wire);
   // one sheet of water under everything: it shows wherever the land sinks (sea, rivers, marsh pools)
   const water = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ color: 0x1d5f8a, roughness: 0.25, metalness: 0.2, transparent: true, opacity: 0.85 }));
-  water.rotation.x = -Math.PI / 2; water.position.y = WATER_Y; st.scene.add(water);
+  water.rotation.x = -Math.PI / 2; water.position.y = WATER_Y; water.visible = !MINIMAL; st.scene.add(water);
   st.tick.push((time) => { water.material.color.setHSL(0.56, 0.65, 0.31 + Math.sin(time * 0.8) * 0.02); });
 
   // scenery: low-poly pieces scattered beside the road, a few per chapter, the same every time
@@ -342,7 +347,7 @@ function road() {
   const spots = {};  // piece -> [[x, y, z, size, colour]]
   LAND.forEach((l, i) => {
     const look = LAND_LOOK[l.kind];
-    look.pieces.forEach(([piece, perChapter, near, far, colors]) => {
+    (MINIMAL ? [] : look.pieces).forEach(([piece, perChapter, near, far, colors]) => {
       for (let k = 0; k < Math.round(perChapter * (LENGTH / n) / 2); k++) {  // counts are set for 2 units of road per chapter
         const x = xOf(i) + (rand() - 0.5) * (LENGTH / n) * 1.4;
         const z = zOf(tOfX(x)) + (rand() < 0.5 ? -1 : 1) * (near + rand() * (far - near));
@@ -388,7 +393,7 @@ function road() {
     const x = x0 + (rand() - 0.5) * 2 * halfX, z = z0 + (rand() - 0.5) * 2 * halfZ, floor = groundAt(x, z)[0];
     return [x, floor + rand() * (CLOUD_Y - floor), z, Math.max(floor, WATER_Y)];
   });
-  SKY.forEach((w, i) => {
+  (MINIMAL ? [] : SKY).forEach((w, i) => {
     if (!w) return;
     const x0 = xOf(i), z0 = zOf(i), heavy = w.strength;
     if (w.kind === "rain" || w.kind === "storm") {
@@ -487,13 +492,24 @@ function road() {
     const s = label(`ch ${i + 1}`, { size: 0.5, color: "#8d9199", weight: 500 });
     s.position.copy(at(i)).add(new THREE.Vector3(0, 0.5, 2.1)); st.scene.add(s);
   }
+  // a stretch of chapters in words: its dominant emotion (most common family, neutral left out) and mood
+  const stretch = (from, to) => {
+    const ids = Array.from({ length: Math.max(1, to - from + 1) }, (_, j) => from + j).filter((i) => i < n);
+    const mix = EMO.map((_, k) => ids.reduce((sum, i) => sum + (data.chapterEmotions[i]?.[k] || 0), 0));
+    const top = mix.some((v) => v > 0) ? EMO[mix.indexOf(Math.max(...mix))] : null;
+    const mood = ids.reduce((sum, i) => sum + tone[i], 0) / ids.length;
+    return { emotion: top, label: top ? EMO_LABEL[top].toLowerCase() : "", mood };
+  };
+  const moodWord = (m) => `${m >= 0 ? "▲" : "▼"} mood ${m >= 0 ? "+" : "−"}${Math.abs(m).toFixed(2)}`;
   // a gate where each act begins
-  data.acts.forEach(([first], k) => {
+  data.acts.forEach(([first, last], k) => {
     const p = at(first), gate = new THREE.Group();
     const postGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), mat = new THREE.MeshBasicMaterial({ color: 0x8d9199 });
     [-1.4, 1.4].forEach((dz) => { const post = new THREE.Mesh(postGeo, mat); post.position.set(0, 1.3, dz); gate.add(post); });
     const beam = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.9), mat); beam.position.y = 2.6; gate.add(beam);
-    const tag = label(`Act ${["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][k] ?? k + 1}`, { size: 0.8, color: "#c3c2b7" });
+    const act = `Act ${["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][k] ?? k + 1}`, about = stretch(first, last ?? first);
+    const tag = label(MINIMAL && about.emotion ? `${act} · mostly ${about.label} · ${moodWord(about.mood)}` : act,
+                      { size: 0.8, color: MINIMAL && about.emotion ? EMO_COLOR[about.emotion] : "#c3c2b7" });
     tag.position.y = 3.2; gate.add(tag);
     gate.position.copy(p); gate.rotation.y = -Math.atan2(at(first + 0.3).z - p.z, at(first + 0.3).x - p.x);
     st.scene.add(gate);
@@ -503,10 +519,15 @@ function road() {
     const p = at(i), up = kind === "high", poleTop = 2.2 + (j % 3) * 1.15;  // staggered so neighbours don't overlap
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, poleTop, 6), new THREE.MeshBasicMaterial({ color: 0xc3c2b7 }));
     pole.position.copy(p).add(new THREE.Vector3(0, poleTop / 2, -1.3)); st.scene.add(pole);
-    const sign = label(`${up ? "▲" : "▼"} ${events[i].theme} · ch ${i + 1}`, { size: 0.8, color: "#05080d", panel: up ? "#f0d48a" : "#f09a9a" });
-    sign.position.copy(p).add(new THREE.Vector3(0, poleTop + 1.55, -1.3)); st.scene.add(sign);
-    const b = badge(events[i].icon, up ? "#f0d48a" : "#f09a9a", 1.5);
-    b.position.copy(p).add(new THREE.Vector3(0, poleTop + 0.55, -1.3)); st.scene.add(b);
+    const here = stretch(i, i);
+    const text = MINIMAL ? `${up ? "▲ high point" : "▼ low point"} · ch ${i + 1}${here.emotion ? " · " + here.label : ""} · mood ${fmtTone(tone[i])}`
+                         : `${up ? "▲" : "▼"} ${events[i].theme} · ch ${i + 1}`;
+    const sign = label(text, { size: 0.8, color: "#05080d", panel: up ? "#f0d48a" : "#f09a9a" });
+    sign.position.copy(p).add(new THREE.Vector3(0, poleTop + (MINIMAL ? 0.6 : 1.55), -1.3)); st.scene.add(sign);
+    if (!MINIMAL) {
+      const b = badge(events[i].icon, up ? "#f0d48a" : "#f09a9a", 1.5);
+      b.position.copy(p).add(new THREE.Vector3(0, poleTop + 0.55, -1.3)); st.scene.add(b);
+    }
     const halo = glow(up ? new THREE.Color("#f0d48a") : NEG, 3); halo.position.copy(p).add(new THREE.Vector3(0, 0.3, 0)); st.scene.add(halo);
   });
 
@@ -515,13 +536,13 @@ function road() {
   const turningAt = new Set(data.turning.map((p) => p.i));
   const stem = (from, to) => new THREE.Line(new THREE.BufferGeometry().setFromPoints([from, to]),
     new THREE.LineBasicMaterial({ color: 0x6c7d92, transparent: true, opacity: 0.7 }));
-  data.keyThemes.filter((i) => !turningAt.has(i)).forEach((i) => {
+  (MINIMAL ? [] : data.keyThemes.filter((i) => !turningAt.has(i))).forEach((i) => {
     const p = at(i), top = p.clone().add(new THREE.Vector3(0, 2.3, -1.3));
     st.scene.add(stem(p.clone().add(new THREE.Vector3(0, 0, -1.3)), top.clone().add(new THREE.Vector3(0, -0.55, 0))));
     const b = badge(events[i].icon, "#9fb0c4", 1.1); b.position.copy(top); st.scene.add(b);
   });
   // ...and a small face at the other roadside where one feeling stands out, ringed in its colour
-  data.keyFeelings.forEach(({ i, emotion }) => {
+  (MINIMAL ? [] : data.keyFeelings).forEach(({ i, emotion }) => {
     const p = at(i), spot = p.clone().add(new THREE.Vector3(0, 1.0, 1.7));
     st.scene.add(stem(p.clone().add(new THREE.Vector3(0, 0, 1.7)), spot.clone().add(new THREE.Vector3(0, -0.42, 0))));
     const b = badge(data.emotionIcons[emotion], EMO_COLOR[emotion], 0.85); b.position.copy(spot); st.scene.add(b);
@@ -620,7 +641,8 @@ function road() {
   });
 
   hud.innerHTML = `<button id="go" type="button">▶ Travel</button><input id="seek" type="range" min="1" max="${n}" value="1" aria-label="Jump to chapter">
-    <span class="chip">height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here · land = where it happens · sky = the weather · bends = straight, winding or climbing roads in the story</span>`;
+    <span class="chip">${MINIMAL ? `height and colour = the story's mood (higher and bluer = brighter, lower and redder = darker) · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · gates = the acts, with their main emotion · faces = who is in the story here`
+      : `height = the story's mood · <span style="color:#f0d48a">▲</span> high points · <span style="color:#f09a9a">▼</span> low points · ⚔️ key themes · 😨 standout feelings · faces = who is in the story here · land = where it happens · sky = the weather · bends = straight, winding or climbing roads in the story`}</span>`;
   const go = document.getElementById("go"), slider = document.getElementById("seek");
   let travelling = false, pos = 0, last = 0;
   const place = (t) => { traveller.position.copy(at(t)).add(new THREE.Vector3(0, 0.45, 0)); };

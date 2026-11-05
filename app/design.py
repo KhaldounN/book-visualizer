@@ -427,48 +427,58 @@ WORKFLOW = [
 
 
 def _emblem_svg(size: int, ink: str = "", paper: str = "", accent: str = "") -> str:
-    """The mascot: a friendly, fairly realistic raccoon face (grey fur shading, pointed ears, the black
-    mask with white brows, bright open eyes, a white muzzle and a gentle smile). It has its own fixed
-    colours, and a cream "sticker" border so it stands out on light and dark pages alike.
+    """The mascot, drawn after the owner's raccoon photo (app/assets/raccoon.jpg): fluffy grey-brown fur,
+    rounded ears with cream insides, white brows over a dark mask, big glossy eyes, a white muzzle and
+    whiskers, a gentle smile, and black gaming headphones with orange rims. Fixed colours, with a cream
+    "sticker" border so it stands out on light and dark pages alike.
     (The ink/paper/accent arguments are kept for the callers; unused.)"""
-    line = "#2a2421"
-    head = ("M32 12 C43 12 51 17 54.5 26 L60 31 L55.5 33.5 L59.5 38.5 L53.5 39.5 C50 48.5 42 54 32 54 "
-            "C22 54 14 48.5 10.5 39.5 L4.5 38.5 L8.5 33.5 L4 31 L9.5 26 C13 17 21 12 32 12 Z")
-    ear_l, ear_r = "M10.5 27 L12 7.5 Q13 5.5 15 6.5 L27.5 15.5 Z", "M53.5 27 L52 7.5 Q51 5.5 49 6.5 L36.5 15.5 Z"
-    mask = ("M7 32 C10.5 25.5 22 24.5 29 30 L32 32.5 L35 30 C42 24.5 53.5 25.5 57 32 "
-            "C53.5 38.5 44.5 40.5 38.5 37.5 L32 36 L25.5 37.5 C19.5 40.5 10.5 38.5 7 32 Z")
-    eye = lambda x: (f'<circle cx="{x}" cy="31.8" r="4.4" fill="#4a403a"/>'
-                     f'<circle cx="{x}" cy="31.8" r="3.5" fill="#5b3f2c"/><circle cx="{x}" cy="31.8" r="2.3" fill="#120e0c"/>'
-                     f'<circle cx="{x + 1.2}" cy="30.5" r="1.25" fill="#fff"/><circle cx="{x - 1}" cy="33" r=".55" fill="#fff" opacity=".8"/>')
+    line = "#2a211c"
+    head = ("M32 13 C44 13 52 19 54 28 L59 32 L54.5 34.5 L58 39 L52.5 40 C49 49 41.5 54.5 32 54.5 "
+            "C22.5 54.5 15 49 11.5 40 L6 39 L9.5 34.5 L5 32 L10 28 C12 19 20 13 32 13 Z")
+    band = "M8.6 37 C7 17 18 7 32 7 C46 7 57 17 55.4 37"
+    cups = ('<rect x="3" y="29.5" width="9.5" height="15" rx="4.2"/>'
+            '<rect x="51.5" y="29.5" width="9.5" height="15" rx="4.2"/>')
+    ear = lambda x, turn: (  # noqa: E731
+        f'<g transform="rotate({turn} {x} 15)"><ellipse cx="{x}" cy="15" rx="7.6" ry="8.2" fill="#7c6d60" '
+        f'stroke="{line}" stroke-width="1.4"/><ellipse cx="{x}" cy="15.8" rx="5" ry="5.6" fill="#efe4d4"/>'
+        f'<ellipse cx="{x}" cy="16.6" rx="2.8" ry="3.4" fill="#8a6e60"/></g>')
+    eye = lambda x: (  # noqa: E731
+        f'<circle cx="{x}" cy="31.6" r="5" fill="#120c0a"/><circle cx="{x}" cy="31.6" r="4.2" fill="#2e1d15"/>'
+        f'<circle cx="{x}" cy="31.8" r="2.6" fill="#0b0706"/>'
+        f'<circle cx="{x + 1.6}" cy="29.9" r="1.7" fill="#fff"/><circle cx="{x - 1.4}" cy="33.4" r=".7" fill="#fff" opacity=".8"/>')
+    whiskers = "".join(f'<path d="M{a} {b} L{c} {d}" stroke="#f6f1ea" stroke-width=".55" stroke-linecap="round" opacity=".85"/>'
+                       for a, b, c, d in ((24, 44, 13, 42.5), (24, 45.6, 13.5, 46.5), (40, 44, 51, 42.5), (40, 45.6, 50.5, 46.5)))
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 64 64">
       <defs>
-        <radialGradient id="fur" cx="50%" cy="38%" r="62%"><stop offset="0" stop-color="#c4beb6"/>
-          <stop offset=".65" stop-color="#9c958e"/><stop offset="1" stop-color="#7a736d"/></radialGradient>
-        <radialGradient id="mask" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#2b2522"/>
-          <stop offset="1" stop-color="#3d3631"/></radialGradient>
+        <radialGradient id="fur" cx="50%" cy="40%" r="62%"><stop offset="0" stop-color="#b9ab9c"/>
+          <stop offset=".6" stop-color="#9a8b7d"/><stop offset="1" stop-color="#6e6055"/></radialGradient>
+        <radialGradient id="mask" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#241a15"/>
+          <stop offset="1" stop-color="#3e312a"/></radialGradient>
+        <linearGradient id="cup" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3a40"/>
+          <stop offset="1" stop-color="#141417"/></linearGradient>
       </defs>
       <g stroke="#fbf6ec" stroke-width="5" stroke-linejoin="round" fill="#fbf6ec">
-        <path d="{ear_l}"/><path d="{ear_r}"/><path d="{head}"/></g>
-      <path d="{ear_l}" fill="#6f6862" stroke="{line}" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="{ear_r}" fill="#6f6862" stroke="{line}" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="M13.5 22 L14.5 10.5 L23 16.5 Z" fill="#3a332f"/><path d="M50.5 22 L49.5 10.5 L41 16.5 Z" fill="#3a332f"/>
-      <path d="M12.3 8.5 Q13 6.3 15 7.3" fill="none" stroke="#efeae3" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M51.7 8.5 Q51 6.3 49 7.3" fill="none" stroke="#efeae3" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="{head}" fill="url(#fur)" stroke="{line}" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="M32 12.5 Q29.8 19 30.2 27 L33.8 27 Q34.2 19 32 12.5 Z" fill="#5a524c" opacity=".85"/>
-      <ellipse cx="21" cy="24.2" rx="6.8" ry="2.9" fill="#f3efe9" transform="rotate(-8 21 24.2)"/>
-      <ellipse cx="43" cy="24.2" rx="6.8" ry="2.9" fill="#f3efe9" transform="rotate(8 43 24.2)"/>
-      <path d="{mask}" fill="url(#mask)"/>
-      {eye(21)}{eye(43)}
-      <path d="M17 41 C19 38 24 37.5 27 39 C29 37 35 37 37 39 C40 37.5 45 38 47 41 C46 48.5 39.5 52.5 32 52.5
-               C24.5 52.5 18 48.5 17 41 Z" fill="#f4f0ea"/>
-      <circle cx="19.5" cy="43.5" r="3" fill="#f2a5b0" opacity=".35"/><circle cx="44.5" cy="43.5" r="3" fill="#f2a5b0" opacity=".35"/>
-      <path d="M28.6 39.4 Q32 37.8 35.4 39.4 Q35 42.4 32 43.4 Q29 42.4 28.6 39.4 Z" fill="{line}"/>
-      <ellipse cx="30.9" cy="39.6" rx="1.3" ry=".6" fill="#fff" opacity=".6"/>
-      <path d="M32 43.4 L32 45.2 M27.4 44.8 Q29.6 47.8 32 45.2 Q34.4 47.8 36.6 44.8" fill="none" stroke="{line}"
-            stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-      <g fill="#8d857e"><circle cx="24.5" cy="45" r=".45"/><circle cx="23.2" cy="46.6" r=".45"/>
-        <circle cx="39.5" cy="45" r=".45"/><circle cx="40.8" cy="46.6" r=".45"/></g>
+        <ellipse cx="16" cy="15" rx="7.6" ry="8.2"/><ellipse cx="48" cy="15" rx="7.6" ry="8.2"/><path d="{head}"/>{cups}</g>
+      <path d="{band}" fill="none" stroke="#fbf6ec" stroke-width="8.5" stroke-linecap="round"/>
+      {ear(16, -18)}{ear(48, 18)}
+      <path d="{head}" fill="url(#fur)" stroke="{line}" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M32 13.5 Q29.6 20 30 27.5 L34 27.5 Q34.4 20 32 13.5 Z" fill="#4f433b" opacity=".8"/>
+      <ellipse cx="21.5" cy="24.6" rx="7" ry="3" fill="#f4eee6" transform="rotate(-10 21.5 24.6)"/>
+      <ellipse cx="42.5" cy="24.6" rx="7" ry="3" fill="#f4eee6" transform="rotate(10 42.5 24.6)"/>
+      <path d="M8 32 C11 25.5 22 24.6 29 30 L32 32.4 L35 30 C42 24.6 53 25.5 56 32 C53 38.6 44.6 40.6 38.6 37.6
+               L32 36.2 L25.4 37.6 C19.4 40.6 11 38.6 8 32 Z" fill="url(#mask)"/>
+      {eye(22.5)}{eye(41.5)}
+      <path d="M16.5 41 C18.5 37.6 24 37.2 27 39 C29 37 35 37 37 39 C40 37.2 45.5 37.6 47.5 41 C46.5 48.8 40 53.2 32 53.2
+               C24 53.2 17.5 48.8 16.5 41 Z" fill="#f6f1ea"/>
+      {whiskers}
+      <path d="M28.4 39.2 Q32 37.5 35.6 39.2 Q35.2 42.4 32 43.4 Q28.8 42.4 28.4 39.2 Z" fill="{line}"/>
+      <ellipse cx="30.8" cy="39.5" rx="1.4" ry=".65" fill="#fff" opacity=".65"/>
+      <path d="M32 43.4 L32 44.9 M28.4 44.6 Q30.2 47 32 44.9 Q33.8 47 35.6 44.6" fill="none" stroke="{line}"
+            stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="{band}" fill="none" stroke="#18181b" stroke-width="3.6" stroke-linecap="round"/>
+      <path d="M11 26 C13 15 21 9.3 32 9.3 C43 9.3 51 15 53 26" fill="none" stroke="#5a5a62" stroke-width=".9" opacity=".7"/>
+      <g fill="url(#cup)" stroke="#ff8a2a" stroke-width="1.5">{cups}</g>
+      <path d="M5.2 33 L5.2 41 M58.8 33 L58.8 41" stroke="#ffb066" stroke-width=".9" stroke-linecap="round" opacity=".8"/>
     </svg>"""
 
 
