@@ -287,9 +287,9 @@ else:
                 for column, name in zip(st.columns(6), shelf[row:row + 6]):
                     path = SAMPLES / name
                     author = book_info(path.read_bytes(), name)[1] or ""
-                    if column.button(samples[name][0], key=f"cover_{name}", width="stretch"):
-                        st.session_state.update(sample=name, open_sample=True)
-                        st.rerun()
+                    # a callback runs before the page is drawn again, so it may set the sidebar list's choice
+                    column.button(samples[name][0], key=f"cover_{name}", width="stretch",
+                                  on_click=lambda n=name: st.session_state.update(sample=n, open_sample=True))
                     column.caption(author)
     section("How it works", "What kind of AI this is, and what happens between your text file and the charts.")
     st.html(design.how_it_works())

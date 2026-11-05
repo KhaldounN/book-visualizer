@@ -532,3 +532,15 @@ def test_the_numbers_can_be_downloaded(app):
 def test_the_ready_books_stand_on_a_shelf():
     css = design.shelf_css(["great_expectations.txt"])
     assert ".st-key-cover_great_expectations-txt button" in css  # Streamlit's class for the button's key
+
+
+def test_a_cover_on_the_shelf_opens_its_book():
+    if not (SAMPLE_DIR / "great_expectations.txt").exists():
+        pytest.skip("needs the sample book")
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    covers = [b for b in at.button if b.key == "cover_great_expectations.txt"]
+    if not covers:
+        pytest.skip("Great Expectations is not analyzed yet")
+    covers[0].click().run(timeout=120)
+    assert not at.exception, at.exception
+    assert any("Great Expectations" in h.proto.body and "ba-top" in h.proto.body for h in at.get("html"))
