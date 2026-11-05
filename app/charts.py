@@ -398,7 +398,7 @@ def stage_label(analysis: BookAnalysis, stage: dict) -> str:
 
 
 def character_journey(analysis: BookAnalysis, theme: dict, journey: list[dict], name: str, color: str,
-                      turns: dict | None) -> go.Figure:
+                      turns: dict | None, other: tuple | None = None) -> go.Figure:
     """One character through the book, stage by stage: their mood next to the
     whole book's (top) and their emotion mix (bottom, 100% stacked bars).
     Stages with too few sentences about them are left empty, not guessed."""
@@ -423,8 +423,17 @@ def character_journey(analysis: BookAnalysis, theme: dict, journey: list[dict], 
             fig.add_scatter(x=[i + 1], y=[moods[i]], mode="markers", showlegend=False, hoverinfo="skip",
                             marker=dict(symbol=symbol, size=14, color=theme["ink"],
                                         line=dict(color=theme["surface"], width=2)), row=1, col=1)
+    other_moods = []
+    if other:  # a second character's mood on the same stages, to compare (journey, name, colour)
+        other_journey, other_name, other_color = other
+        other_moods = [s["mood"] for s in other_journey]
+        fig.add_scatter(x=x, y=other_moods, name=other_name, mode="lines+markers", connectgaps=False,
+                        line=dict(color=other_color, width=2.5), marker=dict(size=6, color=other_color),
+                        customdata=[s["count"] for s in other_journey],
+                        hovertemplate=f"{other_name}: %{{y:+.2f}} (%{{customdata}} sentences)<extra></extra>",
+                        row=1, col=1)
     fig.add_hline(y=0, line=dict(color=theme["axis"], width=1), row=1, col=1)
-    present = [abs(v) for v in moods + [s["book_mood"] for s in journey] if v is not None]
+    present = [abs(v) for v in moods + other_moods + [s["book_mood"] for s in journey] if v is not None]
     limit = max([0.1] + present) * 1.2
     fig.update_yaxes(range=[-limit, limit], tickformat="+.2f", title="Tone", row=1, col=1)
 

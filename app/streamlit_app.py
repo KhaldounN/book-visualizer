@@ -704,6 +704,8 @@ with tab["people"]:
                                  key="journey_character")
         if traveller.id in faces:
             st.html(f'<img src="{faces[traveller.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
+        rival = st.selectbox("Compare with", [c for c in charts.top_characters(analysis, 20) if c.id != traveller.id],
+                             format_func=lambda c: c.name, index=None, placeholder="Nobody", key="journey_compare")
     journey = character_journey(analysis.mentions, analysis.sentences, traveller.id)
     turns = journey_turns(journey)
     with right:
@@ -711,7 +713,11 @@ with tab["people"]:
             st.info(f"{traveller.name} is not in enough of the book to follow a journey.")
         else:
             color = charts.character_colors(analysis, theme)[traveller.id]
-            st.plotly_chart(charts.character_journey(analysis, theme, journey, traveller.name, color, turns),
+            other = None
+            if rival is not None:  # the second character's mood on the same stages
+                other = (character_journey(analysis.mentions, analysis.sentences, rival.id), rival.name,
+                         charts.character_colors(analysis, theme)[rival.id])
+            st.plotly_chart(charts.character_journey(analysis, theme, journey, traveller.name, color, turns, other),
                             width="stretch")
             for line in journey_story(analysis, journey, turns, traveller.name, has_emotions):
                 st.markdown(line)

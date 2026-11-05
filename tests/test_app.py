@@ -254,6 +254,9 @@ def test_charts_build_in_both_themes(mode):
         charts.character_journey(analysis, theme, character_journey(analysis.mentions, analysis.sentences, 0),
                                  "Anna", theme["series"][0], journey_turns(character_journey(
                                      analysis.mentions, analysis.sentences, 0))),
+        charts.character_journey(analysis, theme, character_journey(analysis.mentions, analysis.sentences, 0),
+                                 "Anna", theme["series"][0], None,
+                                 (character_journey(analysis.mentions, analysis.sentences, 1), "Ben", theme["series"][1])),
         charts.fine_bars(theme, {"guilt": 0.2, "calmness": 0.1, "grief": 0.05}),
         charts.places_heatmap(analysis, theme),
         charts.entity_bars(analysis.entities, theme),
