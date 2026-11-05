@@ -148,19 +148,41 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-brief p {{ margin: .6rem 0 0; font: 400 1.18rem/1.65 {SERIF}; color: var(--ba-ink); }}
     .ba-brief b {{ font-weight: 600; }}
 
-    /* The headline numbers: a ledger of cells divided by hairlines */
-    .ba-kpis {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 1.8rem 0 .4rem;
-        background: var(--ba-line); border: 1px solid var(--ba-line); border-radius: var(--ba-radius); overflow: hidden; }}
-    .ba-kpi {{ position: relative; background: var(--ba-surface); padding: 1.1rem 1.25rem 1.15rem;
-        display: flex; flex-direction: column; gap: .4rem; min-height: 150px; overflow: hidden; }}
-    .ba-kpi.wide {{ grid-column: span 2; }}
-    .ba-kpi .label {{ font: 600 .68rem/1.2 {SANS}; letter-spacing: .16em; text-transform: uppercase; color: var(--ba-muted); }}
-    .ba-kpi .value {{ font-family: {SERIF}; font-size: 2.3rem; font-weight: 500; line-height: 1.08; color: var(--ba-ink);
-        letter-spacing: -.01em; font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }}
-    .ba-kpi .value.small {{ font-size: 1.55rem; }}
-    .ba-kpi .note {{ font-size: .8rem; color: var(--ba-ink2); line-height: 1.45; }}
-    .ba-kpi .art {{ margin-top: auto; padding-top: .4rem; }}
-    .ba-kpi svg {{ display: block; width: 100%; height: 38px; overflow: visible; }}
+    /* The headline numbers: a compact strip of small tiles (8 in a row), the two key chapters below */
+    .ba-kpis {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; margin: 1.4rem 0 .4rem; }}
+    .ba-kpi {{ position: relative; background: var(--ba-surface); padding: .65rem .75rem .7rem; border: 1px solid var(--ba-line);
+        border-radius: 8px; display: flex; align-items: center; gap: .8rem; min-width: 0; overflow: hidden;
+        transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }}
+    .ba-kpi::before {{ content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--tone, var(--ba-gold)); opacity: .7; }}
+    .ba-kpi:hover {{ transform: translateY(-2px); border-color: var(--ba-rule); box-shadow: 0 10px 22px -16px rgba(0,0,0,.4); }}
+    .ba-kpi .head {{ flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: .18rem; }}
+    .ba-kpi.wide {{ grid-column: span 2; padding: .6rem .9rem; }}
+    .ba-kpi.wide .head {{ flex: none; max-width: 42%; }}
+    .ba-kpi .label {{ font: 600 .6rem/1.2 {SANS}; letter-spacing: .12em; text-transform: uppercase; color: var(--ba-muted);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .ba-kpi .label i {{ font-style: normal; margin-right: .3rem; letter-spacing: 0; }}
+    .ba-kpi .value {{ font-family: {SERIF}; font-size: 1.55rem; font-weight: 500; line-height: 1.1; color: var(--ba-ink);
+        letter-spacing: -.01em; font-variant-numeric: lining-nums tabular-nums;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }}
+    .ba-kpi .value.small {{ font-size: 1.02rem; line-height: 1.2; }}
+    .ba-kpi .note {{ font-size: .68rem; color: var(--ba-ink2); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .ba-kpi .art {{ flex: 0 0 38%; min-width: 0; }}
+    .ba-kpi .art:empty {{ display: none; }}
+    .ba-kpi.wide .art {{ flex: 1; }}
+    .ba-kpi img.spark {{ display: block; width: 100%; height: 30px; }}
+    .ba-kpi svg {{ display: block; width: 100%; height: 20px; overflow: visible; }}
+    .ba-kpi .ba-faces span {{ width: 22px; height: 22px; margin-right: -6px; border-width: 1.5px; font-size: .6rem; }}
+    .ba-kpi .ba-faces img {{ width: 100%; height: 100%; }}
+    .ba-kpi .ba-bar {{ height: 6px; }}
+    .ba-kpi .ba-gauge {{ height: 6px; margin: 6px 0 4px; }}
+    .ba-kpi .ba-gauge b {{ top: -4px; height: 14px; }}
+    .ba-kpi .ba-chip {{ font-size: .55rem; padding: .22rem .4rem; }}
+    .ba-kpi blockquote {{ margin: 0 !important; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; font-size: .88rem !important; line-height: 1.4 !important; }}
+    @media (max-width: 760px) {{ .ba-kpi.wide {{ grid-column: 1 / -1; }} }}
+    @media (max-width: 1000px) {{ .ba-kpis {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+    @media (max-width: 560px) {{ .ba-kpis {{ gap: .45rem; }} .ba-kpi {{ flex-direction: column; align-items: stretch; gap: .3rem; }}
+        .ba-kpi .art {{ flex: none; }} .ba-kpi.wide .head {{ max-width: none; }} }}
     .ba-bar {{ display: flex; height: 8px; border-radius: 1px; overflow: hidden; gap: 2px; }}
     .ba-gauge {{ position: relative; height: 8px; border-radius: 1px;
         background: linear-gradient(90deg, var(--ba-dark), {t["diverging"][1]}, var(--ba-bright)); }}
@@ -339,9 +361,8 @@ def page_css(theme: dict, mode: str) -> str:
         .ba-working img, .ba-dots i {{ animation: none; }}
         .ba-tips span {{ animation: none; }} .ba-tips span:first-child {{ opacity: 1; }} }}
 
-    @media (max-width: 900px) {{ .ba-kpis {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
     @media (max-width: 560px) {{
-        .ba-kpis {{ grid-template-columns: 1fr; }} .ba-kpi.wide {{ grid-column: auto; }}
+        
         .ba-split, .ba-working, .ba-about {{ grid-template-columns: 1fr; }} .ba-about figure {{ max-width: 180px; margin: 0 auto; }} .ba-castgrid .grid {{ grid-template-columns: repeat(2, 1fr); }} .ba-mascot img {{ max-width: 260px; }}
         .ba-hero {{ padding: 1.4rem 1.1rem 1.1rem; }} }}
     </style>"""
@@ -406,36 +427,48 @@ WORKFLOW = [
 
 
 def _emblem_svg(size: int, ink: str = "", paper: str = "", accent: str = "") -> str:
-    """The mascot: a cheerful cartoon raccoon (big ears, bandit mask, a wink, a toothy grin).
-    It has its own fixed colours, and a cream "sticker" border so it stands out on light and
-    dark pages alike. (The ink/paper/accent arguments are kept for the callers; unused.)"""
-    line = "#2b2622"
-    head = ("M32 10 C46 10 55 18 57 28 L62.5 34 L56 36.5 L59.5 41.5 L51 42.5 C47 51 40 55.5 32 55.5 "
-            "C24 55.5 17 51 13 42.5 L4.5 41.5 L8 36.5 L1.5 34 L7 28 C9 18 18 10 32 10 Z")
+    """The mascot: a friendly, fairly realistic raccoon face (grey fur shading, pointed ears, the black
+    mask with white brows, bright open eyes, a white muzzle and a gentle smile). It has its own fixed
+    colours, and a cream "sticker" border so it stands out on light and dark pages alike.
+    (The ink/paper/accent arguments are kept for the callers; unused.)"""
+    line = "#2a2421"
+    head = ("M32 12 C43 12 51 17 54.5 26 L60 31 L55.5 33.5 L59.5 38.5 L53.5 39.5 C50 48.5 42 54 32 54 "
+            "C22 54 14 48.5 10.5 39.5 L4.5 38.5 L8.5 33.5 L4 31 L9.5 26 C13 17 21 12 32 12 Z")
+    ear_l, ear_r = "M10.5 27 L12 7.5 Q13 5.5 15 6.5 L27.5 15.5 Z", "M53.5 27 L52 7.5 Q51 5.5 49 6.5 L36.5 15.5 Z"
+    mask = ("M7 32 C10.5 25.5 22 24.5 29 30 L32 32.5 L35 30 C42 24.5 53.5 25.5 57 32 "
+            "C53.5 38.5 44.5 40.5 38.5 37.5 L32 36 L25.5 37.5 C19.5 40.5 10.5 38.5 7 32 Z")
+    eye = lambda x: (f'<circle cx="{x}" cy="31.8" r="4.4" fill="#4a403a"/>'
+                     f'<circle cx="{x}" cy="31.8" r="3.5" fill="#5b3f2c"/><circle cx="{x}" cy="31.8" r="2.3" fill="#120e0c"/>'
+                     f'<circle cx="{x + 1.2}" cy="30.5" r="1.25" fill="#fff"/><circle cx="{x - 1}" cy="33" r=".55" fill="#fff" opacity=".8"/>')
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 64 64">
+      <defs>
+        <radialGradient id="fur" cx="50%" cy="38%" r="62%"><stop offset="0" stop-color="#c4beb6"/>
+          <stop offset=".65" stop-color="#9c958e"/><stop offset="1" stop-color="#7a736d"/></radialGradient>
+        <radialGradient id="mask" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#2b2522"/>
+          <stop offset="1" stop-color="#3d3631"/></radialGradient>
+      </defs>
       <g stroke="#fbf6ec" stroke-width="5" stroke-linejoin="round" fill="#fbf6ec">
-        <circle cx="14.5" cy="15" r="9"/><circle cx="49.5" cy="15" r="9"/><path d="{head}"/></g>
-      <circle cx="14.5" cy="15" r="9" fill="#8e8984" stroke="{line}" stroke-width="2"/>
-      <circle cx="49.5" cy="15" r="9" fill="#8e8984" stroke="{line}" stroke-width="2"/>
-      <circle cx="14.5" cy="15.5" r="4.6" fill="#f4a3b4"/><circle cx="49.5" cy="15.5" r="4.6" fill="#f4a3b4"/>
-      <path d="{head}" fill="#aaa5a0" stroke="{line}" stroke-width="2" stroke-linejoin="round"/>
-      <path d="M32 11 Q29.6 19 30 25.5 L34 25.5 Q34.4 19 32 11 Z" fill="#4c4642"/>
-      <ellipse cx="21.5" cy="22.5" rx="6.2" ry="3" fill="#fff"/><ellipse cx="42.5" cy="22.5" rx="6.2" ry="3" fill="#fff"/>
-      <path d="M6.5 31 C12 23.5 24 24 32 30 C40 24 52 23.5 57.5 31 C53 38 44 40.5 38 37 L32 40 L26 37
-               C20 40.5 11 38 6.5 31 Z" fill="#2f2a27"/>
-      <circle cx="21" cy="31.6" r="5.3" fill="#fff"/>
-      <circle cx="22" cy="32.2" r="3.4" fill="{line}"/>
-      <circle cx="23.4" cy="30.7" r="1.3" fill="#fff"/><circle cx="20.8" cy="33.6" r=".65" fill="#fff"/>
-      <path d="M36.5 32.6 Q42.5 26.8 48.5 32.6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-      <ellipse cx="32" cy="45.5" rx="11.5" ry="8.6" fill="#f7f0e6"/>
-      <circle cx="17.5" cy="43" r="3.4" fill="#f59aaa" opacity=".75"/><circle cx="46.5" cy="43" r="3.4" fill="#f59aaa" opacity=".75"/>
-      <path d="M24 44.6 Q32 56 40 44.6 Q32 47.6 24 44.6 Z" fill="#6e2b2e" stroke="{line}" stroke-width="1.5"
-            stroke-linejoin="round"/>
-      <ellipse cx="32" cy="50.3" rx="3.6" ry="2.2" fill="#f27d8f"/>
-      <rect x="29.7" y="45.4" width="2.2" height="2.9" rx=".5" fill="#fff" stroke="{line}" stroke-width=".7"/>
-      <rect x="32.1" y="45.4" width="2.2" height="2.9" rx=".5" fill="#fff" stroke="{line}" stroke-width=".7"/>
-      <ellipse cx="32" cy="40.6" rx="3.8" ry="2.7" fill="{line}"/>
-      <ellipse cx="30.9" cy="39.8" rx="1.2" ry=".7" fill="#fff" opacity=".7"/>
+        <path d="{ear_l}"/><path d="{ear_r}"/><path d="{head}"/></g>
+      <path d="{ear_l}" fill="#6f6862" stroke="{line}" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="{ear_r}" fill="#6f6862" stroke="{line}" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M13.5 22 L14.5 10.5 L23 16.5 Z" fill="#3a332f"/><path d="M50.5 22 L49.5 10.5 L41 16.5 Z" fill="#3a332f"/>
+      <path d="M12.3 8.5 Q13 6.3 15 7.3" fill="none" stroke="#efeae3" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M51.7 8.5 Q51 6.3 49 7.3" fill="none" stroke="#efeae3" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="{head}" fill="url(#fur)" stroke="{line}" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M32 12.5 Q29.8 19 30.2 27 L33.8 27 Q34.2 19 32 12.5 Z" fill="#5a524c" opacity=".85"/>
+      <ellipse cx="21" cy="24.2" rx="6.8" ry="2.9" fill="#f3efe9" transform="rotate(-8 21 24.2)"/>
+      <ellipse cx="43" cy="24.2" rx="6.8" ry="2.9" fill="#f3efe9" transform="rotate(8 43 24.2)"/>
+      <path d="{mask}" fill="url(#mask)"/>
+      {eye(21)}{eye(43)}
+      <path d="M17 41 C19 38 24 37.5 27 39 C29 37 35 37 37 39 C40 37.5 45 38 47 41 C46 48.5 39.5 52.5 32 52.5
+               C24.5 52.5 18 48.5 17 41 Z" fill="#f4f0ea"/>
+      <circle cx="19.5" cy="43.5" r="3" fill="#f2a5b0" opacity=".35"/><circle cx="44.5" cy="43.5" r="3" fill="#f2a5b0" opacity=".35"/>
+      <path d="M28.6 39.4 Q32 37.8 35.4 39.4 Q35 42.4 32 43.4 Q29 42.4 28.6 39.4 Z" fill="{line}"/>
+      <ellipse cx="30.9" cy="39.6" rx="1.3" ry=".6" fill="#fff" opacity=".6"/>
+      <path d="M32 43.4 L32 45.2 M27.4 44.8 Q29.6 47.8 32 45.2 Q34.4 47.8 36.6 44.8" fill="none" stroke="{line}"
+            stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <g fill="#8d857e"><circle cx="24.5" cy="45" r=".45"/><circle cx="23.2" cy="46.6" r=".45"/>
+        <circle cx="39.5" cy="45" r=".45"/><circle cx="40.8" cy="46.6" r=".45"/></g>
     </svg>"""
 
 
@@ -1164,15 +1197,26 @@ def _shorten(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " …"
 
 
+def _as_img(art: str) -> str:
+    """st.html removes inline SVG, so a drawing is shown as a picture (a data URI) instead."""
+    if not art.startswith("<svg"):
+        return art
+    svg = art if "xmlns=" in art else art.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"', 1)
+    return f'<img class="spark" alt="" src="data:image/svg+xml;base64,{base64.b64encode(svg.encode()).decode()}">'
+
+
 def kpi_html(cards: list[dict]) -> str:
+    """A compact strip of tiles: icon and label, the value, a one-line note (the whole note on hover)
+    and a small picture. Wide cards (the darkest and brightest chapter) put the picture beside the text."""
     out = []
     for c in cards:
         classes = "ba-kpi" + (" wide" if c.get("wide") else "") + (" toned" if c.get("tone") else "")
         style = f' style="--tone:{c["tone"]}"' if c.get("tone") else ""
-        note = f'<div class="note">{escape(c["note"])}</div>' if c["note"] else ""
-        out.append(f'<div class="{classes}"{style}><div class="label">{escape(c["label"])}</div>'
-                   f'<div class="value{" small" if c.get("small") else ""}">{c["value"]}</div>{note}'
-                   f'<div class="art">{c["art"]}</div></div>')
+        note = f'<div class="note" title="{escape(c["note"])}">{escape(c["note"])}</div>' if c["note"] else ""
+        icon = f'<i aria-hidden="true">{c["icon"]}</i>' if c.get("icon") else ""
+        out.append(f'<div class="{classes}"{style}><div class="head"><div class="label">{icon}{escape(c["label"])}</div>'
+                   f'<div class="value{" small" if c.get("small") else ""}">{c["value"]}</div>{note}</div>'
+                   f'<div class="art">{_as_img(c["art"])}</div></div>')
     return f'<div class="ba-kpis">{"".join(out)}</div>'
 
 

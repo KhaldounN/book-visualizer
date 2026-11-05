@@ -746,12 +746,15 @@ function crystal() {
   const scan = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 0.04, 64, 1, true), new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.12, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
   const base = new THREE.Mesh(new THREE.RingGeometry(5.3, 5.45, 96), new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
   base.rotation.x = -Math.PI / 2; base.position.y = -3;
-  st.scene.add(scan, base, glow(HOLO, 9));
+  st.scene.add(scan, base);  // (a big glow used to sit behind the crystal)
 
   const group = new THREE.Group(); st.scene.add(group);
   // the core takes the character's own colour (the one it has in every chart)
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.85, 1), new THREE.MeshBasicMaterial({ color: HOLO.clone(), wireframe: true, transparent: true, opacity: 0.8 }));
   const aura = glow(HOLO.clone(), 4);
+  // the wireframe core ball and its glow are kept for the colour logic below but hidden (the owner
+  // found the sphere in the middle distracting; the spikes alone show the emotions)
+  core.visible = aura.visible = false;
   group.add(core, aura);
   // one spike per emotion family: a cone 1 unit long, stretched to its length
   const UP = new THREE.Vector3(0, 1, 0);

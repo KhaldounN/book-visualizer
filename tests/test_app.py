@@ -156,7 +156,7 @@ def test_kpi_cards_and_hero_build(mode):
     analysis, theme = small_analysis(), charts.THEMES[mode]
     page = design.kpi_html(design.kpis(analysis, explore3d.events_of(analysis), theme))
     assert len(re.findall(r'class="ba-kpi[ "]', page)) == 10
-    assert page.count("<svg") >= 3, "the cards carry small pictures"
+    assert page.count('class="spark"') >= 3 and "<svg" not in page, "small pictures, as images (st.html strips inline SVG)"
     hero = design.hero(analysis, "Test <Book>", explore3d.events_of(analysis), theme)
     assert hero.count("<i style=\"height:") == 4, "one barcode stripe per chapter"
     assert "Test &lt;Book&gt;" in hero, "the title is escaped"
