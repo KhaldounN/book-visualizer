@@ -527,3 +527,8 @@ def test_one_chapter_can_be_read_in_detail():
 def test_the_numbers_can_be_downloaded(app):
     labels = [b.label for b in app.get("download_button")]
     assert labels == ["Download chapters (CSV)", "Download characters (CSV)"]
+
+
+def test_the_ready_books_stand_on_a_shelf():
+    css = design.shelf_css(["great_expectations.txt"])
+    assert ".st-key-cover_great_expectations-txt button" in css  # Streamlit's class for the button's key

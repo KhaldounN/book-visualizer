@@ -840,6 +840,32 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
     return out
 
 
+# cloth-binding colours for the shelf of book covers (cream lettering on all of them)
+COVER_COLOURS = ["#5b2733", "#2c3e5c", "#2f4a3a", "#6b4a2e", "#3d3a5c", "#5a3d2b", "#274a4f", "#4a2f45"]
+
+
+def shelf_css(names: list[str]) -> str:
+    """Styling that turns each cover button (key cover_<file>) into a cloth-bound book."""
+    import hashlib
+    rules = []
+    for name in names:
+        colour = COVER_COLOURS[int(hashlib.md5(name.encode()).hexdigest(), 16) % len(COVER_COLOURS)]
+        key = re.sub(r"[^A-Za-z0-9_-]", "-", f"cover_{name}")
+        rules.append(f'.st-key-{key} button {{ background: {colour} !important; }}')
+    return f"""<style>
+    [class*="st-key-cover_"] button {{ min-height: 9.5rem; align-items: flex-start; justify-content: flex-start;
+        text-align: left; padding: .9rem .8rem; border: none !important; border-radius: 3px 6px 6px 3px;
+        box-shadow: inset 6px 0 0 rgba(0,0,0,.25), 0 2px 6px rgba(0,0,0,.18); transition: transform .15s ease; }}
+    [class*="st-key-cover_"] button:hover {{ transform: translateY(-3px); }}
+    [class*="st-key-cover_"] button p, [class*="st-key-cover_"] button div {{ white-space: normal !important;
+        overflow: visible !important; text-overflow: clip !important; }}
+    [class*="st-key-cover_"] button p {{ color: #f3ead7 !important; font-family: "Newsreader", Georgia, serif;
+        font-size: 1.05rem; line-height: 1.22; font-weight: 500; text-align: left; width: 100%; }}
+    [class*="st-key-cover_"] button > div {{ width: 100%; justify-content: flex-start; }}
+    {"".join(rules)}
+    </style>"""
+
+
 def relative_tone(analysis: BookAnalysis, tone: float) -> float:
     """A chapter's mood compared with the book's own average, scaled so the book's darkest and
     brightest chapters reach the ends of the colour scale (for colouring chapters)."""

@@ -279,6 +279,18 @@ else:
             st.selectbox(f"Open one of the {len(samples)} famous books", list(samples), index=None, key="sample_main",
                          placeholder="Choose a book…", on_change=open_from_page,
                          format_func=lambda name: samples[name][0] + (" ⚡" if name in ready else ""))
+        shelf = [name for name in samples if name in ready]
+        if shelf:  # the books that open instantly, as covers on a shelf
+            st.html(design.shelf_css(shelf))
+            st.html('<div class="ba-kicker" style="margin-top:.6rem">Ready to open instantly</div>')
+            for row in range(0, len(shelf), 6):
+                for column, name in zip(st.columns(6), shelf[row:row + 6]):
+                    path = SAMPLES / name
+                    author = book_info(path.read_bytes(), name)[1] or ""
+                    if column.button(samples[name][0], key=f"cover_{name}", width="stretch"):
+                        st.session_state.update(sample=name, open_sample=True)
+                        st.rerun()
+                    column.caption(author)
     section("How it works", "What kind of AI this is, and what happens between your text file and the charts.")
     st.html(design.how_it_works())
     section("About", "Who made this, and why.")
