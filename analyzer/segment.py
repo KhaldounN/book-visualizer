@@ -37,6 +37,14 @@ FALLBACK_HEADINGS = [
     re.compile(r"^[ \t]*(?P<n>[IVXLC]{1,7})\.?" + _TITLE + "$", re.MULTILINE),
     re.compile(r"^[ \t]*(?P<n>\d{1,3})\.?" + _TITLE + "$", re.MULTILINE),
 ]
+# Scriptures, tried before the fallbacks: the Quran's suras ("SURA XCVI.-THICK BLOOD", Rodwell's
+# translation, in the order they were revealed, so they need not count up), and the books of the
+# Bible: a line followed by its first verse, "1:1 In the beginning..." (King James Version)
+SCRIPTURE_HEADINGS = [
+    re.compile(r"^[ \t]*SURA\d*[ \t]+[IVXLC]+\b[^\n]{0,100}$", re.MULTILINE),
+    re.compile(r"^[ \t]*[A-Z][^\n]{1,90}$(?=\s*1:1[ \t])", re.MULTILINE),
+]
+_SURA = re.compile(r"SURA\d*\s+([IVXLC]+)\.?\d*\s*[-.\u2014]*\s*(.*?)\s*(?:\[[^\]]*\])?$")
 MIN_CHAPTER_WORDS = 40  # a "chapter" shorter than this is a contents-page entry, not a chapter
 _ROMAN = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
 
@@ -98,6 +106,10 @@ def chapter_headings(text: str) -> list[re.Match]:
     found = _drop_contents_tail(_drop_contents(text, list(CHAPTER_HEADING.finditer(text))))
     if len(found) >= 3:
         return found
+    for pattern in SCRIPTURE_HEADINGS:
+        matches = _drop_contents(text, list(pattern.finditer(text)))
+        if len(matches) >= 3:
+            return matches
     for pattern in FALLBACK_HEADINGS:
         matches = _drop_contents_tail(_drop_contents(text, list(pattern.finditer(text))))
         if len(matches) >= 3 and _counts_up(matches):
@@ -210,6 +222,10 @@ def _title_case(text: str) -> str:
 
 def display_title(title: str) -> str:
     """One tidy form of a chapter heading (anything else, like "Part 3", is returned as it is)."""
+    sura = _SURA.match(title.strip())
+    if sura and _value(sura.group(1)):  # "SURA1 XCVI.-THICK BLOOD [I.]" -> "Sura 96: Thick Blood"
+        name = re.sub(r"(?<=[A-Za-z])\d+", "", sura.group(2))  # drop footnote marks: "ENWRAPPED1"
+        return f"Sura {_value(sura.group(1))}" + (f": {_title_case(name)}" if name else "")
     m = _HEADING_PARTS.match(title.strip())
     if not m or _value(m.group(2)) is None:
         return title

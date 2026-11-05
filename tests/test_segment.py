@@ -1,4 +1,4 @@
-from analyzer.segment import FALLBACK_PARTS, find_chapters, split_sentences
+from analyzer.segment import FALLBACK_PARTS, chapter_headings, display_title, find_chapters, split_sentences
 
 BOOK = """Preface by a critic. Walt Whitman once wrote something wise.
 
@@ -98,3 +98,16 @@ def test_chapter_titles_are_shown_one_tidy_way():
     assert display_title("CHAPTER TWENTY-ONE MEG GOES TO VANITY FAIR") == "Chapter 21: Meg Goes to Vanity Fair"
     assert display_title("Chapter I The Cyclone") == "Chapter 1: The Cyclone"  # mixed case stays as written
     assert display_title("Part 3") == "Part 3"
+
+
+def test_scripture_books_and_suras_are_chapters():
+    """The Bible's books (a line before its first verse, "1:1") and the Quran's suras (Rodwell's
+    translation, in the order of revelation, so not counting up) are found as chapters."""
+    filler = " ".join(["word"] * 60)
+    bible = "".join(f"The Book of {name}\n\n1:1 {filler}\n\n1:2 {filler}\n\n" for name in ("Ruth", "Job", "Jonah"))
+    assert [m.group(0).strip() for m in chapter_headings(bible)] == ["The Book of Ruth", "The Book of Job", "The Book of Jonah"]
+    quran = "".join(f"SURA {n}.-THE {name} [{i}.]\n\n{filler}\n\n"
+                    for i, (n, name) in enumerate((("XCVI", "CLOTS1"), ("LXXIV", "ENWRAPPED"), ("I", "OPENING")), 1))
+    assert len(chapter_headings(quran)) == 3
+    assert display_title("SURA1 XCVI.-THICK BLOOD, OR CLOTS OF BLOOD [I.]") == "Sura 96: Thick Blood, or Clots of Blood"
+    assert display_title("SURA LXXIV.-THE ENWRAPPED1 [II.]") == "Sura 74: The Enwrapped"

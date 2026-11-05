@@ -59,13 +59,22 @@ SAMPLES = {
     "the_phantom_of_the_opera.txt": "https://www.gutenberg.org/cache/epub/175/pg175.txt",
     "pinocchio.txt": "https://www.gutenberg.org/cache/epub/500/pg500.txt",
     "the_mysterious_affair_at_styles.txt": "https://www.gutenberg.org/cache/epub/863/pg863.txt",
+    # scriptures (the owner asked for them): chapters are the Bible's books and the Quran's suras
+    "the_bible.txt": "https://www.gutenberg.org/cache/epub/10/pg10.txt",  # King James Version
+    "the_quran.txt": "https://www.gutenberg.org/cache/epub/2800/pg2800.txt",  # J. M. Rodwell's translation
 }
+# The website lists only the books directly in data/ (the owner chose 10 famous ones plus the two
+# scriptures); the rest go to data/more/, where they are kept but not offered.
+LIBRARY = {"pride_and_prejudice.txt", "great_expectations.txt", "frankenstein.txt", "dracula.txt",
+           "alice_in_wonderland.txt", "wuthering_heights.txt", "the_hound_of_the_baskervilles.txt",
+           "the_wonderful_wizard_of_oz.txt", "jane_eyre.txt", "a_christmas_carol.txt",
+           "the_bible.txt", "the_quran.txt"}
 
 
 def main() -> None:
-    DATA_DIR.mkdir(exist_ok=True)
+    (DATA_DIR / "more").mkdir(parents=True, exist_ok=True)
     for name, url in SAMPLES.items():
-        target = DATA_DIR / name
+        target = DATA_DIR / name if name in LIBRARY else DATA_DIR / "more" / name
         if target.exists():
             print(f"Already have {name}")
             continue
