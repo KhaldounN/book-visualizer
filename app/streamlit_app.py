@@ -270,7 +270,7 @@ def panel(title: str, explanation: str, columns: tuple = (1, 2.4), number: int |
     return left, right
 
 
-AUTOPLAY_SECONDS = 5  # the character pickers play through the cast on their own, one every 5 seconds
+AUTOPLAY_SECONDS = 10  # the character pickers play through the cast on their own, one every 10 seconds
 
 
 def autoplay(key: str, options: list) -> None:

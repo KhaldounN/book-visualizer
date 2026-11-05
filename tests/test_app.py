@@ -575,7 +575,7 @@ def test_a_book_too_big_for_the_free_memory_is_not_started(monkeypatch, tmp_path
 
 
 def test_character_pickers_play_through_until_someone_picks(app):
-    """Panels with a character picker show the next character every 5 seconds (a fragment that
+    """Panels with a character picker show the next character every 10 seconds (a fragment that
     redraws itself), and stop once the visitor picks one."""
     cast = charts.top_characters(small_analysis(), 20)
     assert app.session_state["emotion_character"] == cast[0] and app.session_state["emotion_character_auto"]

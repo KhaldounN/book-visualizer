@@ -765,7 +765,7 @@ function constellation() {
     const c = chars[h.object.userData.i], e = standsOut(c.emotions), k = EMO.indexOf(e);
     return `<b>${escape(c.name)}</b><br>says ${c.words.toLocaleString()} words<br>stands out: ${EMO_LABEL[e]} (${Math.round(c.emotions[k] * 100)}% vs ${Math.round(data.bookEmotions[k] * 100)}% in the book)<br>tone ${fmtTone(c.sentiment)}<br><span style="color:#6c7d92">click to select</span>`;
   });
-  // Select each character in turn, one every 4 seconds, until the visitor clicks a star:
+  // Select each character in turn, one every 10 seconds (like the crystal), until the visitor clicks a star:
   // from then on they're in charge (dragging to rotate doesn't count as choosing)
   let autoplay = chars.length > 1 && !REDUCE, visible = true;
   new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(canvas);
@@ -778,8 +778,8 @@ function constellation() {
   setInterval(() => {
     if (!autoplay || !visible || document.hidden) return;  // no work while nobody can see it
     select((chosen + 1) % chars.length);
-  }, 4000);
-  hint.textContent = autoplay ? "a new character every 4 s · click a star to stop · sparks = conversations"
+  }, 10000);
+  hint.textContent = autoplay ? "a new character every 10 s · click a star to stop · sparks = conversations"
                               : "drag to rotate · click a star · sparks = conversations";
   select(0);
 }
