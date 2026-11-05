@@ -66,3 +66,14 @@ def test_nicknames_are_suggested_never_merged():
               Character(2, "Lady Catherine", ["Lady Catherine"], mentions=200), Character(3, "Kitty", ["Kitty"], mentions=30)]
     # Lizzy is Elizabeth's nickname; Kitty is never offered as Lady Catherine (a titled name is someone else)
     assert suggest_merges(people) == [("Lizzy", "Elizabeth")]
+
+
+def test_a_titled_surname_is_suggested_only_when_it_points_at_one_person():
+    from analyzer.merge import suggest_merges
+    from analyzer.models import Character
+    people = [Character(0, "Lucy", ["Lucy", "Lucy Westenra"], mentions=300),
+              Character(1, "Miss Westenra", ["Miss Westenra"], mentions=20),
+              Character(2, "Mrs. Westenra", ["Mrs. Westenra"], mentions=40),  # her mother: never suggested
+              Character(3, "Jane", ["Jane", "Jane Bennet"], 400), Character(4, "Lydia", ["Lydia", "Lydia Bennet"], 300),
+              Character(5, "Miss Bennet", ["Miss Bennet"], 50)]  # which sister? ambiguous: nothing
+    assert suggest_merges(people) == [("Miss Westenra", "Lucy")]

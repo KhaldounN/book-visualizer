@@ -91,4 +91,29 @@ def suggest_merges(characters: list[Character]) -> list[tuple[str, str]]:
         full = NICKNAMES.get(words[0].lower()) if len(words) == 1 else None
         if full and full in by_first and by_first[full].id != c.id:
             pairs.append((by_first[full].mentions, c.name, by_first[full].name))
+    pairs += _surname_pairs(characters)
     return [(nick, target) for _, nick, target in sorted(pairs, reverse=True)]
+
+
+FEMALE_TITLES, MALE_TITLES = {"Mrs.", "Miss", "Ms.", "Lady"}, {"Mr.", "Sir", "Lord"}
+
+
+def _surname_pairs(characters: list[Character]) -> list[tuple[int, str, str]]:
+    """"Mrs. Dean" and "Ellen" (also called "Ellen Dean"): a titled name whose surname belongs to
+    exactly one character known by a first name of a fitting gender. Ambiguous surnames (the
+    Bennet sisters) give nothing."""
+    from .appearance import FEMALE_NAMES, MALE_NAMES
+    pairs = []
+    for c in characters:
+        words = c.name.split()
+        # "Mrs." and "Lady" are left out: a married woman shares the family name with her daughters
+        # (Mrs. Westenra is Lucy's mother)
+        if len(words) != 2 or words[0] not in {"Miss", "Mr.", "Sir", "Lord"}:
+            continue
+        names = FEMALE_NAMES if words[0] in FEMALE_TITLES else MALE_NAMES
+        owners = [o for o in characters if o.id != c.id and o.name.split()[0] not in FEMALE_TITLES | MALE_TITLES
+                  and o.name.split()[0].lower() in names
+                  and any(a.split()[-1] == words[1] and len(a.split()) >= 2 for a in o.aliases)]
+        if len(owners) == 1:
+            pairs.append((owners[0].mentions, c.name, owners[0].name))
+    return pairs
