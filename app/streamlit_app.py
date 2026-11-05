@@ -528,8 +528,12 @@ with tab["story"]:
     left, right = panel("Chapter by chapter", "One card per chapter: its theme, its most telling sentence, its mood, "
                         "its mix of emotions, who is in it and where it happens.\n\n**Scroll sideways** through "
                         "the cards.")
+    with left:  # with 60 chapters the strip is long: open any one in detail
+        focus = st.selectbox("Go to a chapter", range(len(analysis.chapters)), key="chapter_focus",
+                             format_func=lambda i: analysis.chapters[i].title)
     with right:
         st.html(chapter_cards(events, charts.chapter_details(analysis)))
+        st.html(design.chapter_focus(analysis, focus, events, faces, theme))
         table(pd.DataFrame([
             {"Chapter": c.title, "Theme": e.theme, "Main event": e.event, "Keywords": ", ".join(e.keywords),
              "Mood": round(analysis.chapter_sentiment[i], 3)}

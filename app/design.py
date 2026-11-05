@@ -129,6 +129,12 @@ def page_css(theme: dict, mode: str) -> str:
         margin: .6rem 0 1rem; }}
     .ba-chips span {{ font-family: {SERIF}; font-style: italic; color: var(--ba-ink); padding: .1rem .55rem;
         border-radius: 999px; line-height: 1.4; }}
+    .ba-focus {{ margin-top: 1rem; padding: 1.1rem 1.3rem; border: 1px solid var(--ba-line);
+        border-left: 3px solid var(--ba-gold); border-radius: var(--ba-radius); background: var(--ba-surface); }}
+    .ba-focus h3 {{ font: 500 1.5rem/1.25 {SERIF}; color: var(--ba-ink); margin: .4rem 0 .6rem; padding: 0; }}
+    .ba-focus blockquote {{ margin: 0 0 .9rem; padding-left: .9rem; border-left: 2px solid var(--ba-line);
+        font: italic 400 1.05rem/1.55 {SERIF}; color: var(--ba-ink2); }}
+    .ba-focus p {{ font-size: .85rem; color: var(--ba-ink2); margin: .2rem 0 .4rem; }}
     .ba-peaks {{ margin-top: 1.2rem; }}
     .ba-peaks ul {{ list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; font-size: .85rem;
         color: var(--ba-ink); }}
@@ -832,6 +838,31 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
         out.append(f"Beyond plain narration, the strongest feeling is <b>{escape(charts.short_label(top).lower())}</b> "
                    f"({shares[top]:.0%} of the emotional sentences).")
     return out
+
+
+def chapter_focus(analysis: BookAnalysis, index: int, events: list, avatars: dict, theme: dict) -> str:
+    """One chapter in detail: its theme and mood, its most telling sentence, who is in it, the
+    feelings that stand out against the whole book, and its typical words."""
+    from analyzer.emotions import stand_out
+    chapter = analysis.chapters[index]
+    event = events[index] if index < len(events) else None
+    sentences = [s for s in analysis.sentences if s.chapter == index]
+    if not sentences:
+        return ""
+    mood = analysis.chapter_sentiment[index]
+    reach = max(abs(t) for t in analysis.chapter_sentiment) or 1
+    tone_color = charts._tone_color(theme, mood / reach * charts.TONE_RANGE)
+    feels = stand_out(average_emotions([s.fine for s in sentences]), average_emotions([s.fine for s in analysis.sentences]))
+    theme_chip = (f'<span class="ba-chip" style="background:{tone_color}">{escape(event.theme)} · {mood:+.2f}</span>'
+                  if event and event.theme else "")
+    return f"""<article class="ba-focus">
+      <div class="ba-kicker">Chapter {index + 1} of {len(analysis.chapters)} · {len(sentences):,} sentences</div>
+      <h3>{escape(chapter.title)} {theme_chip}</h3>
+      {f'<blockquote>“{escape(_shorten(event.event, 320))}”</blockquote>' if event and event.event else ""}
+      <div class="ba-kicker">Who is here</div>{who_is_there(analysis, sentences[0].index, sentences[-1].index, avatars, theme, 6)}
+      {f'<p><b>Feelings that stand out:</b> {escape(", ".join(feels))}</p>' if feels else ""}
+      {word_chips("Its typical words", event.keywords[:8], theme["axis"]) if event and event.keywords else ""}
+    </article>"""
 
 
 def word_chips(title: str, words: list[str], color: str) -> str:

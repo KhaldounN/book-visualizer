@@ -516,3 +516,9 @@ def test_each_emotion_peak_is_named():
 def test_word_chips_put_the_most_typical_word_first_and_largest():
     html = design.word_chips("Jane's words", ["kind", "sister", "hope"], "#eda100")
     assert html.index("kind") < html.index("sister") and "font-size:1.35rem" in html and "font-size:0.85rem" in html
+
+
+def test_one_chapter_can_be_read_in_detail():
+    analysis = small_analysis()
+    html = design.chapter_focus(analysis, 0, explore3d.events_of(analysis), {}, charts.THEMES["light"])
+    assert "Chapter 1 of 4" in html and "Who is here" in html
