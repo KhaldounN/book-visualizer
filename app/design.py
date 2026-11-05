@@ -125,6 +125,10 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-legend span {{ display: inline-flex; align-items: center; gap: .4rem; }}
     .ba-legend i {{ width: 9px; height: 9px; border-radius: 1px; display: inline-block; }}
 
+    .ba-chips > div:last-child {{ display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .45rem;
+        margin: .6rem 0 1rem; }}
+    .ba-chips span {{ font-family: {SERIF}; font-style: italic; color: var(--ba-ink); padding: .1rem .55rem;
+        border-radius: 999px; line-height: 1.4; }}
     .ba-peaks {{ margin-top: 1.2rem; }}
     .ba-peaks ul {{ list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; font-size: .85rem;
         color: var(--ba-ink); }}
@@ -828,6 +832,15 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
         out.append(f"Beyond plain narration, the strongest feeling is <b>{escape(charts.short_label(top).lower())}</b> "
                    f"({shares[top]:.0%} of the emotional sentences).")
     return out
+
+
+def word_chips(title: str, words: list[str], color: str) -> str:
+    """Words as chips tinted in a colour, the first (most typical) largest."""
+    n = max(len(words) - 1, 1)
+    chips = "".join(f'<span style="font-size:{1.35 - 0.5 * i / n:.2f}rem;'
+                    f'background:color-mix(in srgb, {color} {22 - 12 * i / n:.0f}%, transparent)">{escape(w)}</span>'
+                    for i, w in enumerate(words))
+    return f'<div class="ba-chips"><div class="ba-kicker">{escape(title)}</div><div>{chips}</div></div>'
 
 
 def emotion_peaks(analysis: BookAnalysis, events: list, theme: dict) -> str:

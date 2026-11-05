@@ -511,3 +511,8 @@ def test_each_emotion_peak_is_named():
     analysis = small_analysis()
     html = design.emotion_peaks(analysis, explore3d.events_of(analysis), charts.THEMES["light"])
     assert "Where each feeling peaks" in html and "Chapter" in html
+
+
+def test_word_chips_put_the_most_typical_word_first_and_largest():
+    html = design.word_chips("Jane's words", ["kind", "sister", "hope"], "#eda100")
+    assert html.index("kind") < html.index("sister") and "font-size:1.35rem" in html and "font-size:0.85rem" in html

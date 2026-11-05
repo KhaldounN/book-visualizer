@@ -843,8 +843,11 @@ with tab["people"]:
                     st.html(f'<img src="{faces[voice.id]}" alt="" style="width:96px;height:96px;border-radius:50%">')
             with right:
                 words = dialogue.signature_words(lines, voice.id, stop_words=STOP_WORDS)
-                st.markdown(f"**{voice.name}'s words:** " + (", ".join(f"*{w}*" for w in words) if words else
-                                                             "nothing stands out (too few lines)."))
+                if words:  # most typical first and largest, tinted in their colour
+                    st.html(design.word_chips(f"{voice.name}'s words", words,
+                                              charts.character_colors(analysis, theme)[voice.id]))
+                else:
+                    st.markdown(f"**{voice.name}'s words:** nothing stands out (too few lines).")
                 for column, kind, found in zip(st.columns(2), ("Brightest", "Darkest"),
                                                dialogue.strongest_lines(lines, analysis.sentences, voice.id)):
                     with column:
