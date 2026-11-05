@@ -145,7 +145,7 @@ function badge(emoji, ring, size) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
   s.scale.setScalar(size); return s;
 }
-function stage({ camera = [0, 4, 16], autoRotate = true, controls = true, fog = 0.018 } = {}) {
+function stage({ camera = [0, 4, 16], autoRotate = true, controls = true, fog = 0.018, spin = 0.5, resume = false } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setClearColor(VOID);
   const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(VOID, fog);
@@ -155,8 +155,14 @@ function stage({ camera = [0, 4, 16], autoRotate = true, controls = true, fog = 
     // no wheel zoom: the page around the scene should still scroll normally
     orbit = new OrbitControls(cam, canvas);
     orbit.enableDamping = true; orbit.enableZoom = false; orbit.enablePan = false;
-    orbit.autoRotate = autoRotate && !REDUCE; orbit.autoRotateSpeed = 0.5;
-    canvas.addEventListener("pointerdown", () => { orbit.autoRotate = false; }, { once: true });
+    orbit.autoRotate = autoRotate && !REDUCE; orbit.autoRotateSpeed = spin;
+    if (resume && orbit.autoRotate) {  // the visitor drags: stop turning; let go: turn again after a pause
+      let wait = null;
+      orbit.addEventListener("start", () => { clearTimeout(wait); orbit.autoRotate = false; });
+      orbit.addEventListener("end", () => { wait = setTimeout(() => { orbit.autoRotate = true; }, 5000); });
+    } else {
+      canvas.addEventListener("pointerdown", () => { orbit.autoRotate = false; }, { once: true });
+    }
   }
   const resize = () => { const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };
   new ResizeObserver(resize).observe(canvas); resize();
@@ -648,7 +654,7 @@ function road() {
 
 /* ---- Character constellation ---- */
 function constellation() {
-  const st = stage({ camera: [9, 6, 15] });
+  const st = stage({ camera: [9, 6, 15], spin: 1.6, resume: true });
   const norm = (vals) => { const lo = Math.min(...vals), hi = Math.max(...vals); return vals.map((v) => ((v - lo) / (hi - lo || 1)) * 10 - 5); };
   const when = chars.map((c) => { const tot = c.byChapter.reduce((a, b) => a + b, 0) || 1; return c.byChapter.reduce((a, n, i) => a + i * n, 0) / tot; });
   // warm families (love, joy, surprise) minus the others, looked up by name
@@ -708,8 +714,12 @@ function constellation() {
   axis("cold emotions", [0, -5, -7.4]); axis("warm emotions", [0, -5, 7.4]);
 
   card.hidden = false;
+  let chosen = -1;
   function select(i) {
     const c = chars[i];
+    // the selected star grows a little, so it's clear who the card is about
+    if (chosen >= 0) stars[chosen].scale.setScalar(1);
+    stars[i].scale.setScalar(1.6); chosen = i;
     links.forEach((line) => {
       const on = line.userData.l.a === i || line.userData.l.b === i;
       line.material.opacity = on ? Math.min(1, line.userData.base + 0.45) : 0.04;
@@ -733,8 +743,22 @@ function constellation() {
     const c = chars[h.object.userData.i], e = standsOut(c.emotions), k = EMO.indexOf(e);
     return `<b>${escape(c.name)}</b><br>says ${c.words.toLocaleString()} words<br>stands out: ${EMO_LABEL[e]} (${Math.round(c.emotions[k] * 100)}% vs ${Math.round(data.bookEmotions[k] * 100)}% in the book)<br>tone ${fmtTone(c.sentiment)}<br><span style="color:#6c7d92">click to select</span>`;
   });
-  canvas.addEventListener("click", (e) => { const [h] = hit(e); if (h) select(h.object.userData.i); });
-  hint.textContent = "drag to rotate · click a star · sparks = conversations";
+  // Select each character in turn, one every 4 seconds, until the visitor clicks a star:
+  // from then on they're in charge (dragging to rotate doesn't count as choosing)
+  let autoplay = chars.length > 1 && !REDUCE, visible = true;
+  new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(canvas);
+  canvas.addEventListener("click", (e) => {
+    const [h] = hit(e);
+    if (!h) return;
+    autoplay = false; hint.textContent = "drag to rotate · click a star · sparks = conversations";
+    select(h.object.userData.i);
+  });
+  setInterval(() => {
+    if (!autoplay || !visible || document.hidden) return;  // no work while nobody can see it
+    select((chosen + 1) % chars.length);
+  }, 4000);
+  hint.textContent = autoplay ? "a new character every 4 s · click a star to stop · sparks = conversations"
+                              : "drag to rotate · click a star · sparks = conversations";
   select(0);
 }
 

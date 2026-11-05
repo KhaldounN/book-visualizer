@@ -963,41 +963,42 @@ with tab["people"]:
 with tab["story"]:
 
     section("Pace", "How the book reads: how long it takes, how hard it is, and which chapters race or linger.")
+    # one figure (the owner merged "How it reads" and "Pace chapter by chapter"): the whole book's numbers,
+    # then chapter by chapter; the comparison with the famous books and the full table fold away
     others = [b for b in library() if b["key"] != st.session_state["current"]]
-    left, right = panel("How it reads", "Simple counts over the whole book, each compared with the famous books in "
-                        "the sidebar's list.\n\n- **Reading time** at 230 words a minute.\n- **Reading level** is the "
-                        "Flesch-Kincaid grade: the US school year a reader needs, from sentence length and syllables "
-                        "per word.\n- **Vocabulary** is how many different words there are in every stretch of 100.\n\n"
-                        "Below the cards, each dot is a famous book: hover it for its name.")
     current = {"title": book["title"], "hours": extra["pace"].minutes / 60, "grade": extra["pace"].grade,
                "sentence_length": extra["pace"].sentence_length, "dialogue": extra["pace"].dialogue,
                "richness": extra["pace"].richness}
-    with right:
-        st.html(design.kpi_html(design.pace_cards(extra["pace"], others)))
-        if others:
-            st.plotly_chart(charts.library_strip(theme, others, current), width="stretch")
-
     paces, scores = extra["paces"], extra["scores"]
     has_action = all(p.action is not None for p in paces)
     fast, slow = max(range(len(scores)), key=scores.__getitem__), min(range(len(scores)), key=scores.__getitem__)
-    left, right = panel("Pace chapter by chapter", "Fast chapters have **short sentences** and **lots of dialogue**"
+    left, right = panel("How it reads", "The whole book in four numbers, then **each chapter's pace**: fast chapters "
+                        "have **short sentences** and **lots of dialogue**"
                         + (", with **more verbs** (things happening) than adjectives (things described)"
-                           if has_action else "") + "; slow ones linger in long sentences. **Pace** combines these, "
-                        "compared with the book's own usual pace.\n\n"
+                           if has_action else "") + "; slow ones linger in long sentences, compared with the book's "
+                        "own usual pace.\n\n"
                         f"Fastest: **{analysis.chapters[fast].title.rstrip('.')}** · "
-                        f"slowest: **{analysis.chapters[slow].title.rstrip('.')}**")
+                        f"slowest: **{analysis.chapters[slow].title.rstrip('.')}**\n\n"
+                        "Reading time is at 230 words a minute; reading level is the Flesch-Kincaid school grade; "
+                        "vocabulary is how many different words there are in every 100.")
     with left:
         if not has_action:
             st.caption("Action vs. description needs word types, which this analysis doesn't have yet. "
                        "Run `scripts\\add_word_types.py` (about a minute) to add them.")
     with right:
+        st.html(design.kpi_html(design.pace_cards(extra["pace"], others)))
         st.plotly_chart(charts.pace_chapters(analysis, theme, paces, scores), width="stretch")
-        table(pd.DataFrame([
-            {"Chapter": c.title, "Pace": round(scores[i], 2), "Words": p.words, "Minutes": round(p.minutes, 1),
-             "Words per sentence": round(p.sentence_length, 1), "Reading grade": round(p.grade, 1),
-             "Dialogue": f"{p.dialogue:.0%}", "Action": f"{p.action:.0%}" if p.action is not None else "–"}
-            for i, (c, p) in enumerate(zip(analysis.chapters, paces))
-        ]))
+        if others:
+            with st.expander(f"Compared with the {len(others)} other famous books"):
+                st.caption("Each dot is a famous book: hover it for its name.")
+                st.plotly_chart(charts.library_strip(theme, others, current), width="stretch")
+        with st.expander("Every chapter's numbers"):
+            table(pd.DataFrame([
+                {"Chapter": c.title, "Pace": round(scores[i], 2), "Words": p.words, "Minutes": round(p.minutes, 1),
+                 "Words per sentence": round(p.sentence_length, 1), "Reading grade": round(p.grade, 1),
+                 "Dialogue": f"{p.dialogue:.0%}", "Action": f"{p.action:.0%}" if p.action is not None else "–"}
+                for i, (c, p) in enumerate(zip(analysis.chapters, paces))
+            ]))
 
 # --- Places ---------------------------------------------------------------------------------------
 with tab["places"]:
