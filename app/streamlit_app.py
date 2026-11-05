@@ -25,6 +25,7 @@ import streamlit.components.v1 as components  # noqa: E402
 import charts  # noqa: E402
 import design  # noqa: E402
 import explore3d  # noqa: E402
+import layouts  # noqa: E402
 import looks  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
 from analyzer import dialogue, search  # noqa: E402
@@ -59,6 +60,9 @@ st.set_page_config(page_title="Book Visualizer", page_icon=str(ROOT / "app" / "a
 MODE = "dark" if st.context.theme.type == "dark" else "light"
 theme = charts.THEMES[MODE]
 st.html(design.page_css(theme, MODE))
+LAYOUT = layouts.current()  # ?layout= in the address: the page layouts being tried out (app/layouts.py)
+if LAYOUT != "classic":
+    st.html(layouts.css(LAYOUT, design.SERIF, design.SANS))
 PANELS = itertools.count()  # numbers each visualization card (restarts on every rerun)
 
 
@@ -207,7 +211,10 @@ def panel(title: str, explanation: str, columns: tuple = (1, 2.4)):
     visualization itself on the right. Returns both columns."""
     st.space("small")
     with st.container(key=f"panel-{next(PANELS)}"):  # the key gives the card its CSS class
-        left, right = st.columns(columns, gap="large")
+        if LAYOUT in layouts.STACKED:  # explanation above, visualization below
+            left, right = st.container(), st.container()
+        else:
+            left, right = st.columns(columns, gap="large")
     with left:
         st.markdown(f"#### {title}")
         st.markdown(explanation)
@@ -237,6 +244,12 @@ with st.sidebar:
         st.query_params["look"] = look
     if look != MODE:
         components.html(looks.switch_script(look), height=0)
+    # the layouts being tried out; the choice lives in the address so each one has its own link
+    picked = st.selectbox("Layout (trying out)", list(layouts.LAYOUTS), index=list(layouts.LAYOUTS).index(LAYOUT),
+                          format_func=lambda k: layouts.LAYOUTS[k][0])
+    if picked != LAYOUT:
+        st.query_params["layout"] = picked
+        st.rerun()
     st.caption("Upload an English novel as a `.txt` file to see its characters, how they relate, "
                "and how the mood changes through the story.")
     uploaded = st.file_uploader("Book file", type=["txt"])
@@ -400,9 +413,42 @@ TABS = {"overview": "Overview", "3d": "Explore in 3D", "story": "Story", "mood":
 st.html(design.top_bar(book["title"]))
 # One continuous page. Each part is an empty container made here, in reading order, and filled
 # further down, so the code can stay grouped by topic while the page reads top to bottom.
-with st.container(key="toc"):  # sticky (design.py: .st-key-toc)
-    st.html(design.contents())
-tab = {key: st.container() for key in TABS}
+if LAYOUT == "tabs":  # one Streamlit tab per part
+    tab = dict(zip(TABS, st.tabs(list(TABS.values()))))
+elif LAYOUT == "guided":  # one part at a time; the others are drawn into a hidden box
+    parts = list(TABS)
+
+    def go_to(part: str) -> None:
+        st.session_state.update(part=part, scroll_up=True)
+
+    if not st.session_state.get("part"):  # first visit, or the selected button was clicked off
+        st.session_state["part"] = st.session_state.get("last_part", parts[0])
+    shown = st.session_state["part"]
+    st.session_state["last_part"] = shown
+    with st.container(key="toc"):
+        st.segmented_control("Part", parts, format_func=TABS.get, key="part", label_visibility="collapsed",
+                             on_change=lambda: st.session_state.update(scroll_up=True))
+        step = parts.index(shown)
+        st.html(f'<p class="ba-step">Step <b>{step + 1}</b> of {len(parts)} · {TABS[shown]}'
+                f'<i style="--done:{(step + 1) / len(parts):.0%}"></i></p>')
+    tab = {shown: st.container(key=f"part-{shown}")}
+    with st.container(key="guided-nav"):
+        back, forward = st.columns(2)
+        if step > 0:
+            back.button(f"← {TABS[parts[step - 1]]}", on_click=go_to, args=(parts[step - 1],), width="stretch")
+        if step < len(parts) - 1:
+            forward.button(f"Next: {TABS[parts[step + 1]]} →", on_click=go_to, args=(parts[step + 1],),
+                           type="primary", width="stretch")
+        if st.session_state.pop("scroll_up", False):  # a new part: start at its top
+            components.html("<script>const d = window.parent.document; window.parent.scrollTo(0, 0);"
+                            "d.querySelectorAll('.stMain, [data-testid=stMain], [data-testid=stAppViewContainer]')"
+                            ".forEach(e => e.scrollTo(0, 0));</script>", height=0)
+    with st.container(key="hidden-parts"):
+        tab.update({key: st.container() for key in parts if key != shown})
+else:
+    with st.container(key="toc"):  # sticky (design.py: .st-key-toc); a floating dock in "cinematic"
+        st.html(design.contents())
+    tab = {key: st.container(key=f"part-{key}") for key in TABS}
 
 # --- Header and KPIs ---------------------------------------------------------------
 with tab["overview"]:
