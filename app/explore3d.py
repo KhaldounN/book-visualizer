@@ -11,7 +11,7 @@ from pathlib import Path
 import charts
 from analyzer.chapter_events import name_chapters
 from analyzer.dialogue import find_lines, who_talks_to_whom, words_spoken
-from analyzer.emotions import average_emotions, stand_out
+from analyzer.emotions import average_emotions, stand_out, book_average
 from analyzer.landscape import LABELS as LANDSCAPE_LABELS, chapter_landscapes
 from analyzer.route import LABELS as ROUTE_LABELS, chapter_routes
 from analyzer.weather import LABELS as WEATHER_LABELS, chapter_weather
@@ -73,7 +73,7 @@ def key_themes(events: list, turning: list[tuple[int, str]]) -> list[int]:
 def key_feelings(analysis: BookAnalysis) -> list[dict]:
     """The chapters where one feeling clearly stands out: [{"i": chapter, "emotion": family}].
     For each chapter, the family most above its share in the whole book."""
-    book = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
+    book = charts.without_neutral(book_average(analysis.sentences, "emotions"))
     if not book:
         return []
     best = {}
@@ -121,7 +121,7 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
     index = {c.id: i for i, c in enumerate(characters)}
     # the stage is always dark, so characters keep their dark-mode chart colour
     colors = charts.character_colors(analysis, charts.THEMES["dark"])
-    book_fine = average_emotions([s.fine for s in analysis.sentences])
+    book_fine = book_average(analysis.sentences, "fine")
     lines = find_lines(analysis.sentences, analysis.mentions)  # the dialogue and who says it to whom
     talk = who_talks_to_whom(lines, len(analysis.characters))
     spoken = words_spoken(lines, len(analysis.characters))
@@ -184,7 +184,7 @@ def scene_data(analysis: BookAnalysis, avatars: dict | None = None) -> dict:
                            or [[0.0] * len(charts.EMOTION_ORDER)] * len(analysis.chapters),
         "chapterStandOut": [stand_out(mix, book_fine) for mix in analysis.chapter_fine]
                            or [[] for _ in analysis.chapters],
-        "bookEmotions": _shares(average_emotions([s.emotions for s in analysis.sentences])),
+        "bookEmotions": _shares(book_average(analysis.sentences, "emotions")),
         "chapterNeutral": [round(mix.get("neutral", 0.0), 3) for mix in analysis.chapter_emotions]
                           or [1.0] * len(analysis.chapters),
         "chapterEvents": [{"theme": e.theme, "event": e.event, "keywords": e.keywords, "strength": e.strength,

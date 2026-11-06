@@ -208,6 +208,7 @@ def test_fine_emotions_show_what_stands_out(app):
 def test_book_without_emotions_still_renders(app):
     analysis = app.session_state["analyses"]["book"]["analysis"]
     analysis.chapter_emotions = [{} for _ in analysis.chapters]
+    app.session_state["remembered"] = None  # the page remembers what it built for a book: start afresh
     app.run()
     assert not app.exception
     assert any("not detected" in i.value for i in app.info)
@@ -395,6 +396,7 @@ def test_3d_page_cannot_be_broken_by_a_name():
 
 def test_old_analysis_without_themes_falls_back_to_keywords(app):
     app.session_state["analyses"]["book"]["analysis"].chapter_events = None
+    app.session_state["remembered"] = None  # the page remembers what it built for a book: start afresh
     app.run()
     assert not app.exception
     assert any("before chapter themes existed" in i.value for i in app.info)

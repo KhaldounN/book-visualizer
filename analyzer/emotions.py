@@ -67,6 +67,21 @@ def top_emotion(emotions: dict[str, float]) -> str:
     return max(emotions, key=emotions.get) if emotions else "neutral"
 
 
+_BOOK_MIX: list[tuple] = []  # the last few (sentences, field, mix)
+
+
+def book_average(sentences: list, field: str = "emotions") -> dict[str, float]:
+    """average_emotions over a whole book's sentences (field "emotions" or "fine"), remembered for
+    the same sentence list: the page needs the book's mix in many places."""
+    for seen, seen_field, mix in _BOOK_MIX:
+        if seen is sentences and seen_field == field:
+            return mix
+    mix = average_emotions([getattr(s, field) for s in sentences])
+    _BOOK_MIX.insert(0, (sentences, field, mix))
+    del _BOOK_MIX[6:]
+    return mix
+
+
 def average_emotions(mixes: list[dict[str, float]]) -> dict[str, float]:
     """Average several {emotion: score} mixes; an emotion missing from a mix
     counts as 0 ({} if there are none, e.g. when emotion detection was skipped)."""

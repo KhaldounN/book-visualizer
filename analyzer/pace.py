@@ -13,6 +13,7 @@ Simple counts, no model, computed at render time from the saved sentences:
 """
 
 import re
+from functools import lru_cache
 from dataclasses import dataclass
 
 from .models import Sentence
@@ -33,10 +34,17 @@ class Pace:
     action: float | None  # 0..1, verbs / (verbs + adjectives); None without word types
 
 
+_VOWELS = re.compile(r"[aeiouy]+")
+
+
 def syllables(word: str) -> int:
     """Syllables in a word, estimated from its groups of vowels ("reading" 2, "made" 1)."""
-    word = word.lower()
-    count = len(re.findall(r"[aeiouy]+", word))
+    return _syllables(word.lower())
+
+
+@lru_cache(maxsize=200_000)  # a novel uses the same few thousand words over and over: count each once
+def _syllables(word: str) -> int:
+    count = len(_VOWELS.findall(word))
     if word.endswith("e") and not word.endswith(("le", "ee")) and count > 1:
         count -= 1  # a silent final e
     return max(count, 1)

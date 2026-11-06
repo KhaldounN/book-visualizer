@@ -122,8 +122,22 @@ def _said_by(narration: tuple[int, int], text: str, offset: int,
     return None
 
 
+_FOUND: list[tuple] = []  # the last few (sentences, mentions, lines): the page asks for the same book many times
+
+
 def find_lines(sentences: list[Sentence], mentions: list[Mention]) -> list[Line]:
-    """Every quote in the book, with its speaker and listener where they can be told."""
+    """Every quote in the book, with its speaker and listener where they can be told.
+    Remembered for the same two lists (checked by identity, so a merged book is worked out again)."""
+    for seen_sentences, seen_mentions, lines in _FOUND:
+        if seen_sentences is sentences and seen_mentions is mentions:
+            return lines
+    lines = _find_lines(sentences, mentions)
+    _FOUND.insert(0, (sentences, mentions, lines))
+    del _FOUND[4:]
+    return lines
+
+
+def _find_lines(sentences: list[Sentence], mentions: list[Mention]) -> list[Line]:
     by_sentence: dict[int, list[tuple[int, int, int, str]]] = defaultdict(list)
     for m in mentions:
         by_sentence[m.sentence_index].append((m.start, m.end, m.character_id, m.source))

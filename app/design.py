@@ -12,7 +12,7 @@ from pathlib import Path
 
 import charts
 from analyzer.dialogue import find_lines, words_spoken
-from analyzer.emotions import FAMILIES, average_emotions
+from analyzer.emotions import FAMILIES, average_emotions, book_average
 from analyzer.models import BookAnalysis
 
 ASSETS = Path(__file__).with_name("assets")
@@ -989,7 +989,7 @@ def in_brief(analysis: BookAnalysis, events: list) -> list[str]:
         out.append(f"{escape(talker.name)} has the most to say: {spoken[talker.id] / said:.0%} of the dialogue "
                    f"with a known speaker.")
 
-    shares = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
+    shares = charts.without_neutral(book_average(analysis.sentences, "emotions"))
     if shares:
         top = max(shares, key=shares.get)
         out.append(f"Beyond plain narration, the strongest feeling is <b>{escape(charts.short_label(top).lower())}</b> "
@@ -1050,7 +1050,7 @@ def chapter_focus(analysis: BookAnalysis, index: int, events: list, avatars: dic
         return ""
     mood = analysis.chapter_sentiment[index]
     tone_color = charts._tone_color(theme, relative_tone(analysis, mood))
-    feels = stand_out(average_emotions([s.fine for s in sentences]), average_emotions([s.fine for s in analysis.sentences]))
+    feels = stand_out(average_emotions([s.fine for s in sentences]), book_average(analysis.sentences, "fine"))
     theme_chip = (f'<span class="ba-chip" style="background:{tone_color}">{escape(event.theme)} · {mood:+.2f}</span>'
                   if event and event.theme else "")
     return f"""<article class="ba-focus">
@@ -1157,7 +1157,7 @@ def hero(analysis: BookAnalysis, title: str, events: list, theme: dict) -> str:
         f'title="{escape(chapter.title)} · {escape(event.theme)} · mood {tone:+.2f}"></i>'
         for chapter, event, tone, level in zip(analysis.chapters, events, analysis.chapter_sentiment, intensity)
     )
-    shares = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
+    shares = charts.without_neutral(book_average(analysis.sentences, "emotions"))
     author = f'<div class="ba-author">by {escape(analysis.author)}</div>' if analysis.author else ""
     words = sum(len(s.text.split()) for s in analysis.sentences)
     return f"""<section class="ba-hero ba-anchor" id="overview">
@@ -1220,7 +1220,7 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
     from analyzer.narration import narrator
     teller = narrator(analysis, find_lines(analysis.sentences, analysis.mentions))
     roles = story_roles(analysis, n, teller)
-    book_fine = average_emotions([s.fine for s in analysis.sentences])
+    book_fine = book_average(analysis.sentences, "fine")
     cards = []
     people = charts.top_characters(analysis, n)
     if teller is not None and analysis.characters[teller] not in people:  # the narrator always has a card, first
@@ -1255,7 +1255,7 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None
     main = ranked[0]
     mood = analysis.chapter_sentiment
     book_tone = sum(mood) / len(mood)
-    shares = charts.without_neutral(average_emotions([s.emotions for s in analysis.sentences]))
+    shares = charts.without_neutral(book_average(analysis.sentences, "emotions"))
     words = sum(len(s.text.split()) for s in analysis.sentences)
     lines = find_lines(analysis.sentences, analysis.mentions)
     spoken = words_spoken(lines, len(analysis.characters))
@@ -1295,7 +1295,7 @@ def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None
     if shares:
         top = max(shares, key=shares.get)
         # the fine emotions that make up most of that family, e.g. "mostly disapproval, disgust"
-        fine = average_emotions([s.fine for s in analysis.sentences])
+        fine = book_average(analysis.sentences, "fine")
         members = sorted((e for e in FAMILIES[top] if fine.get(e)), key=fine.get, reverse=True)[:2]
         cards.append(dict(icon="🎭", label="Strongest emotion", value=charts.short_label(top),
                           note=f"{shares[top]:.0%} of the emotional sentences"

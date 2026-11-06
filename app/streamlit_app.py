@@ -7,6 +7,7 @@ import dataclasses
 import hashlib
 import html
 import itertools
+import json
 import pickle
 import re
 import sys
@@ -29,9 +30,10 @@ import explore3d  # noqa: E402
 import looks  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
 from analyzer import dialogue, search  # noqa: E402
-from analyzer.emotions import average_emotions, stand_out  # noqa: E402
+from analyzer.emotions import average_emotions, book_average, stand_out  # noqa: E402
 from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters, suggest_merges  # noqa: E402
+from analyzer.models import BookAnalysis  # noqa: E402
 from analyzer.version import ANALYSIS_VERSION  # noqa: E402
 from analyzer.segment import display_title  # noqa: E402
 from analyzer.pace import chapter_pace, measure, pace_scores  # noqa: E402
@@ -164,9 +166,18 @@ def summary(analysis) -> dict:
 
 @st.cache_data(show_spinner="Comparing with the famous books…")
 def library_entry(key: str, title: str, modified: float) -> dict:
-    """summary() of one analysed famous book (cached until its saved analysis changes)."""
-    analysis = saved_analysis(key)
-    return {"key": key, "title": title, **summary(analysis)}
+    """summary() of one analysed famous book. Worked out once and saved next to the analysis
+    (results/v<N>-<sha>.summary.json), so a restarted website doesn't read every book again."""
+    saved = CACHE / f"v{ANALYSIS_VERSION}-{key}.summary.json"
+    if saved.exists() and saved.stat().st_mtime >= modified:
+        try:
+            return {"key": key, "title": title, **json.loads(saved.read_text(encoding="utf-8"))}
+        except ValueError:
+            pass  # a damaged file: work it out again
+    # read directly, not through the shared cache: that keeps only a few books, the open one among them
+    found = summary(pickle.loads((CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").read_bytes()))
+    saved.write_text(json.dumps(found, default=float), encoding="utf-8")
+    return {"key": key, "title": title, **found}
 
 
 def library() -> list[dict]:
@@ -419,10 +430,47 @@ if data is not None:
 book = analyses[st.session_state["current"]]
 if st.query_params.get("book") != st.session_state["current"]:
     st.query_params["book"] = st.session_state["current"]  # so a reload reopens this book
-analysis = merge_characters(book["analysis"], book["merges"]) if book["merges"] else book["analysis"]
-# every chapter title in one tidy form for the page ("CHAPTER XLVII." -> "Chapter 47"); the saved analysis keeps the book's own
-analysis = dataclasses.replace(analysis, chapters=[dataclasses.replace(c, title=display_title(c.title))
-                                                   for c in analysis.chapters])
+def remember(name: str, make, *key):
+    """A result kept for this book, its merges and the look, so a click doesn't rebuild it: Streamlit
+    reruns the whole page on every interaction. Only the open book's results are kept."""
+    current = (st.session_state["current"], tuple(book["merges"]), MODE)
+    store = st.session_state.get("remembered")
+    if store is None or store["book"] != current:
+        store = st.session_state["remembered"] = {"book": current, "results": {}}
+    found = store["results"]
+    if (name, key) not in found:
+        found[(name, key)] = make()
+    return found[(name, key)]
+
+
+def _token(value):
+    """A short, comparable stand-in for a chart argument (the book itself is in remember's key)."""
+    if isinstance(value, BookAnalysis):
+        return "analysis"
+    if isinstance(value, list) and value and type(value[0]).__name__ in ("Sentence", "Mention", "Line"):
+        return (type(value[0]).__name__, len(value))
+    try:
+        return hashlib.md5(pickle.dumps(value, protocol=5)).hexdigest()
+    except Exception:  # noqa: BLE001 - something that can't be pickled: never reuse it
+        return object()
+
+
+def chart(name: str, /, *args, **kwargs):  # "/": a chart may take its own name= argument
+    """charts.<name>(...) remembered for this book and these arguments (building a Plotly figure takes
+    ~70 ms, and the page has about 20)."""
+    key = tuple(_token(a) for a in args) + tuple((k, _token(v)) for k, v in sorted(kwargs.items()))
+    return remember("chart:" + name, lambda: getattr(charts, name)(*args, **kwargs), *key)
+
+
+def prepare_book():
+    """The open book with the reader's merges applied and every chapter title in one tidy form."""
+    prepared = merge_characters(book["analysis"], book["merges"]) if book["merges"] else book["analysis"]
+    return dataclasses.replace(prepared, chapters=[dataclasses.replace(c, title=display_title(c.title))
+                                                   for c in prepared.chapters])
+
+
+# the same object on every click, so what is worked out from it can be remembered too
+analysis = remember("analysis", prepare_book)
 if not analysis.characters:
     st.warning("No characters were found in this book.")
     st.stop()
@@ -493,8 +541,8 @@ with st.sidebar:
 
 has_emotions = any(analysis.chapter_emotions)
 events = explore3d.events_of(analysis)
-book_mix = average_emotions([s.emotions for s in analysis.sentences])
-book_fine = average_emotions([s.fine for s in analysis.sentences])  # the 38 fine emotions
+book_mix = book_average(analysis.sentences, "emotions")
+book_fine = book_average(analysis.sentences, "fine")  # the 38 fine emotions
 names = {c.id: c.name for c in analysis.characters}
 
 # --- The top bar and the tabs: one per part of the analysis ---------------------------------
@@ -615,7 +663,7 @@ with tab["3d"]:
             if scene in explore3d.EMOTION_SCENES and not has_emotions:
                 st.info("This view needs emotions, which were not detected for this book.")
             else:
-                components.html(explore3d.scene_html(analysis, scene, faces_3d), height=520)
+                components.html(remember("scene", lambda: explore3d.scene_html(analysis, scene, faces_3d), scene), height=520)
 
 # --- The story ---------------------------------------------------------------------------
 with tab["story"]:
@@ -703,7 +751,7 @@ with tab["story"]:
             busiest = max(range(len(counts)), key=counts.__getitem__)
             st.markdown(f"**“{query}”** appears in **{len(found):,} sentences** across "
                         f"{sum(1 for c in counts if c)} chapters, most in {analysis.chapters[busiest].title.split(':')[0]}.")
-            st.plotly_chart(charts.word_by_chapter(analysis, theme, counts, tones, query), width="stretch")
+            st.plotly_chart(chart("word_by_chapter", analysis, theme, counts, tones, query), width="stretch")
             hit = search.pattern(query)
             for label, s in (("First appearance", found[0]), ("Brightest", max(found, key=lambda s: s.sentiment)),
                              ("Darkest", min(found, key=lambda s: s.sentiment))):
@@ -726,7 +774,7 @@ with tab["mood"]:
         smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=3, key="mood_smooth")
     ids = [c.id for c in candidates if c.name in chosen]
     with right:
-        st.plotly_chart(charts.story_sentiment(analysis, theme, ids, smooth), width="stretch")
+        st.plotly_chart(chart("story_sentiment", analysis, theme, ids, smooth), width="stretch")
         rows = []
         for i, chapter in enumerate(analysis.chapters):
             row = {"Chapter": chapter.title, "Whole book": round(analysis.chapter_sentiment[i], 3)}
@@ -746,7 +794,7 @@ with tab["mood"]:
                           captions=["average of 15 sentences", "average of 60 sentences"])
     with right:
         window = 15 if detail == "Detailed" else 60
-        st.plotly_chart(charts.mood_arc(analysis, theme, rolling_sentiment(analysis.sentences, window), moments),
+        st.plotly_chart(chart("mood_arc", analysis, theme, rolling_sentiment(analysis.sentences, window), moments),
                         width="stretch")
 
     left, right = panel("Key moments", "The passages of 20 sentences with the darkest and the brightest tone in the "
@@ -771,7 +819,7 @@ with tab["mood"]:
         left, right = panel("The book's emotional mix", "How the emotional (non-neutral) sentences of the book divide "
                             "between the 8 emotion families. Hover a bar to see which fine emotions it holds.")
         with right:
-            st.plotly_chart(charts.emotion_bars(theme, book_mix), width="stretch")
+            st.plotly_chart(chart("emotion_bars", theme, book_mix), width="stretch")
 
         left, right = panel("The finer feelings", "The fine emotions behind the families: how strongly each one runs "
                             "through the book, on average per sentence. Each bar has its family's colour (gray = calm "
@@ -779,7 +827,7 @@ with tab["mood"]:
         with left:
             fine_top = st.slider("Emotions to show", 5, 38, 15, key="fine_top")
         with right:
-            st.plotly_chart(charts.fine_bars(theme, book_fine, fine_top), width="stretch")
+            st.plotly_chart(chart("fine_bars", theme, book_fine, fine_top), width="stretch")
 
         left, right = panel("Emotions through the story", "How the mix of emotions changes from chapter to chapter. "
                             "Each colour band is one emotion family; a wider band means that family is a bigger part of "
@@ -788,7 +836,7 @@ with tab["mood"]:
             smooth = st.select_slider("Smoothing", options=[1, 3, 5, 7], value=5, key="emotion_smooth")
             st.html(design.emotion_peaks(analysis, events, theme))
         with right:
-            st.plotly_chart(charts.emotion_journey(analysis, theme, smooth), width="stretch")
+            st.plotly_chart(chart("emotion_journey", analysis, theme, smooth), width="stretch")
             table(pd.DataFrame([
                 {"Chapter": c.title, **{charts.EMOTION_LABELS[e]: round(mix.get(e, 0), 3)
                                         for e in [*charts.EMOTION_ORDER, "neutral"]}}
@@ -813,7 +861,7 @@ with tab["mood"]:
                 if feels:
                     st.markdown(f"**Stands out for {who.name}:** " + ", ".join(feels))
             with right:
-                st.plotly_chart(charts.emotion_bars(theme, analysis.character_emotions[who.id], book_mix, name=who.name),
+                st.plotly_chart(chart("emotion_bars", theme, analysis.character_emotions[who.id], book_mix, name=who.name),
                                 width="stretch")
         emotions_panel()
 
@@ -829,7 +877,7 @@ with tab["people"]:
     with left:
         top = how_many("Characters to show", len(analysis.characters), 15, "mentions_top")
     with right:
-        st.plotly_chart(charts.mentions_bars(analysis, theme, top, faces), width="stretch")
+        st.plotly_chart(chart("mentions_bars", analysis, theme, top, faces), width="stretch")
         by_name = pd.Series([m.character_id for m in analysis.mentions if m.source == "name"]).value_counts()
         table(pd.DataFrame([
             {"Character": c.name, "Mentions": c.mentions, "By name": int(by_name.get(c.id, 0)),
@@ -842,7 +890,7 @@ with tab["people"]:
     with left:
         top = how_many("Characters to show", len(analysis.characters), 15, "timeline_top")
     with right:
-        st.plotly_chart(charts.timeline_heatmap(analysis, theme, top), width="stretch")
+        st.plotly_chart(chart("timeline_heatmap", analysis, theme, top), width="stretch")
         table(pd.DataFrame(
             {c.name: analysis.mentions_by_chapter[c.id] for c in charts.top_characters(analysis, top)},
             index=[ch.title for ch in analysis.chapters],
@@ -877,7 +925,7 @@ with tab["people"]:
                 if rival is not None:  # the second character's mood on the same stages
                     other = (character_journey(analysis.mentions, analysis.sentences, rival.id), rival.name,
                              charts.character_colors(analysis, theme)[rival.id])
-                st.plotly_chart(charts.character_journey(analysis, theme, journey, traveller.name, color, turns, other),
+                st.plotly_chart(chart("character_journey", analysis, theme, journey, traveller.name, color, turns, other),
                                 width="stretch")
                 for line in journey_story(analysis, journey, turns, traveller.name, has_emotions):
                     st.markdown(line)
@@ -905,7 +953,7 @@ with tab["people"]:
             top = how_many("Characters in the network", len(analysis.characters), 20, "network_top")
             min_count = st.slider("Hide links with fewer moments together than", 3, 50, 10, key="network_min")
         with right:
-            st.plotly_chart(charts.relationship_network(analysis, theme, top, min_count, faces), width="stretch")
+            st.plotly_chart(chart("relationship_network", analysis, theme, top, min_count, faces), width="stretch")
 
         # redraws itself every {AUTOPLAY_SECONDS} s while it plays through (a fragment: only this panel)
         @st.fragment(run_every=AUTOPLAY_SECONDS if st.session_state.get("pair_auto", True) else None)
@@ -923,10 +971,10 @@ with tab["people"]:
             pair = analysis.relationships[picked]
             with right:
                 st.markdown(design.pair_story(analysis, pair, events))
-                st.plotly_chart(charts.pair_tone(analysis, theme, pair, smooth), width="stretch")
-                st.plotly_chart(charts.pair_moments(analysis, theme, pair), width="stretch")
+                st.plotly_chart(chart("pair_tone", analysis, theme, pair, smooth), width="stretch")
+                st.plotly_chart(chart("pair_moments", analysis, theme, pair), width="stretch")
                 if any(pair.emotions_by_part):
-                    st.plotly_chart(charts.pair_emotions(theme, pair), width="stretch")
+                    st.plotly_chart(chart("pair_emotions", theme, pair), width="stretch")
                 table(pd.DataFrame([
                     {"Character": names[r.source], "With": names[r.target], "Moments together": r.count,
                      "Average tone": round(r.sentiment, 3)}
@@ -956,7 +1004,7 @@ with tab["people"]:
         with left:
             top = how_many("Characters to show", sum(1 for w in spoken if w), 12, "talk_top")
         with right:
-            st.plotly_chart(charts.talk_bars(analysis, theme, spoken, top), width="stretch")
+            st.plotly_chart(chart("talk_bars", analysis, theme, spoken, top), width="stretch")
             table(pd.DataFrame([
                 {"Character": c.name, "Words spoken": spoken[c.id],
                  "Quotes": sum(1 for line in lines if line.speaker == c.id)}
@@ -980,7 +1028,7 @@ with tab["people"]:
                     f"- {c.name}: {analysis.chapters[ch].title.rstrip('.')} ({by_chapter[c.id][ch]:,} words)"
                     for c, ch in peaks))
         with right:
-            st.plotly_chart(charts.talk_by_chapter(analysis, theme, by_chapter, unknown if with_unknown else None, share),
+            st.plotly_chart(chart("talk_by_chapter", analysis, theme, by_chapter, unknown if with_unknown else None, share),
                             width="stretch")
             speakers = [c for c in charts.top_characters(analysis, 12) if any(by_chapter[c.id])]
             table(pd.DataFrame([
@@ -997,7 +1045,7 @@ with tab["people"]:
             with left:
                 top = st.slider("Characters", 3, 12, 8, key="talk_matrix_top")
             with right:
-                st.plotly_chart(charts.talk_matrix(analysis, theme, talk, top), width="stretch")
+                st.plotly_chart(chart("talk_matrix", analysis, theme, talk, top), width="stretch")
 
         talkers = sorted((c for c in analysis.characters if spoken[c.id] >= 50), key=lambda c: -spoken[c.id])[:20]
         if talkers:
@@ -1061,11 +1109,11 @@ with tab["story"]:
                        "Run `scripts\\add_word_types.py` (about a minute) to add them.")
     with right:
         st.html(design.kpi_html(design.pace_cards(extra["pace"], others)))
-        st.plotly_chart(charts.pace_chapters(analysis, theme, paces, scores), width="stretch")
+        st.plotly_chart(chart("pace_chapters", analysis, theme, paces, scores), width="stretch")
         if others:
             with st.expander(f"Compared with the {len(others)} other famous books"):
                 st.caption("Each dot is a famous book: hover it for its name.")
-                st.plotly_chart(charts.library_strip(theme, others, current), width="stretch")
+                st.plotly_chart(chart("library_strip", theme, others, current), width="stretch")
         with st.expander("Every chapter's numbers"):
             table(pd.DataFrame([
                 {"Chapter": c.title, "Pace": round(scores[i], 2), "Words": p.words, "Minutes": round(p.minutes, 1),
@@ -1088,12 +1136,12 @@ with tab["places"]:
             with left:
                 top = how_many("Places to show", len(places), 15, "places_top")
             with right:
-                route = search.place_journey(analysis.entities, len(analysis.chapters), analysis.characters,
-                                             analysis.sentences)
+                route = remember("route", lambda: search.place_journey(analysis.entities, len(analysis.chapters),
+                                                                      analysis.characters, analysis.sentences))
                 if len(route) >= 2:  # the story's route: each sixth of the book by its most characteristic place
                     st.markdown("**The route:** " + " → ".join(
                         f"{name} *(ch. {first + 1}–{last + 1})*" for name, first, last in route))
-                st.plotly_chart(charts.places_heatmap(analysis, theme, top), width="stretch")
+                st.plotly_chart(chart("places_heatmap", analysis, theme, top), width="stretch")
 
         left, right = panel("Most mentioned", "The places, organizations and groups (such as families) named most "
                             "often in the book.")
@@ -1103,7 +1151,7 @@ with tab["places"]:
         with left:
             kind = st.radio("Show", kinds, key="entity_kind", format_func=lambda k: f"{KINDS[k]} ({counts[k]})")
         with right:
-            st.plotly_chart(charts.entity_bars([e for e in named if e.kind == kind][:15], theme), width="stretch")
+            st.plotly_chart(chart("entity_bars", [e for e in named if e.kind == kind][:15], theme), width="stretch")
             table(pd.DataFrame([
                 {"Name": e.name, "Kind": KINDS.get(e.kind, e.kind), "spaCy type": ENTITY_TYPES.get(e.label, e.label),
                  "Mentions": e.count}
