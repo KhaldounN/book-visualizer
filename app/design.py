@@ -390,6 +390,7 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-about figcaption {{ font-size: .78rem; color: var(--ba-muted); margin-top: .6rem; font-style: italic; }}
     .ba-about h2 {{ font-family: {SERIF}; font-size: 1.6rem; color: var(--ba-ink); margin: 0 0 .6rem; padding: 0; }}
     .ba-about p {{ color: var(--ba-ink2); line-height: 1.6; max-width: 46rem; margin: 0 0 .7rem; }}
+    .ba-about .ba-byline {{ font: italic 400 1rem/1.3 {SERIF}; color: var(--ba-muted); margin: -.2rem 0 1rem; }}
     .ba-about .ba-links a {{ color: var(--ba-ink); font-weight: 600; text-decoration: none;
         border-bottom: 1px solid var(--ba-gold); }}
     .ba-mascot img {{ width: 100%; aspect-ratio: 4 / 5; object-fit: cover; object-position: 60% 30%; border-radius: var(--ba-radius);
@@ -441,13 +442,26 @@ def mascot_line(step: str) -> str:
 # The maker, from his LinkedIn profile (edit here: it is shown on the start page and at the bottom)
 ABOUT = {
     "name": "Khaldoun Al-Naierat",
+    # a short article on why the project exists (impersonal: the owner asked for no personal details)
+    "title": "Turning words into data",
     "paragraphs": [
-        "Hi, I'm Khaldoun. I live in Barcelona and work in data analytics. I studied data analysis and "
-        "digital innovation at the University of Barcelona, which is where Python and machine learning "
-        "first got me hooked.",
-        "Book Visualizer is a passion project, made purely for fun while I keep learning AI and programming. "
-        "It began as a small experiment in 2020 and grew into this. Every AI model runs on my own computer, "
-        "so your book never leaves it. Expect the odd mistake: the raccoon is still learning too.",
+        "Data is one of the best ways we have to represent reality. A single number says very little, but "
+        "thousands of them, put in order, reveal patterns that no one could see by looking at things one at a "
+        "time: how a city moves, how an idea spreads, how a season changes. Structured data lets us step back "
+        "and understand a much larger picture of the world.",
+        "Yet much of what people know and feel is not stored in tables. It lives in written words: novels, "
+        "letters, histories and stories. Words are rich, but they are unstructured. You cannot sort, count or "
+        "chart a paragraph the way you can a column of numbers.",
+        "This project was created to close that gap. It takes a book and turns its words into understandable, "
+        "structured data. Every sentence becomes a record with its tone and its emotions; every character "
+        "becomes a set of appearances, relationships and lines of dialogue; every chapter becomes a point on "
+        "a curve. Once a story is data, it can be measured, compared and drawn.",
+        "None of this replaces reading. A chart cannot feel what a reader feels. But it can show the shape of a "
+        "story at a glance: where it darkens, who stands at its centre, how two people drift together or "
+        "apart. And it can set one book beside many others, something no single reading can do.",
+        "It is built with small, specialised machine-learning models that run on an ordinary computer, so a "
+        "book never leaves it. It is a passion project and still growing, so expect the odd mistake: the "
+        "raccoon is still learning too.",
     ],
     "links": [("LinkedIn", "https://www.linkedin.com/in/khaldoun-al-naierat"),
               ("GitHub", "https://github.com/KhaldounN")],
@@ -788,7 +802,7 @@ def about() -> str:
       <figure><img src="{image_uri("raccoon.jpg")}" alt="The Book Visualizer raccoon in headphones at a keyboard">
       <figcaption>The raccoon, head of reading</figcaption></figure>
       <div><div class="ba-kicker">About · a passion project</div>
-      <h2>Made for fun by {escape(ABOUT["name"])}</h2>{text}
+      <h2>{escape(ABOUT["title"])}</h2><p class="ba-byline">By {escape(ABOUT["name"])}</p>{text}
       <p class="ba-links">{links}</p></div>
     </section>"""
 
