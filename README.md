@@ -35,14 +35,33 @@ Plain-text novels from [Project Gutenberg](https://www.gutenberg.org) work well.
 
 ## Setup (Windows)
 
-Requires Python 3.13. Everything runs on your computer: books are never sent anywhere, and the AI models run locally in offline mode. On a new computer, download the models (about 2 GB) once by running the first analysis with `$env:BOOK_ANALYZER_ALLOW_DOWNLOADS = "1"`. (The page itself still loads its fonts and the Three.js 3D library from public CDNs.)
+Requires Python 3.13 and about 3 GB of free memory to analyze a book. Everything runs on your computer:
+books are never sent anywhere, and the AI models run locally in offline mode. (The page itself still loads
+its fonts and the Three.js 3D library from public CDNs.)
 
 ```powershell
+git clone https://github.com/KhaldounN/book-visualizer
+cd book-visualizer
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe scripts\download_samples.py   # optional: 11 famous public-domain books for the site's "Try a famous book" picker
-.\.venv\Scripts\python.exe scripts\analyze_samples.py    # optional: analyze them all ahead of time (~1-2 hours), so they open instantly (⚡)
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt     # the libraries and spaCy's English model
+
+# once: download the AI models (about 2 GB) by analyzing one book with downloads allowed
+.\.venv\Scripts\python.exe scripts\download_samples.py              # the library: 100 famous public-domain books from Project Gutenberg
+$env:BOOK_ANALYZER_ALLOW_DOWNLOADS = "1"
+.\.venv\Scripts\python.exe -m analyzer data\frankenstein.txt
+Remove-Item Env:BOOK_ANALYZER_ALLOW_DOWNLOADS
+
+# optional: book covers for the start page, and every library book analyzed ahead of time
+.\.venv\Scripts\python.exe scripts\download_covers.py
+.\.venv\Scripts\python.exe scripts\analyze_library.py               # hours (7-10 min a novel); safe to stop and restart
 ```
+
+Without the last step the site still works: a book is analyzed the first time someone opens it (about
+10 minutes), and opens instantly (⚡) after that. Books, analyses and models are not in this repository
+(see `.gitignore`); the scripts above re-create them.
+
+On Mac or Linux the same Python commands work with `.venv/bin/python` and forward slashes; start the
+website with `OPENBLAS_NUM_THREADS=1 .venv/bin/python -m streamlit run app/streamlit_app.py --server.port 8502`.
 
 ## Use it
 
