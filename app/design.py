@@ -16,6 +16,7 @@ from analyzer.emotions import FAMILIES, average_emotions, book_average
 from analyzer.models import BookAnalysis
 
 ASSETS = Path(__file__).with_name("assets")
+COVERS = Path(__file__).with_name("static") / "covers"  # served by Streamlit at app/static/covers/
 # The mascot (the owner's raccoon) says what it is doing during each analysis step
 MASCOT_LINES = {
     "Reading sentences": "Reading the book, one sentence at a time. Snack breaks included.",
@@ -445,23 +446,14 @@ ABOUT = {
     # a short article on why the project exists (impersonal: the owner asked for no personal details)
     "title": "Turning words into data",
     "paragraphs": [
-        "Data is one of the best ways we have to represent reality. A single number says very little, but "
-        "thousands of them, put in order, reveal patterns that no one could see by looking at things one at a "
-        "time: how a city moves, how an idea spreads, how a season changes. Structured data lets us step back "
-        "and understand a much larger picture of the world.",
+        "Data is one of the best ways we have to represent reality: put in order, many small facts reveal "
+        "patterns no one could see one at a time, and a much larger picture of the world.",
         "Yet much of what people know and feel is not stored in tables. It lives in written words: novels, "
         "letters, histories and stories. Words are rich, but they are unstructured. You cannot sort, count or "
         "chart a paragraph the way you can a column of numbers.",
-        "This project was created to close that gap. It takes a book and turns its words into understandable, "
-        "structured data. Every sentence becomes a record with its tone and its emotions; every character "
-        "becomes a set of appearances, relationships and lines of dialogue; every chapter becomes a point on "
-        "a curve. Once a story is data, it can be measured, compared and drawn.",
-        "None of this replaces reading. A chart cannot feel what a reader feels. But it can show the shape of a "
-        "story at a glance: where it darkens, who stands at its centre, how two people drift together or "
-        "apart. And it can set one book beside many others, something no single reading can do.",
-        "It is built with small, specialised machine-learning models that run on an ordinary computer, so a "
-        "book never leaves it. It is a passion project and still growing, so expect the odd mistake: the "
-        "raccoon is still learning too.",
+        "This project closes that gap: it turns a book's words into understandable, structured data, so a "
+        "story can be measured, compared and drawn. A passion project, built with small machine-learning "
+        "models that run on an ordinary computer.",
     ],
     "links": [("LinkedIn", "https://www.linkedin.com/in/khaldoun-al-naierat"),
               ("GitHub", "https://github.com/KhaldounN")],
@@ -1029,16 +1021,16 @@ COVER_COLOURS = ["#5b2733", "#2c3e5c", "#2f4a3a", "#6b4a2e", "#3d3a5c", "#5a3d2b
 
 def shelf_css(names: list[str]) -> str:
     """Styling that turns each cover button (key cover_<file>) into the book's real cover picture
-    (app/assets/covers/<file>.jpg, from scripts/download_covers.py), or a cloth-bound book when there
-    is none. On a picture the button's own text is hidden: the cover shows the title."""
+    (app/static/covers/<file>.jpg from scripts/download_covers.py, served as an ordinary file the browser
+    keeps), or a cloth-bound book when there is none. On a picture the button's text is hidden."""
     import hashlib
     rules = []
     for name in names:
         colour = COVER_COLOURS[int(hashlib.md5(name.encode()).hexdigest(), 16) % len(COVER_COLOURS)]
         key = re.sub(r"[^A-Za-z0-9_-]", "-", f"cover_{name}")
-        cover = ASSETS / "covers" / f"{Path(name).stem}.jpg"
+        cover = COVERS / f"{Path(name).stem}.jpg"
         if cover.exists():
-            rules.append(f'.st-key-{key} button {{ background: {colour} url("{image_uri("covers/" + cover.name)}") '
+            rules.append(f'.st-key-{key} button {{ background: {colour} url("app/static/covers/{cover.name}") '
                          f'center / cover no-repeat !important; }} .st-key-{key} button p {{ opacity: 0; }}')
         else:
             rules.append(f'.st-key-{key} button {{ background: {colour} !important; }}')

@@ -62,20 +62,69 @@ SAMPLES = {
     # scriptures (the owner asked for them): chapters are the Bible's books and the Quran's suras
     "the_bible.txt": "https://www.gutenberg.org/cache/epub/10/pg10.txt",  # King James Version
     "the_quran.txt": "https://www.gutenberg.org/cache/epub/2800/pg2800.txt",  # J. M. Rodwell's translation
+    # 51 more famous books (2026-11-06), for a library of 100: each checked for its title and chapters
+    "les_miserables.txt": "https://www.gutenberg.org/cache/epub/135/pg135.txt",
+    "the_count_of_monte_cristo.txt": "https://www.gutenberg.org/cache/epub/1184/pg1184.txt",
+    "the_three_musketeers.txt": "https://www.gutenberg.org/cache/epub/1257/pg1257.txt",
+    "war_and_peace.txt": "https://www.gutenberg.org/cache/epub/2600/pg2600.txt",
+    "anna_karenina.txt": "https://www.gutenberg.org/cache/epub/1399/pg1399.txt",
+    "crime_and_punishment.txt": "https://www.gutenberg.org/cache/epub/2554/pg2554.txt",
+    "the_brothers_karamazov.txt": "https://www.gutenberg.org/cache/epub/28054/pg28054.txt",
+    "don_quixote.txt": "https://www.gutenberg.org/cache/epub/996/pg996.txt",
+    "madame_bovary.txt": "https://www.gutenberg.org/cache/epub/2413/pg2413.txt",
+    "middlemarch.txt": "https://www.gutenberg.org/cache/epub/145/pg145.txt",
+    "northanger_abbey.txt": "https://www.gutenberg.org/cache/epub/121/pg121.txt",
+    "mansfield_park.txt": "https://www.gutenberg.org/cache/epub/141/pg141.txt",
+    "david_copperfield.txt": "https://www.gutenberg.org/cache/epub/766/pg766.txt",
+    "bleak_house.txt": "https://www.gutenberg.org/cache/epub/1023/pg1023.txt",
+    "hard_times.txt": "https://www.gutenberg.org/cache/epub/786/pg786.txt",
+    "vanity_fair.txt": "https://www.gutenberg.org/cache/epub/599/pg599.txt",
+    "tess_of_the_durbervilles.txt": "https://www.gutenberg.org/cache/epub/110/pg110.txt",
+    "far_from_the_madding_crowd.txt": "https://www.gutenberg.org/cache/epub/107/pg107.txt",
+    "silas_marner.txt": "https://www.gutenberg.org/cache/epub/550/pg550.txt",
+    "the_mill_on_the_floss.txt": "https://www.gutenberg.org/cache/epub/6688/pg6688.txt",
+    "ivanhoe.txt": "https://www.gutenberg.org/cache/epub/82/pg82.txt",
+    "kidnapped.txt": "https://www.gutenberg.org/cache/epub/421/pg421.txt",
+    "the_prince_and_the_pauper.txt": "https://www.gutenberg.org/cache/epub/1837/pg1837.txt",
+    "a_connecticut_yankee.txt": "https://www.gutenberg.org/cache/epub/86/pg86.txt",
+    "the_age_of_innocence.txt": "https://www.gutenberg.org/cache/epub/541/pg541.txt",
+    "ethan_frome.txt": "https://www.gutenberg.org/cache/epub/4517/pg4517.txt",
+    "uncle_toms_cabin.txt": "https://www.gutenberg.org/cache/epub/203/pg203.txt",
+    "the_red_badge_of_courage.txt": "https://www.gutenberg.org/cache/epub/73/pg73.txt",
+    "heart_of_darkness.txt": "https://www.gutenberg.org/cache/epub/219/pg219.txt",
+    "lord_jim.txt": "https://www.gutenberg.org/cache/epub/5658/pg5658.txt",
+    "sons_and_lovers.txt": "https://www.gutenberg.org/cache/epub/217/pg217.txt",
+    "a_room_with_a_view.txt": "https://www.gutenberg.org/cache/epub/2641/pg2641.txt",
+    "howards_end.txt": "https://www.gutenberg.org/cache/epub/2946/pg2946.txt",
+    "martin_eden.txt": "https://www.gutenberg.org/cache/epub/1056/pg1056.txt",
+    "the_island_of_doctor_moreau.txt": "https://www.gutenberg.org/cache/epub/159/pg159.txt",
+    "king_solomons_mines.txt": "https://www.gutenberg.org/cache/epub/2166/pg2166.txt",
+    "the_scarlet_pimpernel.txt": "https://www.gutenberg.org/cache/epub/60/pg60.txt",
+    "the_prisoner_of_zenda.txt": "https://www.gutenberg.org/cache/epub/95/pg95.txt",
+    "pollyanna.txt": "https://www.gutenberg.org/cache/epub/1450/pg1450.txt",
+    "kim.txt": "https://www.gutenberg.org/cache/epub/2226/pg2226.txt",
+    "the_hunchback_of_notre_dame.txt": "https://www.gutenberg.org/cache/epub/2610/pg2610.txt",
+    "candide.txt": "https://www.gutenberg.org/cache/epub/19942/pg19942.txt",
+    "north_and_south.txt": "https://www.gutenberg.org/cache/epub/4276/pg4276.txt",
+    "the_moonstone.txt": "https://www.gutenberg.org/cache/epub/155/pg155.txt",
+    "the_woman_in_white.txt": "https://www.gutenberg.org/cache/epub/583/pg583.txt",
+    "the_lost_world.txt": "https://www.gutenberg.org/cache/epub/139/pg139.txt",
+    "tarzan_of_the_apes.txt": "https://www.gutenberg.org/cache/epub/78/pg78.txt",
+    "the_mysterious_island.txt": "https://www.gutenberg.org/cache/epub/1268/pg1268.txt",
+    "my_antonia.txt": "https://www.gutenberg.org/cache/epub/242/pg242.txt",
+    "the_metamorphosis.txt": "https://www.gutenberg.org/cache/epub/5200/pg5200.txt",
+    "ben_hur.txt": "https://www.gutenberg.org/cache/epub/2145/pg2145.txt",
 }
-# The website lists only the books directly in data/ (the owner chose 10 famous ones); the rest go
-# to data/more/, where they are kept but not offered.
-LIBRARY = {"pride_and_prejudice.txt", "great_expectations.txt", "frankenstein.txt", "dracula.txt",
-           "alice_in_wonderland.txt", "wuthering_heights.txt", "the_hound_of_the_baskervilles.txt",
-           "the_wonderful_wizard_of_oz.txt", "jane_eyre.txt", "a_christmas_carol.txt"}
-# (the Bible and the Quran were offered for a while, then taken off the website at the owner's request:
-# they still download into data/more/)
+# The website lists the books directly in data/: every book above (100) except a few kept aside in
+# data/more/: the Bible and the Quran (offered briefly, removed at the owner's request) and The Jungle
+# Book (separate stories with no chapters, which the analysis isn't made for).
+ASIDE = {"the_bible.txt", "the_quran.txt", "the_jungle_book.txt"}
 
 
 def main() -> None:
     (DATA_DIR / "more").mkdir(parents=True, exist_ok=True)
     for name, url in SAMPLES.items():
-        target = DATA_DIR / name if name in LIBRARY else DATA_DIR / "more" / name
+        target = DATA_DIR / "more" / name if name in ASIDE else DATA_DIR / name
         if target.exists():
             print(f"Already have {name}")
             continue

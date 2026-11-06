@@ -1,7 +1,8 @@
-"""Download the cover picture of every book in data/ from Project Gutenberg into app/assets/covers/.
+"""Download the cover picture of every book in data/ from Project Gutenberg into app/static/covers/
+(served by Streamlit at /app/static/covers/, see .streamlit/config.toml).
 
 Run from the project folder:  .venv\\Scripts\\python.exe scripts\\download_covers.py
-Each cover is shrunk to 220 pixels wide (a few KB), because the start page embeds them.
+Each cover is shrunk to 220 pixels wide (a few KB), so the start page loads quickly.
 """
 
 import io
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from download_samples import SAMPLES  # noqa: E402  (file name -> Gutenberg text URL, which holds the book's number)
 
-COVERS = ROOT / "app" / "assets" / "covers"
+COVERS = ROOT / "app" / "static" / "covers"
 WIDTH = 220
 
 

@@ -1,6 +1,8 @@
 [server]
 # A long novel is about 1-2 MB of text; refuse anything much bigger
 maxUploadSize = 5
+# app/static/ is served at /app/static/ (the book covers: the browser downloads each once and keeps it)
+enableStaticServing = true
 
 [client]
 # no "Deploy" button: the site is meant to look like a finished website (the menu stays for the theme)

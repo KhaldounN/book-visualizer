@@ -31,6 +31,7 @@ import looks  # noqa: E402
 from avatars import cast_avatars  # noqa: E402
 from analyzer import dialogue, search  # noqa: E402
 from analyzer.emotions import average_emotions, book_average, stand_out  # noqa: E402
+from analyzer.library import book_pace, saved_summary  # noqa: E402
 from analyzer.loaders import book_info  # noqa: E402
 from analyzer.merge import merge_characters, suggest_merges  # noqa: E402
 from analyzer.models import BookAnalysis  # noqa: E402
@@ -141,6 +142,12 @@ def sample_book(path: str, modified: float) -> tuple[str, str]:
     return title, hashlib.sha256(data).hexdigest()
 
 
+@st.cache_data(show_spinner=False)
+def book_author(name: str) -> str:
+    """A famous book's author, from its Gutenberg header (read once per file)."""
+    return book_info((SAMPLES / name).read_bytes(), name)[1] or ""
+
+
 def sample_books() -> dict[str, tuple[str, str]]:
     """file name -> (title, key) for every sample book in data/, sorted by title."""
     found = {p.name: sample_book(str(p), p.stat().st_mtime) for p in SAMPLES.glob("*.txt")} if SAMPLES.exists() else {}
@@ -148,36 +155,11 @@ def sample_books() -> dict[str, tuple[str, str]]:
     return dict(sorted(found.items(), key=lambda kv: re.sub(r"^(The|An?) ", "", kv[1][0]).lower()))
 
 
-def book_pace(analysis, lines: list):
-    """The whole book's pace, with its share of spoken words."""
-    pace = measure(analysis.sentences)
-    pace.dialogue = min(sum(line.words for line in lines) / max(pace.words, 1), 1.0)
-    return pace
-
-
-def summary(analysis) -> dict:
-    """The few numbers used to compare books: mood curve, story shape and pace."""
-    curve, fits = story_shape(analysis.sentences)
-    pace = book_pace(analysis, dialogue.find_lines(analysis.sentences, analysis.mentions))
-    return {"curve": curve, "shape": fits[0][0] if fits and fits[0][1] >= WEAK_FIT else None,
-            "hours": pace.minutes / 60, "grade": pace.grade, "sentence_length": pace.sentence_length,
-            "dialogue": pace.dialogue, "richness": pace.richness}
-
-
 @st.cache_data(show_spinner="Comparing with the famous books…")
 def library_entry(key: str, title: str, modified: float) -> dict:
-    """summary() of one analysed famous book. Worked out once and saved next to the analysis
-    (results/v<N>-<sha>.summary.json), so a restarted website doesn't read every book again."""
-    saved = CACHE / f"v{ANALYSIS_VERSION}-{key}.summary.json"
-    if saved.exists() and saved.stat().st_mtime >= modified:
-        try:
-            return {"key": key, "title": title, **json.loads(saved.read_text(encoding="utf-8"))}
-        except ValueError:
-            pass  # a damaged file: work it out again
-    # read directly, not through the shared cache: that keeps only a few books, the open one among them
-    found = summary(pickle.loads((CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").read_bytes()))
-    saved.write_text(json.dumps(found, default=float), encoding="utf-8")
-    return {"key": key, "title": title, **found}
+    """The comparison numbers of one analysed famous book (analyzer/library.py: saved next to the
+    analysis, so a restarted website doesn't read every book again)."""
+    return {"key": key, "title": title, **saved_summary(CACHE, key)}
 
 
 def library() -> list[dict]:
@@ -402,14 +384,18 @@ if data is None and ("home" in st.query_params or "current" not in st.session_st
         if shelf:  # the famous books as their real covers on a shelf: click one to open it
             st.html(design.shelf_css(shelf))
             st.html('<div class="ba-kicker" style="margin-top:.6rem">The library · ⚡ opens instantly</div>')
-            for row in range(0, len(shelf), 6):
-                for column, name in zip(st.columns(6), shelf[row:row + 6]):
-                    path = SAMPLES / name
-                    author = book_info(path.read_bytes(), name)[1] or ""
-                    # a callback runs before the page is drawn again, so it may set the sidebar list's choice
-                    column.button(samples[name][0], key=f"cover_{name}", width="stretch",
-                                  on_click=lambda n=name: st.session_state.update(sample=n, open_sample=True))
-                    column.caption(f"**{samples[name][0]}**" + (" ⚡" if name in ready else "") + f"  \n{author}")
+            def covers(names: list[str]) -> None:
+                for row in range(0, len(names), 6):
+                    for column, name in zip(st.columns(6), names[row:row + 6]):
+                        author = book_author(name)
+                        # a callback runs before the page is drawn again, so it may set the sidebar list's choice
+                        column.button(samples[name][0], key=f"cover_{name}", width="stretch",
+                                      on_click=lambda n=name: st.session_state.update(sample=n, open_sample=True))
+                        column.caption(f"**{samples[name][0]}**" + (" ⚡" if name in ready else "") + f"  \n{author}")
+            covers(shelf[:18])
+            if len(shelf) > 18:
+                with st.expander(f"All {len(shelf)} books"):
+                    covers(shelf[18:])
     section("How it works", "What kind of AI this is, and what happens between your text file and the charts.")
     st.html(design.how_it_works())
     section("About", "Who made this, and why.")
