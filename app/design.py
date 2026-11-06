@@ -321,6 +321,18 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-avatar {{ border-radius: 50%; flex: none; vertical-align: middle; }}
     .ba-dot {{ display: inline-block; border-radius: 50%; flex: none; vertical-align: middle; }}
     .ba-faces img {{ margin-right: -6px; }}
+    /* the cast: one row of portraits side by side, no boxes (details in each portrait's tooltip) */
+    .ba-castrow {{ margin: 1.8rem 0 .4rem; }}
+    .ba-castrow .row {{ display: flex; gap: .3rem; margin-top: .55rem; overflow-x: auto; scrollbar-width: thin;
+        padding-bottom: .2rem; }}
+    .ba-castrow figure {{ flex: 1 0 5.6rem; max-width: 8rem; margin: 0; display: flex; flex-direction: column;
+        align-items: center; text-align: center; gap: .15rem; cursor: help; }}
+    .ba-castrow figure img {{ transition: transform .2s ease; }}
+    .ba-castrow figure:hover img {{ transform: translateY(-3px) scale(1.05); }}
+    .ba-castrow b {{ font: 500 .98rem/1.15 {SERIF}; margin-top: .2rem; }}
+    .ba-castrow .role {{ font: 600 .56rem/1.25 {SANS}; letter-spacing: .08em; text-transform: uppercase;
+        color: var(--ba-muted); }}
+    .ba-castrow .note {{ font-size: .72rem; color: var(--ba-muted); margin: .4rem 0 0; }}
     .ba-castgrid {{ margin: 2.6rem 0 .4rem; }}
     .ba-castgrid h3 {{ font: 500 2rem/1.15 {SERIF}; letter-spacing: -.015em; color: var(--ba-ink); margin: .5rem 0 0;
         padding: 0 0 .6rem; border-bottom: 1px solid var(--ba-rule); }}
@@ -1233,17 +1245,17 @@ def cast_strip(analysis: BookAnalysis, looks: dict, avatars: dict, theme: dict, 
             continue
         feels = stand_out(analysis.character_fine[c.id], book_fine) if analysis.character_fine else []
         source = ("From the book: " + ", ".join(look.evidence)) if look.evidence else "Imagined from the story"
-        cards.append(
-            f'<article>{face(avatars, c, 88)}<b style="color:{colors[c.id]}">{escape(c.name)}</b>'
-            + "".join(f'<span class="role">{escape(r)}</span>' for r in roles.get(c.id, [])) +
-            f'<span class="look">{escape(look_in_words(look))}</span>'
-            f'<span class="meta">{escape(", ".join(feels)) if feels else ""}</span>'  # no mention counts up top
-            f'<small>{escape(source)}</small></article>')
-    return (f'<section class="ba-castgrid"><div class="ba-kicker">Dramatis personae</div><h3>The cast</h3>'
-            f'<div class="grid">{"".join(cards)}</div>'
-            f'<p class="note">Portraits are drawn by this website from what the book says about each character; '
-            f'where it says nothing, the story fills in the blanks (title, job, the book\'s world and mood).</p>'
-            f'</section>')
+        # one compact figure per person, side by side; the details are in the tooltip (no mention counts up top)
+        details = " · ".join(x for x in (", ".join(roles.get(c.id, [])), look_in_words(look),
+                                          ("stands out: " + ", ".join(feels)) if feels else "", source) if x)
+        role = roles.get(c.id, [""])[0]
+        cards.append(f'<figure title="{escape(c.name)}: {escape(details)}">{face(avatars, c, 64).replace(chr(32) + "title=" + chr(34) + escape(c.name) + chr(34), "")}'
+                     f'<b style="color:{colors[c.id]}">{escape(c.name)}</b>'
+                     f'<span class="role">{escape(role)}</span></figure>')
+    return (f'<section class="ba-castrow"><div class="ba-kicker">Dramatis personae · the cast</div>'
+            f'<div class="row">{"".join(cards)}</div>'
+            f'<p class="note">Portraits are drawn from what the book says about each character (where it says nothing, '
+            f'the story fills in the blanks). Hover a portrait for the details.</p></section>')
 
 
 def kpis(analysis: BookAnalysis, events: list, theme: dict, avatars: dict | None = None) -> list[dict]:
