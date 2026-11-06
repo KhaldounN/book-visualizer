@@ -63,12 +63,13 @@ SAMPLES = {
     "the_bible.txt": "https://www.gutenberg.org/cache/epub/10/pg10.txt",  # King James Version
     "the_quran.txt": "https://www.gutenberg.org/cache/epub/2800/pg2800.txt",  # J. M. Rodwell's translation
 }
-# The website lists only the books directly in data/ (the owner chose 10 famous ones plus the two
-# scriptures); the rest go to data/more/, where they are kept but not offered.
+# The website lists only the books directly in data/ (the owner chose 10 famous ones); the rest go
+# to data/more/, where they are kept but not offered.
 LIBRARY = {"pride_and_prejudice.txt", "great_expectations.txt", "frankenstein.txt", "dracula.txt",
            "alice_in_wonderland.txt", "wuthering_heights.txt", "the_hound_of_the_baskervilles.txt",
-           "the_wonderful_wizard_of_oz.txt", "jane_eyre.txt", "a_christmas_carol.txt",
-           "the_bible.txt", "the_quran.txt"}
+           "the_wonderful_wizard_of_oz.txt", "jane_eyre.txt", "a_christmas_carol.txt"}
+# (the Bible and the Quran were offered for a while, then taken off the website at the owner's request:
+# they still download into data/more/)
 
 
 def main() -> None:
