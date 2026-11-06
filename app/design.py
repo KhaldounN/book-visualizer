@@ -227,7 +227,7 @@ def page_css(theme: dict, mode: str) -> str:
     .ba-anim {{ display: block; width: 100%; height: auto; }}
     .ba-anim.em-{'dark' if mode == 'light' else 'light'} {{ display: none; }}
     .ba-emblem.em-{'dark' if mode == 'light' else 'light'} {{ display: none; }}
-    .ba-top .ba-mark {{ display: flex; align-items: center; gap: .9rem; }}
+    .ba-top .ba-mark {{ display: flex; align-items: center; gap: .9rem; text-decoration: none !important; color: inherit; }}
     .ba-foot .ba-emblem {{ vertical-align: -5px; margin-right: .45rem; }}
     .ba-rnote {{ display: flex; gap: .9rem; align-items: flex-start; max-width: 46rem; margin: 0 0 2rem; }}
     .ba-rnote p {{ margin: 0; font: italic 400 1.02rem/1.55 {SERIF}; color: var(--ba-ink2); }}
@@ -671,7 +671,7 @@ def top_bar(title: str | None = None) -> str:
     """The masthead above the tabs on every page: the site's name and motto, then the open book."""
     book = (f'<span class="book" title="{escape(title)}">{escape(title)}</span>') if title else ""
     return f"""<header class="ba-top">
-      <div class="ba-mark">{emblem(58)}<div><b>Book Visualizer</b><span>A computational reading of the novel</span></div></div>
+      <a class="ba-mark" href="?home=1" target="_self" title="The start page: all the books">{emblem(58)}<div><b>Book Visualizer</b><span>A computational reading of the novel</span></div></a>
       <div class="ba-meta">{book}<span class="ba-sc">Local models · Your book stays on this computer</span></div>
     </header>"""
 
@@ -888,15 +888,22 @@ COVER_COLOURS = ["#5b2733", "#2c3e5c", "#2f4a3a", "#6b4a2e", "#3d3a5c", "#5a3d2b
 
 
 def shelf_css(names: list[str]) -> str:
-    """Styling that turns each cover button (key cover_<file>) into a cloth-bound book."""
+    """Styling that turns each cover button (key cover_<file>) into the book's real cover picture
+    (app/assets/covers/<file>.jpg, from scripts/download_covers.py), or a cloth-bound book when there
+    is none. On a picture the button's own text is hidden: the cover shows the title."""
     import hashlib
     rules = []
     for name in names:
         colour = COVER_COLOURS[int(hashlib.md5(name.encode()).hexdigest(), 16) % len(COVER_COLOURS)]
         key = re.sub(r"[^A-Za-z0-9_-]", "-", f"cover_{name}")
-        rules.append(f'.st-key-{key} button {{ background: {colour} !important; }}')
+        cover = ASSETS / "covers" / f"{Path(name).stem}.jpg"
+        if cover.exists():
+            rules.append(f'.st-key-{key} button {{ background: {colour} url("{image_uri("covers/" + cover.name)}") '
+                         f'center / cover no-repeat !important; }} .st-key-{key} button p {{ opacity: 0; }}')
+        else:
+            rules.append(f'.st-key-{key} button {{ background: {colour} !important; }}')
     return f"""<style>
-    [class*="st-key-cover_"] button {{ min-height: 9.5rem; align-items: flex-start; justify-content: flex-start;
+    [class*="st-key-cover_"] button {{ min-height: 0; aspect-ratio: 2 / 3; align-items: flex-start; justify-content: flex-start;
         text-align: left; padding: .9rem .8rem; border: none !important; border-radius: 3px 6px 6px 3px;
         box-shadow: inset 6px 0 0 rgba(0,0,0,.25), 0 2px 6px rgba(0,0,0,.18); transition: transform .15s ease; }}
     [class*="st-key-cover_"] button:hover {{ transform: translateY(-3px); }}

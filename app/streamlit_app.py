@@ -41,6 +41,7 @@ from analyzer.progression import (  # noqa: E402
 )
 
 SAMPLES = ROOT / "data"  # famous public-domain books, from scripts/download_samples.py
+DEFAULT_BOOK = "frankenstein.txt"  # opens by itself for a new visitor (the owner's choice); ?home shows the start page
 CACHE = ROOT / "results"  # finished analyses, so a book is only analyzed once
 ENTITY_TYPES = {
     "GPE": "Country or city", "LOC": "Place", "FAC": "Building", "ORG": "Organization",
@@ -337,6 +338,17 @@ with st.sidebar:
 
 # an upload opens once, when it's new, so a famous book picked afterwards isn't overruled by it
 new_upload = uploaded is not None and st.session_state.get("last_upload") != uploaded.file_id
+
+def default_book_key() -> str | None:
+    """The default book's key, when it is in data/ and already analyzed (so it opens instantly)."""
+    if DEFAULT_BOOK not in samples:
+        return None
+    key = samples[DEFAULT_BOOK][1]
+    return key if (CACHE / f"v{ANALYSIS_VERSION}-{key}.pkl").exists() else None
+
+
+if sample_picked or new_upload:
+    st.query_params.pop("home", None)  # a book was chosen on the start page: show it
 if sample_picked:
     data, filename = (SAMPLES / sample_picked).read_bytes(), sample_picked
     st.session_state["pending"] = {"filename": filename, "sample": True}
@@ -344,6 +356,8 @@ elif new_upload:
     data, filename = uploaded.getvalue(), uploaded.name
     st.session_state["pending"] = {"filename": filename, "data": data}
     st.session_state["last_upload"] = uploaded.file_id
+elif "home" in st.query_params:  # the masthead's link: the start page, whatever was open
+    data, filename = None, None
 elif "pending" in st.session_state:  # still waiting to open (being read, short of memory, or failed)
     pending = st.session_state["pending"]
     filename = pending["filename"]
@@ -358,7 +372,12 @@ elif re.fullmatch(r"[0-9a-f]{64}", st.query_params.get("book", "")) and \
     st.session_state.setdefault("analyses", {})[key] = {"title": result.title, "analysis": result, "merges": []}
     st.session_state["current"] = key
     data, filename = None, None
+elif default_book_key():  # a new visitor: open the default book straight away
+    data, filename = (SAMPLES / DEFAULT_BOOK).read_bytes(), DEFAULT_BOOK
+    st.session_state["pending"] = {"filename": filename, "sample": True}
 else:
+    data, filename = None, None
+if data is None and ("home" in st.query_params or "current" not in st.session_state):
     st.html(design.top_bar())
     st.html(design.landing())
     if samples:  # the library on the page too: on a phone the sidebar hides behind the » button
@@ -368,10 +387,10 @@ else:
             st.selectbox(f"Open one of the {len(samples)} famous books", list(samples), index=None, key="sample_main",
                          placeholder="Choose a book…", on_change=open_from_page,
                          format_func=lambda name: samples[name][0] + (" ⚡" if name in ready else ""))
-        shelf = [name for name in samples if name in ready]
-        if shelf:  # the books that open instantly, as covers on a shelf
+        shelf = sorted(samples, key=lambda name: name not in ready)  # every famous book, the ready ones first
+        if shelf:  # the famous books as their real covers on a shelf: click one to open it
             st.html(design.shelf_css(shelf))
-            st.html('<div class="ba-kicker" style="margin-top:.6rem">Ready to open instantly</div>')
+            st.html('<div class="ba-kicker" style="margin-top:.6rem">The library · ⚡ opens instantly</div>')
             for row in range(0, len(shelf), 6):
                 for column, name in zip(st.columns(6), shelf[row:row + 6]):
                     path = SAMPLES / name
@@ -379,7 +398,7 @@ else:
                     # a callback runs before the page is drawn again, so it may set the sidebar list's choice
                     column.button(samples[name][0], key=f"cover_{name}", width="stretch",
                                   on_click=lambda n=name: st.session_state.update(sample=n, open_sample=True))
-                    column.caption(author)
+                    column.caption(f"**{samples[name][0]}**" + (" ⚡" if name in ready else "") + f"  \n{author}")
     section("How it works", "What kind of AI this is, and what happens between your text file and the charts.")
     st.html(design.how_it_works())
     section("About", "Who made this, and why.")

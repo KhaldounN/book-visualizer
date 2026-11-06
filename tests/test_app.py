@@ -317,8 +317,15 @@ def test_the_raccoon_has_a_line_for_every_analysis_step():
     assert "raccoon" in design.about(), "the raccoon lives on the About page"
 
 
+def home_page() -> AppTest:
+    """The start page (a new visitor gets the default book; ?home shows the start page)."""
+    at = AppTest.from_file(str(APP), default_timeout=60)
+    at.query_params["home"] = "1"
+    return at.run()
+
+
 def test_start_page_explains_the_method():
-    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    at = home_page()
     assert not at.exception
     bodies = [h.proto.body for h in at.get("html")]
     assert any("Turn a novel into pictures" in b and b.count('class="ba-kicker">I') == 3 for b in bodies)
@@ -537,7 +544,7 @@ def test_the_ready_books_stand_on_a_shelf():
 def test_a_cover_on_the_shelf_opens_its_book():
     if not (SAMPLE_DIR / "great_expectations.txt").exists():
         pytest.skip("needs the sample book")
-    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    at = home_page()
     covers = [b for b in at.button if b.key == "cover_great_expectations.txt"]
     if not covers:
         pytest.skip("Great Expectations is not analyzed yet")
@@ -587,3 +594,25 @@ def test_character_pickers_play_through_until_someone_picks(app):
     app.session_state["emotion_character_at"] = 0
     app.run()
     assert app.session_state["emotion_character"] == cast[0], "stays where the visitor put it"
+
+
+def test_a_new_visitor_gets_the_default_book():
+    """Frankenstein opens by itself (the owner's choice), when it is there and already analyzed."""
+    sys.path.insert(0, str(APP.parent))
+    from analyzer.version import ANALYSIS_VERSION
+    import hashlib
+    book = SAMPLE_DIR / "frankenstein.txt"
+    key = hashlib.sha256(book.read_bytes()).hexdigest() if book.exists() else ""
+    if not (APP.parent.parent / "results" / f"v{ANALYSIS_VERSION}-{key}.pkl").exists():
+        pytest.skip("needs Frankenstein, already analyzed")
+    at = AppTest.from_file(str(APP), default_timeout=60).run()
+    assert not at.exception and at.session_state["current"] == key
+    assert any("Frankenstein" in h.proto.body and "ba-top" in h.proto.body for h in at.get("html"))
+    assert any('href="?home=1"' in h.proto.body for h in at.get("html")), "the masthead leads back to the start page"
+
+
+def test_the_shelf_shows_real_covers():
+    css = design.shelf_css(["frankenstein.txt", "no_such_book.txt"])
+    if (APP.parent / "assets" / "covers" / "frankenstein.jpg").exists():
+        assert "data:image/jpeg;base64," in css, "a downloaded cover is the button's picture"
+    assert ".st-key-cover_no_such_book-txt button { background: #" in css, "no cover: a cloth binding"
