@@ -137,8 +137,9 @@ def _note(x: int, y: int, cls: str, color: str = "#f7d74a") -> str:
 CYCLE = 20  # seconds
 ACTS = ["looking at words", "reading sentences", "thinking about meanings", "drawing the charts",
         "feeling the story"]
-STEP_ACT = {"Reading sentences": 1, "Finding characters": 0, "Linking pronouns": 0, "Scoring sentiment": 2,
-            "Detecting emotions": 4, "Naming chapters": 2, "Finding relationships": 3}
+# where each step starts the loop, in acts (a half starts mid-act, so no two steps look the same)
+STEP_ACT = {"Finding characters": 0, "Linking pronouns": 0.5, "Reading sentences": 1, "Scoring sentiment": 2,
+            "Naming chapters": 3, "Finding relationships": 3.5, "Detecting emotions": 4}
 
 STORY_STYLE = """
 .w1, .w2, .w3, .w4, .w5, .cry, .smile, .calm, .hold, .chin, .paint { animation-duration: 20s;
@@ -306,7 +307,7 @@ def _act_feeling() -> str:
     return f'<g class="w5">{cloud}{joy}</g>'
 
 
-def _story(start_act: int) -> str:
+def _story(start_act: float) -> str:
     """The whole loop, started at one act."""
     tail = (f'<g transform="translate(205 150)"><g class="wag">'
             f'<path d="M0 0 C30 -10 52 -40 48 -72 C46 -84 36 -86 34 -74 C34 -46 18 -22 -4 -12 Z" fill="{FUR}"/>'
@@ -319,7 +320,7 @@ def _story(start_act: int) -> str:
     desk = _desk(_book(120, 172, flip=True))
     captions = "".join(_caption(k, text) for k, text in enumerate(ACTS))
     acts = _act_words() + _act_sentences() + _act_thinking() + _act_drawing() + _act_feeling()
-    return f'<g style="--d:-{start_act * CYCLE // len(ACTS)}s">{acts}{tail}{body}{head}{desk}{_paws()}{captions}</g>'
+    return f'<g style="--d:-{start_act * CYCLE / len(ACTS):g}s">{acts}{tail}{body}{head}{desk}{_paws()}{captions}</g>'
 
 
 # every analysis step gets the story, started at the act that fits it (tests check each step has one)
