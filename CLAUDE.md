@@ -10,8 +10,9 @@ Book Visualizer (formerly "Book Analyzer", then briefly "Raccoonatron"; the fold
 
 - **Version 1** is frozen in the sibling folder `Desktop\Ennio course\book analyzer` (git tag `v1`, website on port 8501). **Never edit it.**
 - **Version 2** is this folder (`book analyzer v2`, website on port **8502**). All new work goes here. It was
-  copied from version 1 on 2026-11-03 (code by `git clone`, then `data/`, `results/` and `.venv/` copied), and its
-  git has no remote, so nothing can be pushed back into version 1. Its `.venv` is a copy, so `run_website.ps1`
+  copied from version 1 on 2026-11-03 (code by `git clone`, then `data/`, `results/` and `.venv/` copied). Its
+  git remote `origin` is the owner's public GitHub repo https://github.com/KhaldounN/book-visualizer (since
+  2026-11-06); version 1 has no remote. Books, results and models are gitignored, so never pushed. Its `.venv` is a copy, so `run_website.ps1`
   uses `python -m streamlit` (the copied `.exe` launchers still point at version 1's Python).
 
 ## Commands (Windows, PowerShell, run from the repo root)
