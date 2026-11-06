@@ -616,3 +616,13 @@ def test_the_shelf_shows_real_covers():
     if (APP.parent / "assets" / "covers" / "frankenstein.jpg").exists():
         assert "data:image/jpeg;base64," in css, "a downloaded cover is the button's picture"
     assert ".st-key-cover_no_such_book-txt button { background: #" in css, "no cover: a cloth binding"
+
+
+def test_how_it_works_shows_the_pipeline_like_an_orchestration_tool():
+    """Every task of the analysis is a box with its model and library logos; the five detections fan out."""
+    page = design.how_it_works()
+    for task in design.DAG_START + design.DAG_PARALLEL + design.DAG_END:
+        assert f"<code>{task[0]}</code>" in page and task[2] in page
+    assert page.count('class="ba-node par"') == 5
+    assert "data:image/svg+xml;base64," in page, "library logos are drawn"
+    assert "NetworkX" in page, "a library without a logo file is named"

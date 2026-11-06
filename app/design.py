@@ -222,6 +222,50 @@ def page_css(theme: dict, mode: str) -> str:
 
     /* The mascot's emblem, and its notes */
     .ba-emblem {{ flex: none; }}
+    /* How it works as a pipeline run (pipeline_dag): task boxes, flowing connectors, a fan-out */
+    .ba-dag {{ margin: .6rem 0 1.6rem; border: 1px solid var(--ba-line); border-radius: 10px; background: var(--ba-surface);
+        overflow: hidden; }}
+    .ba-dag-bar {{ display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; align-items: center; padding: .6rem 1rem;
+        border-bottom: 1px solid var(--ba-line); font: 500 .74rem/1.2 {SANS}; color: var(--ba-muted); }}
+    .ba-dag-bar .name {{ color: var(--ba-ink); font-weight: 600; }}
+    .ba-dag-bar code, .ba-node code {{ font: 600 .76rem/1 ui-monospace, "Cascadia Code", Consolas, monospace;
+        color: var(--ba-ink); background: none; padding: 0; }}
+    .ba-dag-bar .state {{ color: #1f8a4c; font-weight: 600; }} .ba-dag-bar .local {{ margin-left: auto; }}
+    .ba-dag i.ok {{ display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #23a35a;
+        margin-right: .4rem; box-shadow: 0 0 0 3px rgba(35,163,90,.18); vertical-align: middle; }}
+    .ba-dag-flow {{ display: flex; align-items: center; gap: 0; padding: 1.2rem .8rem 1rem; overflow-x: auto;
+        background-image: radial-gradient(var(--ba-line) 1px, transparent 1px); background-size: 14px 14px; }}
+    .ba-dag .stage {{ display: flex; align-items: center; flex: none; }}
+    .ba-dag-flow > :first-child {{ margin-left: auto; }} .ba-dag-flow > :last-child {{ margin-right: auto; }}  /* centred, yet scrollable when too wide */
+    .ba-dag .stage.fan {{ flex-direction: column; gap: .45rem; padding: 1.5rem .9rem .6rem; position: relative;
+        border-left: 2px solid var(--ba-rule); border-right: 2px solid var(--ba-rule); border-radius: 12px; }}
+    .ba-dag .fan-label {{ position: absolute; top: .3rem; left: 0; right: 0; text-align: center;
+        font: 600 .58rem/1 {SANS}; letter-spacing: .1em; text-transform: uppercase; color: var(--ba-muted); }}
+    .ba-dag .arrow {{ flex: none; width: 18px; height: 2px; position: relative; overflow: hidden;
+        background: repeating-linear-gradient(90deg, var(--ba-gold) 0 6px, transparent 6px 11px);
+        background-size: 22px 2px; animation: ba-flow 1s linear infinite; }}
+    .ba-dag .arrow::after {{ content: ""; position: absolute; right: 0; top: -3px; border: 4px solid transparent;
+        border-left-color: var(--ba-gold); border-right: 0; }}
+    .ba-node.par {{ position: relative; }}
+    .ba-node.par::before, .ba-node.par::after {{ content: ""; position: absolute; top: 50%; width: .9rem; height: 2px;
+        background: repeating-linear-gradient(90deg, var(--ba-gold) 0 4px, transparent 4px 7px);
+        background-size: 14px 2px; animation: ba-flow 1s linear infinite; }}
+    .ba-node.par::before {{ right: 100%; }} .ba-node.par::after {{ left: 100%; }}
+    @keyframes ba-flow {{ to {{ background-position: 22px 0; }} }}
+    .ba-node {{ box-sizing: border-box; width: 9.4rem; background: var(--ba-page); border: 1px solid var(--ba-line); border-radius: 8px;
+        padding: .55rem .7rem .6rem; box-shadow: 0 6px 16px -12px rgba(0,0,0,.35); border-left: 3px solid #23a35a; }}
+    .ba-node.par {{ width: 13rem; padding: .45rem .7rem .5rem; }}
+    .ba-node .top {{ display: flex; align-items: center; gap: .1rem; }}
+    .ba-node .took {{ font: 500 .66rem/1 {SANS}; color: var(--ba-muted); white-space: nowrap; }}
+    .ba-node p {{ margin: .35rem 0 .2rem; font-size: .76rem; line-height: 1.3; color: var(--ba-ink2); }}
+    .ba-node .model {{ font: 600 .7rem/1.25 {SANS}; color: var(--ba-gold); }}
+    .ba-node .libs {{ display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }}
+    .ba-logo {{ display: inline-flex; align-items: center; justify-content: center; height: 22px; min-width: 22px;
+        padding: 0 4px; border-radius: 5px; background: #fff; border: 1px solid #e3e0d8; }}
+    .ba-logo img {{ width: 15px; height: 15px; display: block; }}
+    .ba-logo.text {{ font: 600 .6rem/1 {SANS}; color: #2b5d8a; padding: 0 6px; }}
+    .ba-dag figcaption {{ padding: .6rem 1rem .8rem; font-size: .78rem; color: var(--ba-muted); border-top: 1px solid var(--ba-line); }}
+    @media (prefers-reduced-motion: reduce) {{ .ba-dag .arrow, .ba-node.par::before, .ba-node.par::after {{ animation: none; }} }}
     .ba-anim-box {{ margin: .4rem 0 1.4rem; padding: 1rem 1rem .4rem; background: var(--ba-surface);
         border: 1px solid var(--ba-line); border-radius: var(--ba-radius); }}
     .ba-anim {{ display: block; width: 100%; height: auto; }}
@@ -602,6 +646,76 @@ def _workflow_uri(mode: str) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(_workflow_svg(mode).encode()).decode()
 
 
+
+# --- How it works as a pipeline run, like an orchestration tool (Airflow, Prefect, Dagster) ---------
+# Library logos: Simple Icons (CC0, app/assets/logos/, downloaded once), each in its brand colour on a
+# white chip so it reads in both looks. A library without a logo there is shown by name.
+LOGO_COLOURS = {"python": "#3776AB", "spacy": "#09A3D5", "pytorch": "#EE4C2C", "huggingface": "#FF9D00",
+                "pandas": "#150458", "numpy": "#013243", "scikitlearn": "#F7931E", "plotly": "#3F4F75",
+                "threedotjs": "#000000", "streamlit": "#FF4B4B"}
+LOGO_NAMES = {"python": "Python", "spacy": "spaCy", "pytorch": "PyTorch", "huggingface": "Hugging Face",
+              "pandas": "pandas", "numpy": "NumPy", "scikitlearn": "scikit-learn", "plotly": "Plotly",
+              "threedotjs": "Three.js", "streamlit": "Streamlit", "networkx": "NetworkX"}
+
+
+@cache
+def logo(name: str) -> str:
+    """A library's logo as a small chip (or its name, when there is no logo file)."""
+    path = ASSETS / "logos" / f"{name}.svg"
+    label = LOGO_NAMES.get(name, name)
+    if not path.exists():
+        return f'<span class="ba-logo text" title="{escape(label)}">{escape(label)}</span>'
+    svg = path.read_text(encoding="utf-8").replace("<svg ", f'<svg fill="{LOGO_COLOURS.get(name, "#333")}" ', 1)
+    uri = "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
+    return f'<span class="ba-logo" title="{escape(label)}"><img src="{uri}" alt="{escape(label)}"></span>'
+
+
+# (task id, what it does, the model it runs, its libraries, typical time on a novel)
+DAG_START = [
+    ("load_text", "Clean the Gutenberg file, find the chapters", "rules, no model", ["python"], "1 s"),
+    ("parse_sentences", "Split into sentences, tag every word", "spaCy en_core_web_lg", ["spacy"], "1 min"),
+]
+DAG_PARALLEL = [
+    ("find_characters", "Names of people and places", "spaCy named-entity recognizer", ["spacy"], "5 s"),
+    ("link_pronouns", "Who “she” and “his” refer to", "fastcoref (coreference)", ["pytorch", "huggingface"], "2 min"),
+    ("score_sentiment", "Tone of every sentence, −1 to +1", "RoBERTa sentiment classifier", ["pytorch", "huggingface"], "3 min"),
+    ("tag_emotions", "38 fine emotions per sentence", "EmoLit RoBERTa classifier", ["pytorch", "huggingface"], "2–3 min"),
+    ("name_chapters", "A theme and key sentence per chapter", "MiniLM sentence embeddings", ["pytorch", "huggingface", "numpy"], "30 s"),
+]
+DAG_END = [
+    ("aggregate", "Relationships, dialogue, pace, story shape", "statistics, no model", ["pandas", "numpy", "networkx"], "2 s"),
+    ("visualize", "Charts, 3D scenes and this page", "no model", ["plotly", "threedotjs", "streamlit"], "live"),
+]
+
+
+def _dag_node(task: tuple, extra: str = "") -> str:
+    tid, what, model, libraries, took = task
+    return (f'<div class="ba-node{extra}"><div class="top"><i class="ok" title="success"></i><code>{escape(tid)}</code>'
+            f'</div><p>{escape(what)}</p><div class="model">{escape(model)} <span class="took">· {escape(took)}</span></div>'
+            f'<div class="libs">{"".join(logo(n) for n in libraries)}</div></div>')
+
+
+def pipeline_dag() -> str:
+    """The analysis as a pipeline run: each task with its status, model, libraries and typical time;
+    the five detections fan out from the sentences and join again before the charts."""
+    start = '<div class="arrow"></div>'.join(_dag_node(t) for t in DAG_START)
+    parallel = "".join(_dag_node(t, " par") for t in DAG_PARALLEL)
+    end = '<div class="arrow"></div>'.join(_dag_node(t) for t in DAG_END)
+    return f"""<figure class="ba-dag">
+      <div class="ba-dag-bar"><span class="name">DAG <code>book_analysis</code></span>
+        <span class="state"><i class="ok"></i>success</span><span>9 tasks</span><span>~8 min on a novel</span>
+        <span class="local">every model runs on this computer</span></div>
+      <div class="ba-dag-flow">
+        <div class="stage">{start}</div><div class="arrow"></div>
+        <div class="stage fan"><div class="fan-label">independent · one model at a time</div>{parallel}</div>
+        <div class="arrow"></div><div class="stage">{end}</div>
+      </div>
+      <figcaption>Each box is one task. The five in the middle only need the sentences, so they don't depend
+      on each other: an orchestration tool would run them in parallel; here they run one after another so
+      that only one AI model is in memory at a time.</figcaption>
+    </figure>"""
+
+
 def workflow_animation() -> str:
     """The animated workflow, one picture per look (page_css shows the one that matches)."""
     return "".join(f'<img class="ba-anim em-{mode}" src="{_workflow_uri(mode)}" alt="'
@@ -646,7 +760,7 @@ def how_it_works() -> str:
                     "and I never make anything up: every chart can be traced back to sentences in the book.")}
       <div class="ba-kicker">The workflow</div>
       <h3>From a text file to a picture of the novel, in seven steps</h3>
-      <figure class="ba-anim-box">{workflow_animation()}</figure>
+      {pipeline_dag()}
       <ol class="ba-flow">{steps}</ol>
       <p class="ba-flow-note">A whole novel takes about ten minutes on an ordinary laptop. The results are saved, so a
       book is only read once. All the numbers are estimates: they show trends, not exact counts.</p>
